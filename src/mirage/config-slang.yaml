@@ -1,0 +1,14 @@
+engine:
+  model_path: "Qwen/Qwen3-Next-80B-A3B-Instruct"
+  tensor_parallel_size: 4          # use all 4 GPUs on the node
+  trust_remote_code: true
+  # Choose a KV cache + quantization that fits:
+  # kv_cache_dtype: "fp8_e4m3"
+  # quantization: "compressed-tensors"   # or "awq/gptq" depending on your setup
+  max_batch_size: 8
+  max_seq_len: 8192
+
+sampling_params:
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 2048

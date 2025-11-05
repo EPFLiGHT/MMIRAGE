@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mirage"
+version = "0.1.0"
+description = "Advanced platform designed to streamline the processing of datasets using generative models."
+requires-python = ">=3.10"
+authors = [{ name = "Meditron team" }]
+
+# Core runtime deps for your scripts
+dependencies = [
+  "sglang>=0.3.0",
+  "pyzmq",
+  "uvloop; platform_system != 'Windows'",
+  "fastapi",
+  "openai>=1.0.0",
+  "partial_json_parser",
+  "sentencepiece",
+  "sgl_kernel",
+  "compressed_tensors",
+  "msgspec",
+  "nest_asyncio",
+  "xgrammar",
+  "PyYAML",
+  "json-repair",
+  "tqdm",
+  "datasets>=3.0.0",
+  "pyarrow>=12",
+  "huggingface_hub>=0.24",
+  "numpy",
+  "fsspec",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.5.0",
+  "black>=24.3.0",
+  "mypy>=1.8.0",
+  "ipykernel",
+  "pytest",
+]
