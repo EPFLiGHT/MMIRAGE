@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=med-sharded
-#SBATCH --chdir /users/$USER/datasets
+#SBATCH --chdir /users/$USER/meditron/MIRAGE/src/mirage
 #SBATCH --output /users/$USER/reports/R-%x.%j.out
 #SBATCH --error  /users/$USER/reports/R-%x.%j.err
 #SBATCH --nodes 32
@@ -22,13 +22,11 @@ SCRIPT=split_script_sglang.py
 
 mkdir -p "$OUTDIR"
 
-srun --ntasks=${SLURM_NTASKS} --ntasks-per-node=1 bash -lc "
-  python $SCRIPT \
-    --datasets $DATA1 $DATA2 \
-    --output_dir $OUTDIR \
-    --num_shards $SLURM_NTASKS \
-    --shard_id \$SLURM_PROCID \
-    --config $CFG \
-    --write_every 100 \
-    --resume
-"
+python "$SCRIPT" \
+  --datasets "$DATA1" "$DATA2" \
+  --output_dir "$OUTDIR" \
+  --num_shards "$SLURM_JOB_NUM_NODES" \
+  --shard_id "$SLURM_NODEID" \
+  --config "$CFG" \
+  --write_every 100 \
+  --resume
