@@ -13,7 +13,7 @@ authors = [{ name = "Meditron team" }]
 dependencies = [
   "sglang>=0.3.0",
   "pyzmq",
-  "uvloop; platform_system != 'Windows'",
+  "uvloop<0.22; platform_system != 'Windows'",
   "fastapi",
   "openai>=1.0.0",
   "partial_json_parser",

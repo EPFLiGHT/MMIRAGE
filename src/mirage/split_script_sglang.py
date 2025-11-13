@@ -11,16 +11,6 @@ from typing import Dict, Any, List, Optional
 from tqdm import tqdm
 from json_repair import repair_json
 import yaml
-import asyncio
-try:
-    import uvloop
-    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-except Exception as e:
-    print(f"uvloop import or setup failed: {e}")
-try:
-    asyncio.get_running_loop()
-except RuntimeError:
-    asyncio.set_event_loop(asyncio.new_event_loop())
 
 import sglang as sgl
 from sglang.utils import stream_and_merge
