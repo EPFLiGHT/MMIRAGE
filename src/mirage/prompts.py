@@ -26,9 +26,9 @@ Markdown guidance (use sections only if present in the source):
 
 Example
 Input:
-{"assistant_texts": [
+{{"assistant_texts": [
   "Free-form paragraph about findings and impression..."
-]}
+]}}
 
 Expected output (array only):
 [
