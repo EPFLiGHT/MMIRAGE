@@ -11,8 +11,18 @@ from typing import Dict, Any, List, Optional
 from tqdm import tqdm
 from json_repair import repair_json
 import yaml
-import nest_asyncio
+import asyncio
+try:
+    import uvloop
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+except Exception:
+    pass
+try:
+    asyncio.get_running_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
 
+import nest_asyncio
 nest_asyncio.apply()
 
 import sglang as sgl
@@ -114,8 +124,8 @@ def main():
                                     if lst is not None and len(lst) == len(assistant_texts):
                                         rewritten = lst
                                         break
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    print(f"Attempt {attempt} failed for row id={rid}: {e}")
                                 if attempt < args.retries:
                                     time.sleep(min(0.5 * attempt, 2.0))
 
