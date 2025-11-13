@@ -19,43 +19,20 @@ import sglang as sgl
 from sglang.utils import stream_and_merge
 from datasets import load_from_disk
 
-from prompts import ASSISTANT_MD_ENHANCE_PROMPT
+from prompts import ASSISTANT_ONLY_MD_PROMPT
 
 import pyarrow as pa
 import pyarrow.ipc as ipc
 
-
-# -------------------------
-# Fast, compact prompt (assistant-only)
-# -------------------------
-ASSISTANT_ONLY_MD_PROMPT = """
-You will receive a JSON object with an array "assistant_texts".
-Rewrite each element into clear, structured Markdown.
-Keep only information present in the original text.
-Do not invent new facts. Preserve special tokens like <|reserved_special_token_0|>.
-Return ONLY a JSON array of strings in the same order and length.
-
-Input:
-{payload}
-""".strip()
-
-
 # -------------------------
 # helpers
 # -------------------------
-def parse_json_string_list(text: str) -> Optional[List[str]]:
-    """Extract outermost JSON array and ensure it's a list[str]."""
-    try:
-        i, j = text.find("["), text.rfind("]") + 1
-        if i < 0 or j <= 0:
-            return None
-        fixed = repair_json(text[i:j])
-        arr = json.loads(fixed)
-        if isinstance(arr, list) and all(isinstance(x, str) for x in arr):
-            return arr
-        return None
-    except Exception:
-        return None
+def parse_json_string_list(text: str) -> list[str]:
+    """Parse a strict JSON array of strings. Raise on anything else."""
+    arr = json.loads(text)
+    if not isinstance(arr, list) or not all(isinstance(x, str) for x in arr):
+        raise ValueError("Expected JSON array of strings")
+    return arr
 
 def load_engine_from_yaml(config_path: str) -> tuple[sgl.Engine, dict]:
     with open(config_path, "r") as f:
