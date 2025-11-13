@@ -41,3 +41,9 @@ dev = [
   "ipykernel",
   "pytest",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mirage"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/mirage/**", "pyproject.toml", "README.md"]
