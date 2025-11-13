@@ -22,209 +22,164 @@ from datasets import load_from_disk
 
 from prompts import ASSISTANT_MD_ENHANCE_PROMPT
 
+import pyarrow as pa
+import pyarrow.ipc as ipc
+
 
 # -------------------------
-# Minimal helpers
+# Fast, compact prompt (assistant-only)
+# -------------------------
+ASSISTANT_ONLY_MD_PROMPT = """
+You will receive a JSON object with an array "assistant_texts".
+Rewrite each element into clear, structured Markdown.
+Keep only information present in the original text.
+Do not invent new facts. Preserve special tokens like <|reserved_special_token_0|>.
+Return ONLY a JSON array of strings in the same order and length.
+
+Input:
+{payload}
+""".strip()
+
+
+# -------------------------
+# helpers
 # -------------------------
 def hash_to_shard(key: str, num_shards: int) -> int:
     h = int(hashlib.sha1(key.encode("utf-8", errors="ignore")).hexdigest(), 16)
     return h % num_shards
 
-
-def iter_all_cases(paths: List[str]) -> Iterable[Dict[str, Any]]:
+def iter_rows(paths: List[str]) -> Iterable[Dict[str, Any]]:
     for p in paths:
-        ds = load_from_disk(p)  # memory-mapped Arrow
+        ds = load_from_disk(p)
         for row in ds:
             yield row
 
-
-def parse_json_array_safely(text: str) -> Optional[List[Dict[str, Any]]]:
-    """
-    Extract the outermost JSON array from model output and ensure it's
-    a list of dicts with 'role' and 'content'.
-    """
+def parse_json_string_list(text: str) -> Optional[List[str]]:
+    """Extract outermost JSON array and ensure it's a list[str]."""
     try:
-        start = text.find("[")
-        end = text.rfind("]") + 1
-        if start == -1 or end <= 0:
-            return None
-        fixed = repair_json(text[start:end])
+        i, j = text.find("["), text.rfind("]") + 1
+        if i < 0 or j <= 0: return None
+        fixed = repair_json(text[i:j])
         arr = json.loads(fixed)
-        if not isinstance(arr, list):
-            return None
-        # light validation
-        for item in arr:
-            if not (isinstance(item, dict) and "role" in item and "content" in item):
-                return None
-        return arr
+        if isinstance(arr, list) and all(isinstance(x, str) for x in arr):
+            return arr
+        return None
     except Exception:
         return None
 
-
-def load_engine_from_yaml(config_path: str, *, fallback_model: Optional[str] = None):
+def load_engine_from_yaml(config_path: str) -> tuple[sgl.Engine, dict]:
     with open(config_path, "r") as f:
         cfg = yaml.safe_load(f) or {}
     engine_args = dict(cfg.get("engine", {}))
-    sampling_params = dict(cfg.get("sampling_params", {}))
+    sampling = dict(cfg.get("sampling_params", {}))
+    return sgl.Engine(**engine_args), sampling
 
-    if "model_path" not in engine_args and fallback_model:
-        engine_args["model_path"] = fallback_model
-
-    # Best-effort sanity check for tensor_parallel_size
-    try:
-        import torch
-        n_gpus = torch.cuda.device_count()
-        tps = int(engine_args.get("tensor_parallel_size", 1))
-        if n_gpus and tps > n_gpus:
-            print(
-                f"[warn] tensor_parallel_size={tps} > available GPUs={n_gpus}. "
-                f"Reducing to {n_gpus}.",
-                file=sys.stderr,
-            )
-            engine_args["tensor_parallel_size"] = n_gpus
-    except Exception:
-        pass
-
-    llm = sgl.Engine(**engine_args)
-    return llm, sampling_params
-
-
-def run_model(llm: sgl.Engine, sampling_params: Dict[str, Any], prompt: str,
-              override_max_new_tokens: Optional[int] = None) -> str:
-    sp = dict(sampling_params)
-    if override_max_new_tokens is not None:
-        sp["max_new_tokens"] = int(override_max_new_tokens)
+def run(llm: sgl.Engine, sampling: dict, prompt: str, max_new_tokens: Optional[int]) -> str:
+    sp = dict(sampling)
+    if max_new_tokens is not None:
+        sp["max_new_tokens"] = int(max_new_tokens)
     return stream_and_merge(llm, prompt, sp)
 
 
 # -------------------------
-# Main
+# main
 # -------------------------
 def main():
-    ap = argparse.ArgumentParser(description="Rewrite only assistant messages into Markdown, preserving conversation structure.")
-    ap.add_argument("--datasets", nargs="+", required=True, help="Paths to HF datasets saved with load_from_disk().")
-    ap.add_argument("--output_dir", required=True, help="Directory to write sharded JSONL outputs.")
-    ap.add_argument("--shard_id", type=int, required=True, help="Shard id (0..num_shards-1).")
-    ap.add_argument("--num_shards", type=int, required=True, help="Total number of shards.")
-    ap.add_argument("--config", default="config-sglang.yaml", help="YAML config for SGLang engine and sampling params.")
-    ap.add_argument("--resume", action="store_true", help="Skip case_ids already processed in the shard file.")
-    ap.add_argument("--write_every", type=int, default=100, help="Flush buffer every N rows.")
-    ap.add_argument("--max_new_tokens", type=int, default=None, help="Optional override for YAML max_new_tokens.")
-    ap.add_argument("--id_field", default="case_id", help="Field name for unique id (fallbacks: 'id').")
+    ap = argparse.ArgumentParser("Fast: rewrite assistant messages only, save Arrow")
+    ap.add_argument("--datasets", nargs="+", required=True)
+    ap.add_argument("--output_dir", required=True)
+    ap.add_argument("--num_shards", type=int, required=True)
+    ap.add_argument("--shard_id", type=int, required=True)
+    ap.add_argument("--config", default="config-sglang.yaml")
+    ap.add_argument("--id_field", default="case_id")
+    ap.add_argument("--max_new_tokens", type=int, default=384)   # small default
+    ap.add_argument("--retries", type=int, default=1)            # fast by default
     args = ap.parse_args()
 
-    assert 0 <= args.shard_id < args.num_shards, "shard_id must be in [0, num_shards)."
+    assert 0 <= args.shard_id < args.num_shards
     os.makedirs(args.output_dir, exist_ok=True)
-    shard_path = os.path.join(args.output_dir, f"conversations_clean_{args.shard_id}.jsonl")
-    err_path   = os.path.join(args.output_dir, f"errors_{args.shard_id}.jsonl")
+    out_arrow = os.path.join(args.output_dir, f"conversations_clean_{args.shard_id}.arrow")
 
-    # Resume set
-    done_ids = set()
-    if args.resume and os.path.exists(shard_path):
-        with open(shard_path, "r", encoding="utf-8") as f:
-            for line in f:
-                try:
-                    obj = json.loads(line)
-                    if "case_id" in obj:
-                        done_ids.add(str(obj["case_id"]))
-                    elif "id" in obj:
-                        done_ids.add(str(obj["id"]))
-                except Exception:
-                    pass
+    llm, sampling = load_engine_from_yaml(args.config)
 
-    # Load engine + params
-    llm, sampling_params = load_engine_from_yaml(args.config, fallback_model="Qwen/Qwen3-Next-80B-A3B-Instruct")
+    records: List[Dict[str, Any]] = []
+    processed = kept = skipped = 0
 
-    buf: List[Dict[str, Any]] = []
-    total_seen = 0
-    total_kept = 0
+    for row in iter_rows(args.datasets):
+        processed += 1
+        rid = str(row.get(args.id_field) or row.get("id") or f"row_{processed}")
+        if hash_to_shard(rid, args.num_shards) != args.shard_id:
+            continue
+
+        conv = row.get("conversations")
+        if not isinstance(conv, list) or not conv:
+            continue
+
+        # collect assistant indices/texts (optionally skip ones that already look like md)
+        assistant_idx: List[int] = []
+        assistant_texts: List[str] = []
+        for i, turn in enumerate(conv):
+            if isinstance(turn, dict) and turn.get("role") == "assistant":
+                txt = str(turn.get("content", ""))
+                assistant_idx.append(i)
+                assistant_texts.append(txt)
+
+        # nothing to rewrite
+        if not assistant_texts:
+            records.append({"id": rid, "conversations": conv})
+            kept += 1
+            continue
+
+        payload = json.dumps({"assistant_texts": assistant_texts}, ensure_ascii=False)
+        prompt = ASSISTANT_ONLY_MD_PROMPT.format(payload=payload)
+
+        rewritten: Optional[List[str]] = None
+        for attempt in range(1, args.retries + 1):
+            try:
+                raw = run(llm, sampling, prompt, args.max_new_tokens)
+                lst = parse_json_string_list(raw)
+                if lst is not None and len(lst) == len(assistant_texts):
+                    rewritten = lst
+                    break
+            except Exception:
+                pass
+            if attempt < args.retries:
+                time.sleep(min(0.5 * attempt, 2.0))
+
+        if rewritten is None:
+            skipped += 1
+            # keep original conversation if you prefer; here we keep it unchanged
+            records.append({"id": rid, "conversations": conv})
+            continue
+
+        # splice rewritten assistant texts back into the original conversation
+        conv_out = list(conv)
+        for idx, new_text in zip(assistant_idx, rewritten):
+            # copy to avoid mutating shared objects
+            t = dict(conv_out[idx])
+            t["content"] = new_text
+            conv_out[idx] = t
+
+        records.append({"id": rid, "conversations": conv_out})
+        kept += 1
+
+    # write Arrow
+    convo_struct = pa.struct([pa.field("role", pa.string()), pa.field("content", pa.string())])
+    schema = pa.schema([
+        pa.field("id", pa.string()),
+        pa.field("conversations", pa.list_(convo_struct)),
+    ])
+    tbl = pa.Table.from_pylist(records, schema=schema)
+    with pa.OSFile(out_arrow, "wb") as sink:
+        with ipc.new_file(sink, tbl.schema) as writer:
+            writer.write_table(tbl)
 
     try:
-        with open(shard_path, "a", encoding="utf-8") as out_f, \
-             open(err_path, "a", encoding="utf-8") as err_f:
+        llm.shutdown()
+    except Exception:
+        pass
 
-            for row in tqdm(iter_all_cases(args.datasets),
-                            desc=f"Shard {args.shard_id}/{args.num_shards-1}",
-                            dynamic_ncols=True):
-                total_seen += 1
-
-                # id + sharding
-                case_id = str(row.get(args.id_field) or row.get("id") or f"row_{total_seen}")
-                if hash_to_shard(case_id, args.num_shards) != args.shard_id:
-                    continue
-                if args.resume and case_id in done_ids:
-                    continue
-
-                # conversations column
-                conversations = row.get("conversations")
-                if conversations is None:
-                    # If some datasets store it as a string, try to parse
-                    text_conv = row.get("text") or row.get("conversation") or None
-                    try:
-                        conversations = json.loads(text_conv) if text_conv else None
-                    except Exception:
-                        conversations = None
-
-                if not isinstance(conversations, list) or not conversations:
-                    err_f.write(json.dumps({"case_id": case_id, "error": "missing_or_invalid_conversations"}) + "\n")
-                    continue
-
-                # Build prompt
-                prompt = ASSISTANT_MD_ENHANCE_PROMPT.format(
-                    conversation_json=json.dumps(conversations, ensure_ascii=False)
-                )
-
-                # Inference (with light retry)
-                tries = 0
-                transformed = None
-                while tries < 3:
-                    tries += 1
-                    try:
-                        raw = run_model(llm, sampling_params, prompt, override_max_new_tokens=args.max_new_tokens)
-                        arr = parse_json_array_safely(raw)
-                        if arr is not None and len(arr) == len(conversations):
-                            transformed = arr
-                            break
-                        # If parsing failed, retry once or twice
-                        time.sleep(1.0 * tries)
-                    except Exception as e:
-                        if tries >= 3:
-                            err_f.write(json.dumps({"case_id": case_id, "error": repr(e)}) + "\n")
-
-                if transformed is None:
-                    err_f.write(json.dumps({"case_id": case_id, "error": "parse_failed"}) + "\n")
-                    continue
-
-                out_obj = {
-                    "case_id": case_id,
-                    "conversations": transformed
-                }
-                buf.append(out_obj)
-
-                if len(buf) >= args.write_every:
-                    for r in buf:
-                        out_f.write(json.dumps(r, ensure_ascii=False) + "\n")
-                    out_f.flush()
-                    total_kept += len(buf)
-                    buf.clear()
-
-            # final flush
-            if buf:
-                for r in buf:
-                    out_f.write(json.dumps(r, ensure_ascii=False) + "\n")
-                out_f.flush()
-                total_kept += len(buf)
-
-    except KeyboardInterrupt:
-        print("\n[info] Interrupted by user.", file=sys.stderr)
-    finally:
-        try:
-            llm.shutdown()
-        except Exception:
-            pass
-
-    print(f"✅ Shard {args.shard_id} done. kept={total_kept}, seen={total_seen}, out={shard_path}, err={err_path}")
-
+    print(f"✅ shard={args.shard_id} kept={kept} processed={processed} skipped={skipped} out={out_arrow}")
 
 if __name__ == "__main__":
     main()

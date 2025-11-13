@@ -1,5 +1,5 @@
 engine:
-  model_path: "Qwen/Qwen3-Next-80B-A3B-Instruct"
+  model_path: "Qwen/Qwen2.5-14B-Instruct" # "Qwen/Qwen3-Next-80B-A3B-Instruct"
   tensor_parallel_size: 4          # use all 4 GPUs on the node
   trust_remote_code: true
   # Choose a KV cache + quantization that fits:
