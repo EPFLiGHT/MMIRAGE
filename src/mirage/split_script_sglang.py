@@ -6,8 +6,7 @@ import sys
 import json
 import time
 import argparse
-import hashlib
-from typing import Dict, Any, List, Iterable, Optional
+from typing import Dict, Any, List, Optional
 
 from tqdm import tqdm
 from json_repair import repair_json
@@ -44,21 +43,12 @@ Input:
 # -------------------------
 # helpers
 # -------------------------
-def hash_to_shard(key: str, num_shards: int) -> int:
-    h = int(hashlib.sha1(key.encode("utf-8", errors="ignore")).hexdigest(), 16)
-    return h % num_shards
-
-def iter_rows(paths: List[str]) -> Iterable[Dict[str, Any]]:
-    for p in paths:
-        ds = load_from_disk(p)
-        for row in ds:
-            yield row
-
 def parse_json_string_list(text: str) -> Optional[List[str]]:
     """Extract outermost JSON array and ensure it's a list[str]."""
     try:
         i, j = text.find("["), text.rfind("]") + 1
-        if i < 0 or j <= 0: return None
+        if i < 0 or j <= 0:
+            return None
         fixed = repair_json(text[i:j])
         arr = json.loads(fixed)
         if isinstance(arr, list) and all(isinstance(x, str) for x in arr):
@@ -85,83 +75,89 @@ def run(llm: sgl.Engine, sampling: dict, prompt: str, max_new_tokens: Optional[i
 # main
 # -------------------------
 def main():
-    ap = argparse.ArgumentParser("Fast: rewrite assistant messages only, save Arrow")
+    ap = argparse.ArgumentParser("Rewrite assistant messages only, save Arrow (index-based sharding) with tqdm.")
     ap.add_argument("--datasets", nargs="+", required=True)
     ap.add_argument("--output_dir", required=True)
     ap.add_argument("--num_shards", type=int, required=True)
     ap.add_argument("--shard_id", type=int, required=True)
     ap.add_argument("--config", default="config-sglang.yaml")
-    ap.add_argument("--id_field", default="case_id")
-    ap.add_argument("--max_new_tokens", type=int, default=384)   # small default
-    ap.add_argument("--retries", type=int, default=1)            # fast by default
+    ap.add_argument("--id_field", default="case_id")  # only for output id
+    ap.add_argument("--max_new_tokens", type=int, default=384)   # small/fast default
+    ap.add_argument("--retries", type=int, default=1)            # default fast
     args = ap.parse_args()
 
     assert 0 <= args.shard_id < args.num_shards
     os.makedirs(args.output_dir, exist_ok=True)
     out_arrow = os.path.join(args.output_dir, f"conversations_clean_{args.shard_id}.arrow")
 
+    # Load datasets once so we can compute total rows for tqdm
+    dsets = [load_from_disk(p) for p in args.datasets]
+    total_rows = sum(len(ds) for ds in dsets)
+
     llm, sampling = load_engine_from_yaml(args.config)
 
     records: List[Dict[str, Any]] = []
-    processed = kept = skipped = 0
+    kept = skipped = 0
 
-    for row in iter_rows(args.datasets):
-        processed += 1
-        rid = str(row.get(args.id_field) or row.get("id") or f"row_{processed}")
-        if hash_to_shard(rid, args.num_shards) != args.shard_id:
-            continue
+    i_global = 0  # global index across all datasets
+    with tqdm(total=total_rows, desc=f"Shard {args.shard_id}/{args.num_shards-1}", dynamic_ncols=True) as pbar:
+        for ds in dsets:
+            for row in ds:
+                # index-based sharding: process only rows where i % num_shards == shard_id
+                take = (i_global % args.num_shards) == args.shard_id
 
-        conv = row.get("conversations")
-        if not isinstance(conv, list) or not conv:
-            continue
+                if take:
+                    rid = str(row.get(args.id_field) or row.get("id") or f"row_{i_global}")
 
-        # collect assistant indices/texts (optionally skip ones that already look like md)
-        assistant_idx: List[int] = []
-        assistant_texts: List[str] = []
-        for i, turn in enumerate(conv):
-            if isinstance(turn, dict) and turn.get("role") == "assistant":
-                txt = str(turn.get("content", ""))
-                assistant_idx.append(i)
-                assistant_texts.append(txt)
+                    conv = row.get("conversations")
+                    if not isinstance(conv, list) or not conv:
+                        skipped += 1
+                    else:
+                        # gather assistant turns
+                        assistant_idx: List[int] = []
+                        assistant_texts: List[str] = []
+                        for ti, turn in enumerate(conv):
+                            if isinstance(turn, dict) and turn.get("role") == "assistant":
+                                assistant_idx.append(ti)
+                                assistant_texts.append(str(turn.get("content", "")))
 
-        # nothing to rewrite
-        if not assistant_texts:
-            records.append({"id": rid, "conversations": conv})
-            kept += 1
-            continue
+                        if not assistant_texts:
+                            # nothing to rewrite; keep as-is
+                            records.append({"id": rid, "conversations": conv})
+                            kept += 1
+                        else:
+                            payload = json.dumps({"assistant_texts": assistant_texts}, ensure_ascii=False)
+                            prompt = ASSISTANT_ONLY_MD_PROMPT.format(payload=payload)
 
-        payload = json.dumps({"assistant_texts": assistant_texts}, ensure_ascii=False)
-        prompt = ASSISTANT_ONLY_MD_PROMPT.format(payload=payload)
+                            rewritten: Optional[List[str]] = None
+                            for attempt in range(1, args.retries + 1):
+                                try:
+                                    raw = run(llm, sampling, prompt, args.max_new_tokens)
+                                    lst = parse_json_string_list(raw)
+                                    if lst is not None and len(lst) == len(assistant_texts):
+                                        rewritten = lst
+                                        break
+                                except Exception:
+                                    pass
+                                if attempt < args.retries:
+                                    time.sleep(min(0.5 * attempt, 2.0))
 
-        rewritten: Optional[List[str]] = None
-        for attempt in range(1, args.retries + 1):
-            try:
-                raw = run(llm, sampling, prompt, args.max_new_tokens)
-                lst = parse_json_string_list(raw)
-                if lst is not None and len(lst) == len(assistant_texts):
-                    rewritten = lst
-                    break
-            except Exception:
-                pass
-            if attempt < args.retries:
-                time.sleep(min(0.5 * attempt, 2.0))
+                            if rewritten is None:
+                                # keep original conversation on failure (simple behavior)
+                                records.append({"id": rid, "conversations": conv})
+                                skipped += 1
+                            else:
+                                # splice back rewritten assistant messages
+                                conv_out = list(conv)
+                                for idx, new_text in zip(assistant_idx, rewritten):
+                                    t = dict(conv_out[idx])
+                                    t["content"] = new_text
+                                    conv_out[idx] = t
+                                records.append({"id": rid, "conversations": conv_out})
+                                kept += 1
 
-        if rewritten is None:
-            skipped += 1
-            # keep original conversation if you prefer; here we keep it unchanged
-            records.append({"id": rid, "conversations": conv})
-            continue
-
-        # splice rewritten assistant texts back into the original conversation
-        conv_out = list(conv)
-        for idx, new_text in zip(assistant_idx, rewritten):
-            # copy to avoid mutating shared objects
-            t = dict(conv_out[idx])
-            t["content"] = new_text
-            conv_out[idx] = t
-
-        records.append({"id": rid, "conversations": conv_out})
-        kept += 1
+                i_global += 1
+                pbar.update(1)
 
     # write Arrow
     convo_struct = pa.struct([pa.field("role", pa.string()), pa.field("content", pa.string())])
@@ -179,7 +175,7 @@ def main():
     except Exception:
         pass
 
-    print(f"✅ shard={args.shard_id} kept={kept} processed={processed} skipped={skipped} out={out_arrow}")
+    print(f"✅ shard={args.shard_id} kept={kept} skipped={skipped} total_rows={total_rows} out={out_arrow}")
 
 if __name__ == "__main__":
     main()
