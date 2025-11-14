@@ -3,7 +3,7 @@
 #SBATCH --chdir /users/$USER/meditron/MIRAGE/src/mirage
 #SBATCH --output /users/$USER/reports/R-%x.%j.out
 #SBATCH --error  /users/$USER/reports/R-%x.%j.err
-#SBATCH --nodes 32
+#SBATCH --nodes 2
 #SBATCH --ntasks-per-node 1
 #SBATCH --gres gpu:4
 #SBATCH --cpus-per-task 288
@@ -16,17 +16,19 @@ DATA1=/capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_co
 DATA2=/capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_2/
 
 # --- outputs & config ---
-OUTDIR=/capstor/store/cscs/swissai/a127/homes/$USER/datasets/medtrinity
-CFG=config-sglang.yaml                    
-SCRIPT=split_script_sglang.py            
+OUTDIR=/capstor/store/cscs/swissai/a127/homes/$USER/datasets/medtrinity                   
+SHARDS_ROOT="$ROOT/shards"
+MERGED_DIR="$ROOT/merged"
+CFG=config.yaml 
 
-mkdir -p "$OUTDIR"
+mkdir -p "$SHARDS_ROOT"
+mkdir -p "$MERGED_DIR"
 
-python "$SCRIPT" \
+export HF_HOME=/capstor/store/cscs/swissai/a127/homes/$USER/hf
+
+python "shard_process.py" \
   --datasets "$DATA1" "$DATA2" \
-  --output_dir "$OUTDIR" \
+  --output_dir "$SHARDS_ROOT" \
   --num_shards "$SLURM_JOB_NUM_NODES" \
   --shard_id "$SLURM_NODEID" \
-  --config "$CFG" \
-  --write_every 100 \
-  --resume
+  --config "$CFG"
