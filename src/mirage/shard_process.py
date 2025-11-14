@@ -54,7 +54,7 @@ def build_prompt(text: str) -> str:
 # -------------------------
 def main():
     ap = argparse.ArgumentParser(
-        "Rewrite a single assistant column into Markdown using SGLang + HF map + sharding."
+        "Rewrite the assistant turn inside `conversations` into Markdown using SGLang + HF map + sharding."
     )
     ap.add_argument(
         "--datasets",
@@ -85,9 +85,9 @@ def main():
         help="YAML config for SGLang engine + sampling + batch_size.",
     )
     ap.add_argument(
-        "--assistant_field",
-        default="assistant",
-        help="Name of the column containing the assistant text to rewrite.",
+        "--conversations_field",
+        default="conversations",
+        help="Name of the column containing the list of dialog turns.",
     )
     ap.add_argument(
         "--max_new_tokens",
@@ -125,10 +125,10 @@ def main():
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
 
-    assistant_field = args.assistant_field
-    if assistant_field not in ds_shard.column_names:
+    conv_field = args.conversations_field
+    if conv_field not in ds_shard.column_names:
         raise ValueError(
-            f"Expected assistant column '{assistant_field}', "
+            f"Expected conversations column '{conv_field}', "
             f"but dataset has columns: {ds_shard.column_names}"
         )
 
@@ -146,24 +146,35 @@ def main():
     # Batched rewrite function for HF map
     # -------------------------
     def rewrite_batch(batch: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
-        texts = batch[assistant_field]
+        conv_batch = batch[conv_field]
 
         prompts: List[str] = []
-        valid_indices: List[int] = []
+        locs: List[Tuple[int, int]] = []  # (example_idx, assistant_turn_idx)
 
-        # Build prompts only for non-empty texts
-        for i, t in enumerate(texts):
-            if t is None:
+        # First pass: collect prompts where there is a non-empty assistant turn
+        for i, conv in enumerate(conv_batch):
+            if not isinstance(conv, list) or not conv:
                 continue
-            s = str(t)
-            if not s.strip():
+
+            assistant_idx = None
+            for ti, turn in enumerate(conv):
+                if isinstance(turn, dict) and turn.get("role") == "assistant":
+                    assistant_idx = ti
+                    break
+
+            if assistant_idx is None:
                 continue
-            prompts.append(build_prompt(s))
-            valid_indices.append(i)
+
+            content = str(conv[assistant_idx].get("content", "") or "")
+            if not content.strip():
+                continue
+
+            prompts.append(build_prompt(content))
+            locs.append((i, assistant_idx))
 
         # Nothing to rewrite in this batch
         if not prompts:
-            return {assistant_field: texts}
+            return {conv_field: conv_batch}
 
         try:
             # Non-streaming synchronous batch generation
@@ -173,8 +184,8 @@ def main():
                 f"[shard {args.shard_id}] Batch generation failed: {e}",
                 file=sys.stderr,
             )
-            # On error, keep original texts for this batch
-            return {assistant_field: texts}
+            # On error, keep original conversations for this batch
+            return {conv_field: conv_batch}
 
         if not isinstance(outputs, list) or len(outputs) != len(prompts):
             print(
@@ -182,16 +193,24 @@ def main():
                 f"expected {len(prompts)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
                 file=sys.stderr,
             )
-            return {assistant_field: texts}
+            return {conv_field: conv_batch}
 
-        # Copy original texts and fill in rewritten Markdown where available
-        new_texts = list(texts)
-        for out_idx, batch_idx in enumerate(valid_indices):
+        # Copy original conversations and fill in rewritten Markdown
+        new_conv_batch = list(conv_batch)
+        for out_idx, (ex_idx, turn_idx) in enumerate(locs):
             out = outputs[out_idx]
             md_text = out.get("text", "")
-            new_texts[batch_idx] = md_text
 
-        return {assistant_field: new_texts}
+            orig_conv = new_conv_batch[ex_idx]
+            # create shallow copies so we don't mutate shared objects
+            conv_list = list(orig_conv)
+            turn = dict(conv_list[turn_idx])
+            turn["content"] = md_text
+            conv_list[turn_idx] = turn
+            new_conv_batch[ex_idx] = conv_list
+
+        # Only return the updated conversations column; HF keeps other columns
+        return {conv_field: new_conv_batch}
 
     # -------------------------
     # Apply map with batching
