@@ -5,7 +5,6 @@ Task:
 - Rewrite "assistant_text" as clearer, well-structured **Markdown**.
 - You may add headings, bullet points, and simple formatting to improve readability.
 - Keep the original meaning; do **not** invent new facts or interpretations.
-- Preserve any special/redacted tokens exactly (for example: <|reserved_special_token_0|>).
 
 Output:
 - Return only the rewritten Markdown text as a plain string.
