@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Tuple
 
 import yaml
 import sglang as sgl
-from datasets import load_from_disk
+from datasets import load_from_disk, concatenate_datasets
 
 from prompts import ASSISTANT_ONLY_MD_PROMPT
 
@@ -57,9 +57,10 @@ def main():
         "Rewrite a single assistant column into Markdown using SGLang + HF map + sharding."
     )
     ap.add_argument(
-        "--dataset",
+        "--datasets",
+        nargs="+",
         required=True,
-        help="Path to the *original* HF dataset saved with `save_to_disk`.",
+        help="One or more paths to HF datasets saved with `save_to_disk`.",
     )
     ap.add_argument(
         "--output_dir",
@@ -106,17 +107,22 @@ def main():
     os.makedirs(shard_out_dir, exist_ok=True)
 
     # -------------------------
-    # Load full dataset and take shard
+    # Load all input datasets and concatenate
     # -------------------------
-    ds_all = load_from_disk(args.dataset)
+    ds_list = [load_from_disk(p) for p in args.datasets]
+    if len(ds_list) == 1:
+        ds_all = ds_list[0]
+    else:
+        ds_all = concatenate_datasets(ds_list)
+
     total_rows = len(ds_all)
 
     ds_shard = ds_all.shard(num_shards=args.num_shards, index=args.shard_id)
     shard_rows = len(ds_shard)
 
     print(
-        f"Loaded dataset from {args.dataset} with {total_rows} rows; "
-        f"this shard has {shard_rows} rows."
+        f"Loaded {len(args.datasets)} dataset(s): {args.datasets} "
+        f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
 
     assistant_field = args.assistant_field
@@ -161,10 +167,12 @@ def main():
 
         try:
             # Non-streaming synchronous batch generation
-            # See SGLang offline engine docs for llm.generate 
             outputs = llm.generate(prompts, sampling_params)
         except Exception as e:
-            print(f"[shard {args.shard_id}] Batch generation failed: {e}", file=sys.stderr)
+            print(
+                f"[shard {args.shard_id}] Batch generation failed: {e}",
+                file=sys.stderr,
+            )
             # On error, keep original texts for this batch
             return {assistant_field: texts}
 
@@ -188,8 +196,6 @@ def main():
     # -------------------------
     # Apply map with batching
     # -------------------------
-    # HF map will call rewrite_batch with batches of size <= batch_size,
-    # so with N rows and batch_size=64, llm.generate is called ~N/64 times. 
     ds_processed = ds_shard.map(
         rewrite_batch,
         batched=True,
