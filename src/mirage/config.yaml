@@ -1,0 +1,11 @@
+engine:
+  model_path: "Qwen/Qwen3-Next-80B-A3B-Instruct"
+  tp_size: 4          # use all 4 GPUs on the node
+  trust_remote_code: true
+
+sampling_params:
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 2048
+
+batch_size: 64
