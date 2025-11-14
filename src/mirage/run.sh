@@ -3,7 +3,7 @@
 #SBATCH --chdir /users/$USER/meditron/MIRAGE/src/mirage
 #SBATCH --output /users/$USER/reports/R-%x.%j.out
 #SBATCH --error  /users/$USER/reports/R-%x.%j.err
-#SBATCH --nodes 2
+#SBATCH --nodes 32
 #SBATCH --ntasks-per-node 1
 #SBATCH --gres gpu:4
 #SBATCH --cpus-per-task 288
@@ -19,14 +19,14 @@ DATA2=/capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_co
 OUTDIR=/capstor/store/cscs/swissai/a127/homes/$USER/datasets/medtrinity                   
 SHARDS_ROOT="$ROOT/shards"
 MERGED_DIR="$ROOT/merged"
-CFG=config.yaml 
+CFG=/users/$USER/meditron/MIRAGE/src/mirage/config.yaml 
 
 mkdir -p "$SHARDS_ROOT"
 mkdir -p "$MERGED_DIR"
 
 export HF_HOME=/capstor/store/cscs/swissai/a127/homes/$USER/hf
 
-python "shard_process.py" \
+python /users/$USER/meditron/MIRAGE/src/mirage/shard_process.py \
   --datasets "$DATA1" "$DATA2" \
   --output_dir "$SHARDS_ROOT" \
   --num_shards "$SLURM_JOB_NUM_NODES" \
