@@ -31,8 +31,25 @@ def main():
             raise FileNotFoundError(f"Expected shard directory not found: {shard_dir}")
         shard_paths.append(shard_dir)
 
-    # Load each shard dataset
-    shard_dsets = [load_from_disk(p) for p in shard_paths]
+    shard_dsets = []
+    skipped_empty = 0
+
+    for p in shard_paths:
+        ds = load_from_disk(p)
+
+        # If the dataset has zero rows, skip it
+        if len(ds) == 0:
+            skipped_empty += 1
+            print(f"⚠️ Skipping empty shard at {p}")
+            continue
+
+        shard_dsets.append(ds)
+
+    if not shard_dsets:
+        raise RuntimeError(
+            "All shards are empty. Nothing to merge (all "
+            f"{args.num_shards} shards had 0 rows)."
+        )
 
     # Concatenate into a single dataset
     ds_merged = concatenate_datasets(shard_dsets)
@@ -42,8 +59,9 @@ def main():
     ds_merged.save_to_disk(args.output_dir)
 
     print(
-        f"✅ Merged {args.num_shards} shards from {args.shards_root} "
-        f"into {args.output_dir} with {len(ds_merged)} rows."
+        f"✅ Merged {len(shard_dsets)} non-empty shards (skipped {skipped_empty} "
+        f"empty shards) from {args.shards_root} into {args.output_dir} "
+        f"with {len(ds_merged)} rows."
     )
 
 if __name__ == "__main__":
