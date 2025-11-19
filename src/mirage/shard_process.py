@@ -104,11 +104,11 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
     processing_params:
       inputs:
         - name: assistant_answer
-        key: conversations[1].content
+          key: conversations[1].content
         - name: user_prompt
-        key: conversations[0].content
+          key: conversations[0].content
         - name: modalities
-        key: modalities
+          key: modalities
 
       outputs:
         - name: formatted_answer
