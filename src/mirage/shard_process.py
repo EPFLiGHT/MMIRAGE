@@ -6,15 +6,38 @@ from typing import Dict, Any, List, Tuple
 
 import yaml
 import sglang as sgl
+from dacite import from_dict
+from dataclasses import dataclass
 from datasets import load_from_disk, concatenate_datasets
+from transformers import GenerationConfig
 
 from prompts import ASSISTANT_ONLY_MD_PROMPT
 
+@dataclass
+class EngineConfig:
+    model_path: str
+    tp_size: int = 4
+    trust_remote_code: bool = True
+
+@dataclass
+class ProcessingParams:
+    datasets: List[str]  # One or more paths to HF datasets saved with 'save_to_disk'
+    output_dir: str  # Root directory for shard outputs
+    num_shards: int  # Total number of shards (matches your sbatch array size).
+    shard_id: int  # Index of this shard (0-based; usually $SLURM_ARRAY_TASK_ID).
+    conversations_field: str = "conversations"  # Name of the column containing the list of dialog turns.
+    batch_size: int = 64  # Batch size for processing
+
+@dataclass
+class MirageConfig:
+    engine: EngineConfig
+    sampling_params: GenerationConfig
+    processing_params: ProcessingParams
 
 # -------------------------
 # helpers
 # -------------------------
-def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, dict, int]:
+def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, GenerationConfig, int]:
     """
     Load SGLang engine, sampling params, and batch size from YAML config.
 
@@ -27,18 +50,25 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, dict, int]:
       temperature: 0.2
       top_p: 0.9
 
-    batch_size: 64
+    processing_params:
+      datasets:
+        - "/path/to/dataset1"
+        - "/path/to/dataset2"
+      output_dir: "/path/to/output"
+      num_shards: 8
+      shard_id: 0
+      conversations_field: "conversations"
+      batch_size: 64
     """
     with open(config_path, "r") as f:
-        cfg = yaml.safe_load(f) or {}
+        cfg: dict = yaml.safe_load(f) or {}
 
-    engine_args = dict(cfg.get("engine", {}))
-    sampling_params = dict(cfg.get("sampling_params", {}))
+    cfg_obj = from_dict(MirageConfig, cfg)
 
-    batch_size = int(cfg.get("batch_size", 1) or 1)
-    if batch_size < 1:
-        batch_size = 1
+    engine_args = cfg_obj.engine
+    sampling_params = cfg_obj.sampling_params
 
+    batch_size = max(cfg_obj.processing_params.batch_size, 1)
     llm = sgl.Engine(**engine_args)
     return llm, sampling_params, batch_size
 
@@ -57,37 +87,9 @@ def main():
         "Rewrite the assistant turn inside `conversations` into Markdown using SGLang + HF map + sharding."
     )
     ap.add_argument(
-        "--datasets",
-        nargs="+",
-        required=True,
-        help="One or more paths to HF datasets saved with `save_to_disk`.",
-    )
-    ap.add_argument(
-        "--output_dir",
-        required=True,
-        help="Root directory where shard outputs will be written.",
-    )
-    ap.add_argument(
-        "--num_shards",
-        type=int,
-        required=True,
-        help="Total number of shards (matches your sbatch array size).",
-    )
-    ap.add_argument(
-        "--shard_id",
-        type=int,
-        required=True,
-        help="Index of this shard (0-based; usually $SLURM_ARRAY_TASK_ID).",
-    )
-    ap.add_argument(
         "--config",
         default="config-sglang.yaml",
         help="YAML config for SGLang engine + sampling + batch_size.",
-    )
-    ap.add_argument(
-        "--conversations_field",
-        default="conversations",
-        help="Name of the column containing the list of dialog turns.",
     )
     ap.add_argument(
         "--max_new_tokens",
@@ -139,8 +141,7 @@ def main():
 
     # Apply script-level override for max_new_tokens
     if args.max_new_tokens is not None:
-        sampling_params = dict(sampling_params)
-        sampling_params["max_new_tokens"] = int(args.max_new_tokens)
+        sampling_params.max_new_tokens = int(args.max_new_tokens)
 
     # -------------------------
     # Batched rewrite function for HF map
@@ -178,7 +179,7 @@ def main():
 
         try:
             # Non-streaming synchronous batch generation
-            outputs = llm.generate(prompts, sampling_params)
+            outputs = llm.generate(prompts, sampling_params.to_dict())
         except Exception as e:
             print(
                 f"[shard {args.shard_id}] Batch generation failed: {e}",

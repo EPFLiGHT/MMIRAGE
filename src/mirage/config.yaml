@@ -8,4 +8,12 @@ sampling_params:
   top_p: 1.0
   max_new_tokens: 2048
 
-batch_size: 64
+processing_params:
+  datasets:
+    - "/path/to/dataset1"
+    - "/path/to/dataset2"
+  output_dir: "/path/to/output"
+  num_shards: 8
+  shard_id: 0
+  conversations_field: "conversations"
+  batch_size: 64
