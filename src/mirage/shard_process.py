@@ -63,9 +63,12 @@ class ProcessingParams:
 @dataclass
 class MirageConfig:
     engine: EngineConfig
-    sampling_params: GenerationConfig
+    sampling_params: Dict[str, Any]
     processing_gen_params: ProcessingGenParams
     processing_params: ProcessingParams
+    
+    def __post_init__(self):
+        self.sampling_params = GenerationConfig(**self.sampling_params)
 
 # -------------------------
 # helpers
