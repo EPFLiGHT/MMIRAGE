@@ -123,7 +123,18 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
     """
     with open(config_path, "r") as f:
         cfg: dict = yaml.safe_load(f) or {}
+    
+    def expand_env_vars(obj):
+        if isinstance(obj, dict):
+            return {key: expand_env_vars(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [expand_env_vars(item) for item in obj]
+        elif isinstance(obj, str):
+            return os.path.expandvars(obj)
+        else:
+            return obj
 
+    cfg = expand_env_vars(cfg)
     cfg_obj = from_dict(MirageConfig, cfg)
     engine_args = cfg_obj.engine
     llm = sgl.Engine(**engine_args)
