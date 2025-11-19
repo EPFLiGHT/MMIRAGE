@@ -146,7 +146,7 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
     cfg = expand_env_vars(cfg)
     cfg_obj = from_dict(MirageConfig, cfg)
     engine_args = cfg_obj.engine
-    llm = sgl.Engine(**engine_args)
+    llm = sgl.Engine(**engine_args.to_dict())
 
     return llm, cfg_obj
 
