@@ -30,11 +30,11 @@ class ProcessingGenParams:
     
     def __post_init__(self):
         self.batch_size = max(self.batch_size, 1)
-        if self.num_shards is None:
+        if isinstance(self.num_shards, str):
             self.num_shards = 1
-        if self.shard_id is None:
+        if isinstance(self.shard_id, str):
             self.shard_id = 0
-        if self.batch_size is None:
+        if isinstance(self.batch_size, str):
             self.batch_size = 64
 
 @dataclass
