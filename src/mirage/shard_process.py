@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import argparse
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Literal, Tuple
 
 import yaml
 import sglang as sgl
@@ -27,17 +27,50 @@ class ProcessingGenParams:
     shard_id: int  # Index of this shard (0-based; usually $SLURM_ARRAY_TASK_ID).
     conversations_field: str = "conversations"  # Name of the column containing the list of dialog turns.
     batch_size: int = 64  # Batch size for processing
+    
+    def __post_init__(self):
+        self.batch_size = max(self.batch_size, 1)
+
+@dataclass
+class InputVar:
+    name: str
+    key: str
+
+@dataclass
+class OutputVar:
+    name: str
+    type: str
+    output_type: Literal["plain", "JSON"]
+    prompt: str
+    output_schema: Dict[str, str] = dict()  # empty dict if output_type is "plain"
+
+@dataclass
+class Message:
+    role: str
+    content: str
+
+@dataclass
+class OutputSchema:
+    conversations: List[Message]
+    modalities: str
+
+@dataclass
+class ProcessingParams:
+    inputs: List[InputVar]
+    outputs: List[OutputVar]
+    output_schema: OutputSchema
 
 @dataclass
 class MirageConfig:
     engine: EngineConfig
     sampling_params: GenerationConfig
     processing_gen_params: ProcessingGenParams
+    processing_params: ProcessingParams
 
 # -------------------------
 # helpers
 # -------------------------
-def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, GenerationConfig, int]:
+def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
     """
     Load SGLang engine, sampling params, and batch size from YAML config.
 
@@ -58,19 +91,44 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, GenerationConfi
       num_shards: 8
       shard_id: 0
       conversations_field: "conversations"
-      batch_size: 64
+    
+    processing_params:
+      inputs:
+        - name: assistant_answer
+        key: conversations[1].content
+        - name: user_prompt
+        key: conversations[0].content
+        - name: modalities
+        key: modalities
+
+      outputs:
+        - name: formatted_answer
+          type: llm
+          output_type: plain
+          prompt: | 
+            Reformat the answer in a markdown format without adding anything else:
+            {{ assistant_answer }}
+          output_schema:
+            question: question_variable
+            explanation: explanation_variable
+            answer: answer_variable
+            
+      output_schema:
+        conversations:
+        - role: user
+          content: {{ user_prompt }}
+        - role: assistant
+          content: {{ formatted_answer }}
+        modalities: {{ modalities }}
     """
     with open(config_path, "r") as f:
         cfg: dict = yaml.safe_load(f) or {}
 
     cfg_obj = from_dict(MirageConfig, cfg)
-
     engine_args = cfg_obj.engine
-    sampling_params = cfg_obj.sampling_params
-
-    batch_size = max(cfg_obj.processing_gen_params.batch_size, 1)
     llm = sgl.Engine(**engine_args)
-    return llm, sampling_params, batch_size
+
+    return llm, cfg_obj
 
 
 def build_prompt(text: str) -> str:
@@ -137,12 +195,11 @@ def main():
     # -------------------------
     # Load SGLang engine + sampling + batch size
     # -------------------------
-    llm, sampling_params, batch_size = load_engine_from_yaml(args.config)
+    llm, cfg_obj = load_engine_from_yaml(args.config)
 
     # Apply script-level override for max_new_tokens
     if args.max_new_tokens is not None:
-        sampling_params.max_new_tokens = int(args.max_new_tokens)
-
+        cfg_obj.sampling_params.max_new_tokens = int(args.max_new_tokens)
     # -------------------------
     # Batched rewrite function for HF map
     # -------------------------
@@ -179,7 +236,7 @@ def main():
 
         try:
             # Non-streaming synchronous batch generation
-            outputs = llm.generate(prompts, sampling_params.to_dict())
+            outputs = llm.generate(prompts, cfg_obj.sampling_params.to_dict())
         except Exception as e:
             print(
                 f"[shard {args.shard_id}] Batch generation failed: {e}",
@@ -219,7 +276,7 @@ def main():
     ds_processed = ds_shard.map(
         rewrite_batch,
         batched=True,
-        batch_size=batch_size,
+        batch_size=cfg_obj.processing_gen_params.batch_size,
         load_from_cache_file=False,
         desc=f"Shard {args.shard_id}/{args.num_shards - 1}",
     )
