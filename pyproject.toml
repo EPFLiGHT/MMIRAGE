@@ -32,7 +32,7 @@ dependencies = [
   "huggingface_hub>=0.24",
   "numpy",
   "fsspec",
-  "dacite"
+  "dacite>=1.6.0"
 ]
 
 [project.optional-dependencies]
