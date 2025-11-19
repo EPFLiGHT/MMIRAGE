@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Literal, Tuple
 import yaml
 import sglang as sgl
 from dacite import from_dict
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datasets import load_from_disk, concatenate_datasets
 from transformers import GenerationConfig
 
@@ -146,7 +146,7 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
     cfg = expand_env_vars(cfg)
     cfg_obj = from_dict(MirageConfig, cfg)
     engine_args = cfg_obj.engine
-    llm = sgl.Engine(**engine_args.to_dict())
+    llm = sgl.Engine(**asdict(engine_args))
 
     return llm, cfg_obj
 
