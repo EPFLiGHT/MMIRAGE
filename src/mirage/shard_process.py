@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Literal, Tuple
 import yaml
 import sglang as sgl
 from dacite import from_dict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datasets import load_from_disk, concatenate_datasets
 from transformers import GenerationConfig
 
@@ -42,7 +42,7 @@ class OutputVar:
     type: str
     output_type: Literal["plain", "JSON"]
     prompt: str
-    output_schema: Dict[str, str] = dict()  # empty dict if output_type is "plain"
+    output_schema: Dict[str, str] = field(default_factory=dict)  # empty dict if output_type is "plain"
 
 @dataclass
 class Message:
