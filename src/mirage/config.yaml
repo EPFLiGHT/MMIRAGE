@@ -8,7 +8,7 @@ sampling_params:
   top_p: 1.0
   max_new_tokens: 2048
 
-processing_params:
+processing_gen_params:
   datasets:
     - "/path/to/dataset1"
     - "/path/to/dataset2"

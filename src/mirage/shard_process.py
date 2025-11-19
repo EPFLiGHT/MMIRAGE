@@ -20,7 +20,7 @@ class EngineConfig:
     trust_remote_code: bool = True
 
 @dataclass
-class ProcessingParams:
+class ProcessingGenParams:
     datasets: List[str]  # One or more paths to HF datasets saved with 'save_to_disk'
     output_dir: str  # Root directory for shard outputs
     num_shards: int  # Total number of shards (matches your sbatch array size).
@@ -32,7 +32,7 @@ class ProcessingParams:
 class MirageConfig:
     engine: EngineConfig
     sampling_params: GenerationConfig
-    processing_params: ProcessingParams
+    processing_gen_params: ProcessingGenParams
 
 # -------------------------
 # helpers
@@ -50,7 +50,7 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, GenerationConfi
       temperature: 0.2
       top_p: 0.9
 
-    processing_params:
+    processing_gen_params:
       datasets:
         - "/path/to/dataset1"
         - "/path/to/dataset2"
@@ -68,7 +68,7 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, GenerationConfi
     engine_args = cfg_obj.engine
     sampling_params = cfg_obj.sampling_params
 
-    batch_size = max(cfg_obj.processing_params.batch_size, 1)
+    batch_size = max(cfg_obj.processing_gen_params.batch_size, 1)
     llm = sgl.Engine(**engine_args)
     return llm, sampling_params, batch_size
 
