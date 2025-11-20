@@ -37,14 +37,13 @@ class ProcessingGenParams:
     batch_size: int | str = 64  # Batch size for processing
 
     def __post_init__(self):
-        self.batch_size = max(self.batch_size, 1)
         if isinstance(self.num_shards, str):
             self.num_shards = int(self.num_shards) if self.num_shards.isdigit() else 1
         if isinstance(self.shard_id, str):
             self.shard_id = int(self.shard_id) if self.shard_id.isdigit() else 0
         if isinstance(self.batch_size, str):
             self.batch_size = int(self.batch_size) if self.batch_size.isdigit() else 64
-
+        self.batch_size = max(self.batch_size, 1)
 
 @dataclass
 class InputVar:
@@ -121,11 +120,11 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
     processing_params:
       inputs:
         - name: assistant_answer
-        key: conversations[1].content
+          key: conversations[1].content
         - name: user_prompt
-        key: conversations[0].content
+          key: conversations[0].content
         - name: modalities
-        key: modalities
+          key: modalities
 
       outputs:
         - name: formatted_answer

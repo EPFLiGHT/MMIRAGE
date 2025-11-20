@@ -42,7 +42,7 @@ processing_params:
   output_schema:
       conversations:
           - role: user
-            content: {{ user_prompt }}
+            content: "{{ user_prompt }}"
           - role: assistant
-            content: {{ formatted_answer }}
-      modalities: {{ modalities }}
+            content: "{{ formatted_answer }}"
+      modalities: "{{ modalities }}"
