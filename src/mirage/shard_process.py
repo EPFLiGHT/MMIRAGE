@@ -13,21 +13,29 @@ from transformers import GenerationConfig
 
 from prompts import ASSISTANT_ONLY_MD_PROMPT
 
+
 @dataclass
 class EngineConfig:
     model_path: str
     tp_size: int = 4
     trust_remote_code: bool = True
 
+
 @dataclass
 class ProcessingGenParams:
     datasets: List[str]  # One or more paths to HF datasets saved with 'save_to_disk'
     output_dir: str  # Root directory for shard outputs
-    num_shards: int | str = 1  # Total number of shards (matches your sbatch array size).
-    shard_id: int | str = 0  # Index of this shard (0-based; usually $SLURM_ARRAY_TASK_ID).
-    conversations_field: str = "conversations"  # Name of the column containing the list of dialog turns.
+    num_shards: int | str = (
+        1  # Total number of shards (matches your sbatch array size).
+    )
+    shard_id: int | str = (
+        0  # Index of this shard (0-based; usually $SLURM_ARRAY_TASK_ID).
+    )
+    conversations_field: str = (
+        "conversations"  # Name of the column containing the list of dialog turns.
+    )
     batch_size: int | str = 64  # Batch size for processing
-    
+
     def __post_init__(self):
         self.batch_size = max(self.batch_size, 1)
         if isinstance(self.num_shards, str):
@@ -37,10 +45,12 @@ class ProcessingGenParams:
         if isinstance(self.batch_size, str):
             self.batch_size = int(self.batch_size) if self.batch_size.isdigit() else 64
 
+
 @dataclass
 class InputVar:
     name: str
     key: str
+
 
 @dataclass
 class OutputVar:
@@ -48,17 +58,22 @@ class OutputVar:
     type: str
     output_type: Literal["plain", "JSON"]
     prompt: str
-    output_schema: Dict[str, str] = field(default_factory=dict)  # empty dict if output_type is "plain"
+    output_schema: Dict[str, str] = field(
+        default_factory=dict
+    )  # empty dict if output_type is "plain"
+
 
 @dataclass
 class Message:
     role: str
     content: str
 
+
 @dataclass
 class OutputSchema:
     conversations: List[Message]
     modalities: str
+
 
 @dataclass
 class ProcessingParams:
@@ -66,15 +81,17 @@ class ProcessingParams:
     outputs: List[OutputVar]
     output_schema: OutputSchema
 
+
 @dataclass
 class MirageConfig:
     engine: EngineConfig
-    sampling_params: Dict[str, Any]
+    sampling_params: Dict[str, Any] | GenerationConfig
     processing_gen_params: ProcessingGenParams
     processing_params: ProcessingParams
-    
+
     def __post_init__(self):
         self.sampling_params = GenerationConfig(**self.sampling_params)
+
 
 # -------------------------
 # helpers
@@ -100,7 +117,7 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
       num_shards: 8
       shard_id: 0
       conversations_field: "conversations"
-    
+
     processing_params:
       inputs:
         - name: assistant_answer
@@ -114,14 +131,14 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
         - name: formatted_answer
           type: llm
           output_type: plain
-          prompt: | 
+          prompt: |
             Reformat the answer in a markdown format without adding anything else:
             {{ assistant_answer }}
           output_schema:
             question: question_variable
             explanation: explanation_variable
             answer: answer_variable
-            
+
       output_schema:
         conversations:
         - role: user
@@ -132,7 +149,7 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
     """
     with open(config_path, "r") as f:
         cfg: dict = yaml.safe_load(f) or {}
-    
+
     def expand_env_vars(obj):
         if isinstance(obj, dict):
             return {key: expand_env_vars(value) for key, value in obj.items()}
@@ -176,25 +193,35 @@ def main():
         help="Override max_new_tokens in sampling params.",
     )
     args = ap.parse_args()
-    
+
     # -------------------------
     # Load SGLang engine + sampling + batch size
     # -------------------------
     llm, cfg = load_engine_from_yaml(args.config)
+    sampling_params = cfg.sampling_params
+    assert isinstance(sampling_params, GenerationConfig)
+    processing_gen_params = cfg.processing_gen_params
+    processing_params = cfg.processing_params
 
-    if not (0 <= cfg.processing_gen_params.shard_id < cfg.processing_gen_params.num_shards):
+    datasets = processing_gen_params.datasets
+    if not datasets:
         raise ValueError(
-            f"Invalid shard_id={cfg.processing_gen_params.shard_id}, num_shards={cfg.processing_gen_params.num_shards}"
+            "No datasets provided in config.processing_gen_params.datasets"
         )
+    shard_id = processing_gen_params.shard_id
+    num_shards = processing_gen_params.num_shards
 
-    os.makedirs(cfg.processing_gen_params.output_dir, exist_ok=True)
-    shard_out_dir = os.path.join(cfg.processing_gen_params.output_dir, f"shard_{cfg.processing_gen_params.shard_id}")
+    if not (0 <= shard_id < num_shards):
+        raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
+
+    os.makedirs(processing_gen_params.output_dir, exist_ok=True)
+    shard_out_dir = os.path.join(processing_gen_params.output_dir, f"shard_{shard_id}")
     os.makedirs(shard_out_dir, exist_ok=True)
 
     # -------------------------
     # Load all input datasets and concatenate
     # -------------------------
-    ds_list = [load_from_disk(p) for p in cfg.processing_gen_params.datasets]
+    ds_list = [load_from_disk(p) for p in datasets]
     if len(ds_list) == 1:
         ds_all = ds_list[0]
     else:
@@ -202,15 +229,15 @@ def main():
 
     total_rows = len(ds_all)
 
-    ds_shard = ds_all.shard(num_shards=cfg.processing_gen_params.num_shards, index=cfg.processing_gen_params.shard_id)
+    ds_shard = ds_all.shard(num_shards=num_shards, index=shard_id)
     shard_rows = len(ds_shard)
 
     print(
-        f"Loaded {len(cfg.processing_gen_params.datasets)} dataset(s): {cfg.processing_gen_params.datasets} "
+        f"Loaded {len(datasets)} dataset(s): {datasets} "
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
 
-    conv_field = cfg.processing_gen_params.conversations_field
+    conv_field = processing_gen_params.conversations_field
     if conv_field not in ds_shard.column_names:
         raise ValueError(
             f"Expected conversations column '{conv_field}', "
@@ -219,7 +246,8 @@ def main():
 
     # Apply script-level override for max_new_tokens
     if args.max_new_tokens is not None:
-        cfg.sampling_params.max_new_tokens = int(args.max_new_tokens)
+        sampling_params.max_new_tokens = int(args.max_new_tokens)
+
     # -------------------------
     # Batched rewrite function for HF map
     # -------------------------
@@ -256,10 +284,10 @@ def main():
 
         try:
             # Non-streaming synchronous batch generation
-            outputs = llm.generate(prompts, cfg.sampling_params.to_dict())
+            outputs = llm.generate(prompts, sampling_params.to_dict())
         except Exception as e:
             print(
-                f"[shard {cfg.processing_gen_params.shard_id}] Batch generation failed: {e}",
+                f"[shard {shard_id}] Batch generation failed: {e}",
                 file=sys.stderr,
             )
             # On error, keep original conversations for this batch
@@ -267,7 +295,7 @@ def main():
 
         if not isinstance(outputs, list) or len(outputs) != len(prompts):
             print(
-                f"[shard {cfg.processing_gen_params.shard_id}] Unexpected outputs length from llm.generate: "
+                f"[shard {shard_id}] Unexpected outputs length from llm.generate: "
                 f"expected {len(prompts)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
                 file=sys.stderr,
             )
@@ -296,9 +324,9 @@ def main():
     ds_processed = ds_shard.map(
         rewrite_batch,
         batched=True,
-        batch_size=cfg.processing_gen_params.batch_size,
+        batch_size=processing_gen_params.batch_size,
         load_from_cache_file=False,
-        desc=f"Shard {cfg.processing_gen_params.shard_id}/{cfg.processing_gen_params.num_shards - 1}",
+        desc=f"Shard {shard_id}/{num_shards - 1}",
     )
 
     # -------------------------
@@ -312,7 +340,7 @@ def main():
         pass
 
     print(
-        f"✅ shard_id={cfg.processing_gen_params.shard_id} num_shards={cfg.processing_gen_params.num_shards} "
+        f"✅ shard_id={shard_id} num_shards={num_shards} "
         f"total_rows={total_rows} shard_rows={shard_rows} "
         f"out_dir={shard_out_dir}"
     )
