@@ -57,9 +57,15 @@ class OutputVar:
     type: str
     output_type: Literal["plain", "JSON"]
     prompt: str
-    output_schema: Dict[str, str] = field(
-        default_factory=dict
-    )  # empty dict if output_type is "plain"
+    output_schema: List[str] = field(
+        default_factory=list
+    )  # empty list if output_type is "plain"
+    
+    def get_output_schema(self) -> Optional[BaseModel]:
+        if self.output_type == "JSON" and self.output_schema:
+            fields = {var: (str, ...) for var in self.output_schema} # ... means required field
+            return create_model(f"OutputSchema", **fields)
+        return None
 
 
 @dataclass

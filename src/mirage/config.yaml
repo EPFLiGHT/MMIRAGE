@@ -28,21 +28,21 @@ processing_params:
       key: modalities
 
   outputs:
-      - name: formatted_answer
-        type: llm
-        output_type: plain
-        prompt: | 
-          Reformat the answer in a markdown format without adding anything else:
-          {{ assistant_answer }}
-        output_schema:
-          question: question_variable
-          explanation: explanation_variable
-          answer: answer_variable
+    - name: formatted_answer
+      type: llm
+      output_type: plain
+      prompt: | 
+        Reformat the answer in a markdown format without adding anything else:
+        {assistant_answer}
+      output_schema:
+        - question
+        - explanation
+        - answer
         
   output_schema:
-      conversations:
-          - role: user
-            content: "{{ user_prompt }}"
-          - role: assistant
-            content: "{{ formatted_answer }}"
-      modalities: "{{ modalities }}"
+    conversations:
+      - role: user
+        content: "{user_prompt}"
+      - role: assistant
+        content: "{formatted_answer}"
+    modalities: "{modalities}"
