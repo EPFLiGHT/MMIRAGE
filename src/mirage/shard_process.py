@@ -2,13 +2,15 @@ import os
 import sys
 import json
 import argparse
-from typing import Dict, Any, List, Literal, Tuple
+from typing import Dict, Any, List, Literal, Optional, Tuple
 
 import yaml
 import sglang as sgl
 from dacite import from_dict
 from dataclasses import asdict, dataclass, field
 from datasets import load_from_disk, concatenate_datasets
+from jmespath import search  # TODO: use compile to go faster
+from pydantic import BaseModel, create_model
 from transformers import GenerationConfig
 
 from prompts import ASSISTANT_ONLY_MD_PROMPT
@@ -256,32 +258,32 @@ def main():
     # -------------------------
     # Batched rewrite function for HF map
     # -------------------------
+    def extract_input_from_conv(conv: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Extract value from conversation using processing_params.inputs."""
+        
+        input_vars: Dict[str, Any] = {}
+        for input_var in processing_params.inputs:
+            value = search(input_var.key, conv)
+            input_vars[input_var.name] = value
+        return input_vars
+    
     def rewrite_batch(batch: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
         conv_batch = batch[conv_field]
 
-        prompts: List[str] = []
+        prompts: List[Tuple[int, OutputVar, str]] = [] # (example_idx, output_var, prompt_str)
+        vars: List[Dict[str, Any]] = [] # input vars for each example
         locs: List[Tuple[int, int]] = []  # (example_idx, assistant_turn_idx)
 
         # First pass: collect prompts where there is a non-empty assistant turn
         for i, conv in enumerate(conv_batch):
             if not isinstance(conv, list) or not conv:
                 continue
-
-            assistant_idx = None
-            for ti, turn in enumerate(conv):
-                if isinstance(turn, dict) and turn.get("role") == "assistant":
-                    assistant_idx = ti
-                    break
-
-            if assistant_idx is None:
-                continue
-
-            content = str(conv[assistant_idx].get("content", "") or "")
-            if not content.strip():
-                continue
-
-            prompts.append(build_prompt(content))
-            locs.append((i, assistant_idx))
+            
+            current_vars = extract_input_from_conv(conv)
+            vars.append(current_vars)
+            
+            for output in processing_params.outputs:
+                prompts.append((i, output, output.prompt.format(**current_vars)))
 
         # Nothing to rewrite in this batch
         if not prompts:
@@ -289,7 +291,7 @@ def main():
 
         try:
             # Non-streaming synchronous batch generation
-            outputs = llm.generate(prompts, sampling_params.to_dict())
+            outputs = llm.generate([p[2] for p in prompts], sampling_params.to_dict())
         except Exception as e:
             print(
                 f"[shard {shard_id}] Batch generation failed: {e}",
@@ -305,7 +307,37 @@ def main():
                 file=sys.stderr,
             )
             return {conv_field: conv_batch}
+        
+        new_conv_batch = []
+        for i, ((ex_idx, output_var, _), output) in enumerate(zip(prompts, outputs)):
+            out_text = output.get("text", "").strip()
+            vars_ex = vars[ex_idx]
+            vars_ex[output_var.name] = out_text
+            
+            # Rebuild the full conversation according to output_schema
+            output_schema = processing_params.output_schema
+            # Start with original conversation
+            orig_conv = conv_batch[ex_idx]
+            conv_list = list(orig_conv)  # shallow copy
+            # Rebuild according to output_schema
+            new_conv: List[Dict[str, Any]] = []
+            for msg_schema in output_schema.conversations:
+                role = msg_schema.role
+                content_template = msg_schema.content
+                content_filled = content_template.format(**vars_ex)
+                new_conv.append({"role": role, "content": content_filled})
 
+            # Replace conversation in conv_list
+            conv_list = new_conv
+            # Add other fields if needed (e.g., modalities)
+            if hasattr(output_schema, "modalities"):
+                modalities_filled = output_schema.modalities.format(**vars_ex)
+                # Assuming modalities is a top-level field in the dataset
+                conv_list.append({"modalities": modalities_filled})
+            
+            new_conv_batch.append(conv_list)
+
+        """
         # Copy original conversations and fill in rewritten Markdown
         new_conv_batch = list(conv_batch)
         for out_idx, (ex_idx, turn_idx) in enumerate(locs):
@@ -319,6 +351,7 @@ def main():
             turn["content"] = md_text
             conv_list[turn_idx] = turn
             new_conv_batch[ex_idx] = conv_list
+        """
 
         # Only return the updated conversations column; HF keeps other columns
         return {conv_field: new_conv_batch}
