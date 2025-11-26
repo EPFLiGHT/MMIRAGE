@@ -4,17 +4,17 @@ engine:
   trust_remote_code: true
 
 sampling_params:
-  temperature: 0.0
+  temperature: 0.1
   top_p: 1.0
   max_new_tokens: 2048
 
 processing_gen_params:
   datasets:
-    - "/path/to/dataset1"
-    - "/path/to/dataset2"
-  output_dir: "/path/to/output"
-  num_shards: 8
-  shard_id: 0
+    - /capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_1/
+    - /capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_2/
+  output_dir: /capstor/store/cscs/swissai/a127/homes/$USER/datasets/medtrinity/shards
+  num_shards: "$SLURM_ARRAY_TASK_COUNT"
+  shard_id: "$SLURM_ARRAY_TASK_ID"
   conversations_field: "conversations"
   batch_size: 64
 
@@ -46,3 +46,4 @@ processing_params:
       - role: assistant
         content: "{formatted_answer}"
     modalities: "{modalities}"
+
