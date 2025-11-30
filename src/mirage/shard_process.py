@@ -322,7 +322,7 @@ def main():
             return {conv_field: conv_batch}
         
         new_conv_batch = []
-        for i, ((ex_idx, output_var, _), output) in enumerate(zip(prompts, outputs)):
+        for (ex_idx, output_var, _), output in zip(prompts, outputs):
             out_text = output.get("text", "").strip()
             vars_ex = vars[ex_idx]
             vars_ex[output_var.name] = out_text
