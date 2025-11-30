@@ -254,6 +254,8 @@ def main():
     # Apply script-level override for max_new_tokens
     if args.max_new_tokens is not None:
         sampling_params.max_new_tokens = int(args.max_new_tokens)
+    
+    sampling_params: Dict[str, Any] = sampling_params.to_dict()
 
     # -------------------------
     # Batched rewrite function for HF map
@@ -281,9 +283,6 @@ def main():
             
             current_vars = extract_input_from_conv(conv)
             vars.append(current_vars)
-            
-            for output in processing_params.outputs:
-                prompts.append((i, output, output.prompt.format(**current_vars)))
 
         # Nothing to rewrite in this batch
         if not prompts:
@@ -291,7 +290,21 @@ def main():
 
         try:
             # Non-streaming synchronous batch generation
-            outputs = llm.generate([p[2] for p in prompts], sampling_params.to_dict())
+            outputs: List[Dict[str, Any]] = []
+            for output in processing_params.outputs:
+                prompts_for_output = [output.prompt.format(**var) for var in vars]
+                sampling_params_output = sampling_params.copy()
+                if output.output_type == "JSON":
+                    json_schema = output.get_output_schema()
+                    if json_schema is None:
+                        raise ValueError(
+                            f"Output variable {output.name} has output_type=JSON "
+                            "but no output_schema defined."
+                        )
+
+                    sampling_params_output["json_schema"] = json.dumps(json_schema)
+
+                outputs += llm.generate(prompts_for_output, sampling_params_output)
         except Exception as e:
             print(
                 f"[shard {shard_id}] Batch generation failed: {e}",
