@@ -8,7 +8,7 @@ import yaml
 import sglang as sgl
 from dacite import from_dict
 from dataclasses import asdict, dataclass, field
-from datasets import load_from_disk, concatenate_datasets
+from datasets import load_dataset, load_from_disk, concatenate_datasets
 from jmespath import search  # TODO: use compile to go faster
 from pydantic import BaseModel, create_model
 from transformers import GenerationConfig
@@ -225,7 +225,24 @@ def main():
     # -------------------------
     # Load all input datasets and concatenate
     # -------------------------
-    ds_list = [load_from_disk(p) for p in datasets]
+    def load_datasets_from_paths(paths: List[str]) -> List[str]:
+        valid_ds = []
+        for p in paths:
+            if not os.path.exists(p):
+                print(f"⚠️ Dataset path does not exist, skipping: {p}")
+                continue
+            try:
+                if p.endswith(".jsonl"):
+                    ds = load_dataset("json", data_files=p)
+                else:
+                    ds = load_from_disk(p)
+
+                valid_ds.append(ds)
+            except Exception as e:
+                print(f"⚠️ Failed to load dataset from {p}, skipping. Reason: {e}")
+        return valid_ds
+    
+    ds_list = load_datasets_from_paths(datasets)
     if len(ds_list) == 1:
         ds_all = ds_list[0]
     else:
