@@ -264,7 +264,6 @@ def main():
 
         prompts: List[Tuple[int, OutputVar, str]] = [] # (example_idx, output_var, prompt_str)
         vars: List[Dict[str, Any]] = [] # input vars for each example
-        locs: List[Tuple[int, int]] = []  # (example_idx, assistant_turn_idx)
 
         # First pass: collect prompts where there is a non-empty assistant turn
         for i, conv in enumerate(conv_batch):
