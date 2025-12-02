@@ -29,8 +29,4 @@ mkdir -p "$SHARDS_ROOT"
 mkdir -p "$MERGED_DIR"
 
 python /users/$USER/meditron/MIRAGE/src/mirage/shard_process.py \
-  --datasets "$DATA1" "$DATA2" \
-  --output_dir "$SHARDS_ROOT" \
-  --num_shards "$SLURM_ARRAY_TASK_COUNT" \
-  --shard_id "$SLURM_ARRAY_TASK_ID" \
   --config "$CFG"
