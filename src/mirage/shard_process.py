@@ -47,6 +47,7 @@ class ProcessingGenParams:
             self.batch_size = int(self.batch_size) if self.batch_size.isdigit() else 64
         self.batch_size = max(self.batch_size, 1)
 
+
 @dataclass
 class InputVar:
     name: str
@@ -62,10 +63,12 @@ class OutputVar:
     output_schema: List[str] = field(
         default_factory=list
     )  # empty list if output_type is "plain"
-    
+
     def get_output_schema(self) -> Optional[BaseModel]:
         if self.output_type == "JSON" and self.output_schema:
-            fields = {var: (str, ...) for var in self.output_schema} # ... means required field
+            fields = {
+                var: (str, ...) for var in self.output_schema
+            }  # ... means required field
             return create_model(f"OutputSchema", **fields)
         return None
 
@@ -244,7 +247,7 @@ def main():
             f"Expected conversations column '{conv_field}', "
             f"but dataset has columns: {ds_shard.column_names}"
         )
-    
+
     sampling_params: Dict[str, Any] = sampling_params.to_dict()
 
     # -------------------------
@@ -252,24 +255,26 @@ def main():
     # -------------------------
     def extract_input_from_conv(conv: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Extract value from conversation using processing_params.inputs."""
-        
+
         input_vars: Dict[str, Any] = {}
         for input_var in processing_params.inputs:
             value = search(input_var.key, conv)
             input_vars[input_var.name] = value
         return input_vars
-    
+
     def rewrite_batch(batch: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
         conv_batch = batch[conv_field]
 
-        prompts: List[Tuple[int, OutputVar, str]] = [] # (example_idx, output_var, prompt_str)
-        vars: List[Dict[str, Any]] = [] # input vars for each example
+        prompts: List[
+            Tuple[int, OutputVar, str]
+        ] = []  # (example_idx, output_var, prompt_str)
+        vars: List[Dict[str, Any]] = []  # input vars for each example
 
         # First pass: collect prompts where there is a non-empty assistant turn
         for i, conv in enumerate(conv_batch):
             if not isinstance(conv, list) or not conv:
                 continue
-            
+
             current_vars = extract_input_from_conv(conv)
             vars.append(current_vars)
 
@@ -309,13 +314,13 @@ def main():
                 file=sys.stderr,
             )
             return {conv_field: conv_batch}
-        
+
         new_conv_batch = []
         for (ex_idx, output_var, _), output in zip(prompts, outputs):
             out_text = output.get("text", "").strip()
             vars_ex = vars[ex_idx]
             vars_ex[output_var.name] = out_text
-            
+
             # Rebuild the full conversation according to output_schema
             output_schema = processing_params.output_schema
             # Start with original conversation
@@ -336,7 +341,7 @@ def main():
                 modalities_filled = output_schema.modalities.format(**vars_ex)
                 # Assuming modalities is a top-level field in the dataset
                 conv_list.append({"modalities": modalities_filled})
-            
+
             new_conv_batch.append(conv_list)
 
         """

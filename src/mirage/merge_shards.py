@@ -3,6 +3,7 @@ import argparse
 
 from datasets import load_from_disk, concatenate_datasets
 
+
 def main():
     ap = argparse.ArgumentParser("Merge processed shard datasets into one HF dataset.")
     ap.add_argument(
@@ -71,6 +72,7 @@ def main():
         f"empty/invalid dir: {skipped_empty_dir}, "
         f"zero rows: {skipped_zero_rows})."
     )
+
 
 if __name__ == "__main__":
     main()
