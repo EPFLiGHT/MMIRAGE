@@ -6,7 +6,7 @@ engine:
 sampling_params:
   temperature: 0.1
   top_p: 1.0
-  max_new_tokens: 2048
+  max_new_tokens: 384
 
 processing_gen_params:
   datasets:

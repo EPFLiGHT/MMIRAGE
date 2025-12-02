@@ -193,12 +193,6 @@ def main():
         default="config-sglang.yaml",
         help="YAML config for SGLang engine + sampling + batch_size.",
     )
-    ap.add_argument(
-        "--max_new_tokens",
-        type=int,
-        default=384,
-        help="Override max_new_tokens in sampling params.",
-    )
     args = ap.parse_args()
 
     # -------------------------
@@ -250,10 +244,6 @@ def main():
             f"Expected conversations column '{conv_field}', "
             f"but dataset has columns: {ds_shard.column_names}"
         )
-
-    # Apply script-level override for max_new_tokens
-    if args.max_new_tokens is not None:
-        sampling_params.max_new_tokens = int(args.max_new_tokens)
     
     sampling_params: Dict[str, Any] = sampling_params.to_dict()
 
