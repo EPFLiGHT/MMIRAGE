@@ -10,8 +10,10 @@ sampling_params:
 
 processing_gen_params:
   datasets:
-    - /capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_1/
-    - /capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_2/
+    - path: /capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_1/
+      type: loadable
+    - path: /capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_2/
+      type: loadable
   output_dir: /capstor/store/cscs/swissai/a127/homes/$USER/datasets/medtrinity/shards
   num_shards: "$SLURM_ARRAY_TASK_COUNT"
   shard_id: "$SLURM_ARRAY_TASK_ID"
