@@ -1,5 +1,5 @@
 engine:
-  model_path: "Qwen/Qwen3-Next-80B-A3B-Instruct"
+  model_path: "Qwen/Qwen3-8B"
   tp_size: 4          # use all 4 GPUs on the node
   trust_remote_code: true
 
@@ -10,8 +10,8 @@ sampling_params:
 
 processing_gen_params:
   datasets:
-    - /capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_1/
-    - /capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_2/
+    - path: /capstor/store/cscs/swissai/a127/meditron/datasets/polyglot/english_small.jsonl
+      type: JSONL
   output_dir: /capstor/store/cscs/swissai/a127/homes/$USER/datasets/medtrinity/shards
   num_shards: "$SLURM_ARRAY_TASK_COUNT"
   shard_id: "$SLURM_ARRAY_TASK_ID"
