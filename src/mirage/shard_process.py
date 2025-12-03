@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass, field
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk, concatenate_datasets
 from jmespath import search  # TODO: use compile to go faster
 from pydantic import create_model
-from transformers.models import GenerationConfig
+from transformers import GenerationConfig
 
 from prompts import ASSISTANT_ONLY_MD_PROMPT
 
