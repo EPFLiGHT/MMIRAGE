@@ -8,7 +8,7 @@ import yaml
 import sglang as sgl
 from dacite import from_dict
 from dataclasses import asdict, dataclass, field
-from datasets import load_dataset, load_from_disk, concatenate_datasets
+from datasets import Dataset, DatasetDict, load_dataset, load_from_disk, concatenate_datasets
 from jmespath import search  # TODO: use compile to go faster
 from pydantic import BaseModel, create_model
 from transformers import GenerationConfig
@@ -24,8 +24,14 @@ class EngineConfig:
 
 
 @dataclass
+class DatasetConfig:
+    path: str
+    type: Literal["JSONL", "loadable"] = "loadable"
+
+
+@dataclass
 class ProcessingGenParams:
-    datasets: List[str]  # One or more paths to HF datasets saved with 'save_to_disk'
+    datasets: List[DatasetConfig]  # One or more paths to HF datasets saved with 'save_to_disk'
     output_dir: str  # Root directory for shard outputs
     num_shards: int | str = (
         1  # Total number of shards (matches your sbatch array size).
@@ -225,24 +231,26 @@ def main():
     # -------------------------
     # Load all input datasets and concatenate
     # -------------------------
-    def load_datasets_from_paths(paths: List[str]) -> List[str]:
+    def load_datasets_from_configs(configs: List[DatasetConfig]) -> List[Dataset | DatasetDict]:
         valid_ds = []
-        for p in paths:
-            if not os.path.exists(p):
+        for ds_config in configs:
+            path = ds_config.path
+
+            if not os.path.exists(path):
                 print(f"⚠️ Dataset path does not exist, skipping: {p}")
                 continue
             try:
-                if p.endswith(".jsonl"):
-                    ds = load_dataset("json", data_files=p)
+                if ds_config.type == "JSONL":
+                    ds = load_dataset("json", data_files=path)
                 else:
-                    ds = load_from_disk(p)
+                    ds = load_from_disk(path)
 
                 valid_ds.append(ds)
             except Exception as e:
-                print(f"⚠️ Failed to load dataset from {p}, skipping. Reason: {e}")
+                print(f"⚠️ Failed to load dataset from {path}, skipping. Reason: {e}")
         return valid_ds
     
-    ds_list = load_datasets_from_paths(datasets)
+    ds_list = load_datasets_from_configs(datasets)
     if len(ds_list) == 1:
         ds_all = ds_list[0]
     else:
