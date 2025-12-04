@@ -286,13 +286,6 @@ def main():
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
 
-    conv_field = processing_gen_params.conversations_field
-    if conv_field not in ds_shard.column_names:
-        raise ValueError(
-            f"Expected conversations column '{conv_field}', "
-            f"but dataset has columns: {ds_shard.column_names}"
-        )
-
     sampling_params_dict: Dict[str, Any] = sampling_params.to_dict()
 
     # -------------------------
@@ -411,7 +404,6 @@ def main():
         """
 
         # Only return the updated conversations column; HF keeps other columns
-        #return {conv_field: new_conv_batch}
         
         # Build result dict with all columns from output_schema
         result_batch: Dict[str, List[Any]] = {}
