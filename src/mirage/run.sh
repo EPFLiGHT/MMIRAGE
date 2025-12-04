@@ -20,7 +20,7 @@ export DATA2=/capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtri
 export ROOT=/capstor/store/cscs/swissai/a127/homes/$USER/datasets/medtrinity
 export SHARDS_ROOT="$ROOT/shards"
 export MERGED_DIR="$ROOT/merged"
-export CFG=/users/$USER/meditron/MIRAGE/src/mirage/config.yaml
+export CFG=/users/$USER/MIRAGE/src/mirage/config.yaml
 
 # HF cache/home
 export HF_HOME=/capstor/store/cscs/swissai/a127/homes/$USER/hf
@@ -28,5 +28,5 @@ export HF_HOME=/capstor/store/cscs/swissai/a127/homes/$USER/hf
 mkdir -p "$SHARDS_ROOT"
 mkdir -p "$MERGED_DIR"
 
-python /users/$USER/meditron/MIRAGE/src/mirage/shard_process.py \
+python /users/$USER/MIRAGE/src/mirage/shard_process.py \
   --config "$CFG"
