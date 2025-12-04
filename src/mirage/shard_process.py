@@ -298,14 +298,15 @@ def main():
     # -------------------------
     # Batched rewrite function for HF map
     # -------------------------
-    def extract_input_from_conv(conv: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Extract value from conversation using processing_params.inputs."""
-
+    
+    def extract_input_vars(sample: Dict[str, Any]) -> Dict[str, Any]:
+        """Recursively extract all input variables from a dataset sample."""
         input_vars: Dict[str, Any] = {}
         for input_var in processing_params.inputs:
-            value = search(input_var.key, conv)
+            value = search(input_var.key, sample)
             input_vars[input_var.name] = value
         return input_vars
+        
 
     def fill_template_recursive(template: Any, vars_dict: Dict[str, Any]) -> Any:
         """Recursively fill templates in nested structures."""
@@ -319,24 +320,19 @@ def main():
             return template
 
     def rewrite_batch(batch: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
-        conv_batch = batch[conv_field]
-
         prompts: List[
             Tuple[int, OutputVar, str]
         ] = []  # (example_idx, output_var, prompt_str)
         vars: List[Dict[str, Any]] = []  # input vars for each example
 
         # First pass: collect prompts where there is a non-empty assistant turn
-        for i, conv in enumerate(conv_batch):
-            if not isinstance(conv, list) or not conv:
-                continue
-
-            current_vars = extract_input_from_conv(conv)
+        for sample in batch:
+            current_vars = extract_input_vars(sample)
             vars.append(current_vars)
 
         # Nothing to rewrite in this batch
         if not prompts:
-            return {conv_field: conv_batch}
+            return batch
 
         try:
             # Non-streaming synchronous batch generation
@@ -361,7 +357,7 @@ def main():
                 file=sys.stderr,
             )
             # On error, keep original conversations for this batch
-            return {conv_field: conv_batch}
+            return batch
 
         if not isinstance(outputs, list) or len(outputs) != len(prompts):
             print(
@@ -369,7 +365,7 @@ def main():
                 f"expected {len(prompts)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
                 file=sys.stderr,
             )
-            return {conv_field: conv_batch}
+            return batch
 
         new_results = []
         for (ex_idx, output_var, _), output in zip(prompts, outputs):
