@@ -106,7 +106,7 @@ class OutputSchema:
 class ProcessingParams:
     inputs: List[InputVar]
     outputs: List[OutputVar]
-    output_schema: OutputSchema
+    output_schema: Dict[str, Any]
 
 
 @dataclass
@@ -329,6 +329,17 @@ def main():
             input_vars[input_var.name] = value
         return input_vars
 
+    def fill_template_recursive(template: Any, vars_dict: Dict[str, Any]) -> Any:
+        """Recursively fill templates in nested structures."""
+        if isinstance(template, str):
+            return template.format(**vars_dict)
+        elif isinstance(template, dict):
+            return {k: fill_template_recursive(v, vars_dict) for k, v in template.items()}
+        elif isinstance(template, list):
+            return [fill_template_recursive(item, vars_dict) for item in template]
+        else:
+            return template
+
     def rewrite_batch(batch: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
         conv_batch = batch[conv_field]
 
@@ -382,6 +393,19 @@ def main():
             )
             return {conv_field: conv_batch}
 
+        new_results = []
+        for (ex_idx, output_var, _), output in zip(prompts, outputs):
+            out_text = output.get("text", "").strip()
+            vars_ex = vars[ex_idx]
+            vars_ex[output_var.name] = out_text
+
+            # Rebuild the output according to output_schema template
+            output_schema = processing_params.output_schema
+            filled_output = fill_template_recursive(output_schema, vars_ex)
+            
+            new_results.append(filled_output)
+
+        """
         new_conv_batch = []
         for (ex_idx, output_var, _), output in zip(prompts, outputs):
             out_text = output.get("text", "").strip()
@@ -410,25 +434,17 @@ def main():
                 conv_list.append({"modalities": modalities_filled})
 
             new_conv_batch.append(conv_list)
-
-        """
-        # Copy original conversations and fill in rewritten Markdown
-        new_conv_batch = list(conv_batch)
-        for out_idx, (ex_idx, turn_idx) in enumerate(locs):
-            out = outputs[out_idx]
-            md_text = out.get("text", "")
-
-            orig_conv = new_conv_batch[ex_idx]
-            # create shallow copies so we don't mutate shared objects
-            conv_list = list(orig_conv)
-            turn = dict(conv_list[turn_idx])
-            turn["content"] = md_text
-            conv_list[turn_idx] = turn
-            new_conv_batch[ex_idx] = conv_list
         """
 
         # Only return the updated conversations column; HF keeps other columns
-        return {conv_field: new_conv_batch}
+        #return {conv_field: new_conv_batch}
+        
+        # Build result dict with all columns from output_schema
+        result_batch: Dict[str, List[Any]] = {}
+        for key in processing_params.output_schema.keys():
+            result_batch[key] = [result.get(key) for result in new_results]
+
+        return result_batch
 
     # -------------------------
     # Apply map with batching
