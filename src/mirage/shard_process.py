@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import argparse
-from typing import Dict, Any, List, Literal, Optional, Tuple
+from typing import Dict, Any, List, Literal, Tuple, TypeAlias, Union, cast
 
 import yaml
 import sglang as sgl
@@ -10,10 +10,12 @@ from dacite import from_dict
 from dataclasses import asdict, dataclass, field
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk, concatenate_datasets
 from jmespath import search  # TODO: use compile to go faster
-from pydantic import BaseModel, create_model
-from transformers import GenerationConfig
+from pydantic import create_model
+from transformers.models import GenerationConfig
 
 from prompts import ASSISTANT_ONLY_MD_PROMPT
+
+EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 
 
 @dataclass
@@ -52,6 +54,15 @@ class ProcessingGenParams:
         if isinstance(self.batch_size, str):
             self.batch_size = int(self.batch_size) if self.batch_size.isdigit() else 64
         self.batch_size = max(self.batch_size, 1)
+    
+    def get_num_shards(self) -> int:
+        return cast(int, self.num_shards)
+    
+    def get_shard_id(self) -> int:
+        return cast(int, self.shard_id)
+    
+    def get_batch_size(self) -> int:
+        return cast(int, self.batch_size)
 
 
 @dataclass
@@ -70,9 +81,9 @@ class OutputVar:
         default_factory=list
     )  # empty list if output_type is "plain"
 
-    def get_output_schema(self) -> Optional[BaseModel]:
+    def get_output_schema(self):
         if self.output_type == "JSON" and self.output_schema:
-            fields = {
+            fields: Dict[str, Any] = {
                 var: (str, ...) for var in self.output_schema
             }  # ... means required field
             return create_model(f"OutputSchema", **fields)
@@ -101,13 +112,15 @@ class ProcessingParams:
 @dataclass
 class MirageConfig:
     engine: EngineConfig
-    sampling_params: Dict[str, Any] | GenerationConfig
+    sampling_params: Dict[str, Any]
     processing_gen_params: ProcessingGenParams
     processing_params: ProcessingParams
 
     def __post_init__(self):
-        self.sampling_params = GenerationConfig(**self.sampling_params)
-
+        self.sampling_params_internal = GenerationConfig(**cast(Dict[str, Any], self.sampling_params))
+    
+    def get_sampling_params(self) -> GenerationConfig:
+        return self.sampling_params_internal
 
 # -------------------------
 # helpers
@@ -164,9 +177,9 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
         modalities: {{ modalities }}
     """
     with open(config_path, "r") as f:
-        cfg: dict = yaml.safe_load(f) or {}
+        cfg: EnvValue = yaml.safe_load(f) or {}
 
-    def expand_env_vars(obj):
+    def expand_env_vars(obj: EnvValue) -> EnvValue:
         if isinstance(obj, dict):
             return {key: expand_env_vars(value) for key, value in obj.items()}
         elif isinstance(obj, list):
@@ -177,7 +190,7 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
             return obj
 
     cfg = expand_env_vars(cfg)
-    cfg_obj = from_dict(MirageConfig, cfg)
+    cfg_obj = from_dict(MirageConfig, cast(dict, cfg))
     engine_args = cfg_obj.engine
     llm = sgl.Engine(**asdict(engine_args))
 
@@ -208,7 +221,7 @@ def main():
     # Load SGLang engine + sampling + batch size
     # -------------------------
     llm, cfg = load_engine_from_yaml(args.config)
-    sampling_params = cfg.sampling_params
+    sampling_params = cfg.get_sampling_params()
     assert isinstance(sampling_params, GenerationConfig)
     processing_gen_params = cfg.processing_gen_params
     processing_params = cfg.processing_params
@@ -218,8 +231,8 @@ def main():
         raise ValueError(
             "No datasets provided in config.processing_gen_params.datasets"
         )
-    shard_id = processing_gen_params.shard_id
-    num_shards = processing_gen_params.num_shards
+    shard_id = processing_gen_params.get_shard_id()
+    num_shards = processing_gen_params.get_num_shards()
 
     if not (0 <= shard_id < num_shards):
         raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
@@ -231,13 +244,13 @@ def main():
     # -------------------------
     # Load all input datasets and concatenate
     # -------------------------
-    def load_datasets_from_configs(configs: List[DatasetConfig]) -> List[Dataset | DatasetDict]:
+    def load_datasets_from_configs(configs: List[DatasetConfig]) -> List[Dataset]:
         valid_ds = []
         for ds_config in configs:
             path = ds_config.path
 
             if not os.path.exists(path):
-                print(f"⚠️ Dataset path does not exist, skipping: {p}")
+                print(f"⚠️ Dataset path does not exist, skipping: {path}")
                 continue
             try:
                 if ds_config.type == "JSONL":
@@ -245,7 +258,7 @@ def main():
                 else:
                     ds = load_from_disk(path)
 
-                valid_ds.append(ds)
+                valid_ds.append(cast(Dataset, ds))
             except Exception as e:
                 print(f"⚠️ Failed to load dataset from {path}, skipping. Reason: {e}")
         return valid_ds
@@ -273,7 +286,7 @@ def main():
             f"but dataset has columns: {ds_shard.column_names}"
         )
 
-    sampling_params: Dict[str, Any] = sampling_params.to_dict()
+    sampling_params_dict: Dict[str, Any] = sampling_params.to_dict()
 
     # -------------------------
     # Batched rewrite function for HF map
@@ -312,7 +325,7 @@ def main():
             outputs: List[Dict[str, Any]] = []
             for output in processing_params.outputs:
                 prompts_for_output = [output.prompt.format(**var) for var in vars]
-                sampling_params_output = sampling_params.copy()
+                sampling_params_output = sampling_params_dict.copy()
                 if output.output_type == "JSON":
                     json_schema = output.get_output_schema()
                     if json_schema is None:
@@ -394,7 +407,7 @@ def main():
     ds_processed = ds_shard.map(
         rewrite_batch,
         batched=True,
-        batch_size=processing_gen_params.batch_size,
+        batch_size=processing_gen_params.get_batch_size(),
         load_from_cache_file=False,
         desc=f"Shard {shard_id}/{num_shards - 1}",
     )
