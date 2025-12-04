@@ -317,9 +317,11 @@ def main():
             Tuple[int, OutputVar, str]
         ] = []  # (example_idx, output_var, prompt_str)
         vars: List[Dict[str, Any]] = []  # input vars for each example
-
-        # First pass: collect prompts where there is a non-empty assistant turn
-        for sample in batch:
+        
+        # turn the dictionary of lists into a list of dictionaries
+        batch_list = [{k: v[i] for k, v in batch.items()} for i in range(len(next(iter(batch.values()))))]
+        
+        for sample in batch_list:
             current_vars = extract_input_vars(sample)
             vars.append(current_vars)
 
