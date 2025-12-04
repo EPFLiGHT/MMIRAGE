@@ -323,10 +323,6 @@ def main():
             current_vars = extract_input_vars(sample)
             vars.append(current_vars)
 
-        # Nothing to rewrite in this batch
-        if not prompts:
-            return batch
-
         try:
             # Non-streaming synchronous batch generation
             outputs: List[Dict[str, Any]] = []
