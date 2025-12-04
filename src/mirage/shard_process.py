@@ -41,9 +41,6 @@ class ProcessingGenParams:
     shard_id: int | str = (
         0  # Index of this shard (0-based; usually $SLURM_ARRAY_TASK_ID).
     )
-    conversations_field: str = (
-        "conversations"  # Name of the column containing the list of dialog turns.
-    )
     batch_size: int | str = 64  # Batch size for processing
 
     def __post_init__(self):
@@ -145,7 +142,6 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
       output_dir: "/path/to/output"
       num_shards: 8
       shard_id: 0
-      conversations_field: "conversations"
 
     processing_params:
       inputs:
@@ -307,13 +303,6 @@ def main():
         f"Loaded {len(datasets)} dataset(s): {datasets} "
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
-
-    conv_field = processing_gen_params.conversations_field
-    if conv_field not in ds_shard.column_names:
-        raise ValueError(
-            f"Expected conversations column '{conv_field}', "
-            f"but dataset has columns: {ds_shard.column_names}"
-        )
 
     sampling_params_dict: Dict[str, Any] = sampling_params.to_dict()
 
