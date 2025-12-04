@@ -8,7 +8,7 @@ import yaml
 import sglang as sgl
 from dacite import from_dict
 from dataclasses import asdict, dataclass, field
-from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict, load_dataset, load_from_disk, concatenate_datasets, interleave_datasets
+from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict, load_dataset, load_from_disk, concatenate_datasets
 from jmespath import search  # TODO: use compile to go faster
 from pydantic import create_model
 from transformers import GenerationConfig
@@ -203,35 +203,6 @@ def build_prompt(text: str) -> str:
     return ASSISTANT_ONLY_MD_PROMPT.format(payload=payload)
 
 
-def flatten_dataset(ds: Union[Dataset, DatasetDict, IterableDataset, IterableDatasetDict]):
-    """
-    Convert any HuggingFace dataset object into a single dataset.
-    - Dataset → returned unchanged
-    - DatasetDict → concatenates splits
-    - IterableDataset → returned unchanged
-    - IterableDatasetDict → interleaves splits
-    """
-    
-    # Case 1: Single Dataset
-    if isinstance(ds, Dataset):
-        return ds
-    
-    # Case 2: DatasetDict → concatenate all splits in order
-    if isinstance(ds, DatasetDict):
-        return concatenate_datasets([split for split in ds.values()])
-    
-    # Case 3: Single IterableDataset
-    if isinstance(ds, IterableDataset):
-        return ds
-    
-    # Case 4: IterableDatasetDict → interleave all splits
-    if isinstance(ds, IterableDatasetDict):
-        # Interleave keeps them mixed but preserves streaming
-        return interleave_datasets([split for split in ds.values()])
-    
-    raise TypeError(f"Unsupported dataset type: {type(ds)}")
-
-
 # -------------------------
 # main
 # -------------------------
@@ -273,7 +244,7 @@ def main():
     # -------------------------
     # Load all input datasets and concatenate
     # -------------------------
-    def load_datasets_from_configs(configs: List[DatasetConfig]) -> List[Dataset | IterableDataset]:
+    def load_datasets_from_configs(configs: List[DatasetConfig]) -> List[Dataset]:
         valid_ds = []
         for ds_config in configs:
             path = ds_config.path
@@ -283,11 +254,18 @@ def main():
                 continue
             try:
                 if ds_config.type == "JSONL":
-                    ds = load_dataset("json", data_files=path)
+                    ds = load_dataset("json", data_files=path, streaming=False)
+                    # no support of iterable datasets
+                    assert not isinstance(ds, IterableDatasetDict)
+                    assert not isinstance(ds, IterableDataset)
                 else:
                     ds = load_from_disk(path)
+                
+                if isinstance(ds, DatasetDict):
+                    # Merge all splits into one Dataset
+                    ds = concatenate_datasets([ds[split] for split in ds.keys()])
 
-                valid_ds.append(flatten_dataset(ds))
+                valid_ds.append(ds)
             except Exception as e:
                 print(f"⚠️ Failed to load dataset from {path}, skipping. Reason: {e}")
         return valid_ds
