@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import nest_asyncio
 import re
 import sys
 from dataclasses import asdict, dataclass, field
@@ -293,6 +294,7 @@ def build_prompt(text: str) -> str:
 # main
 # -------------------------
 def main():
+    nest_asyncio.apply()
     ap = argparse.ArgumentParser(
         "Rewrite the assistant turn inside `conversations` into Markdown using SGLang + HF map + sharding."
     )
