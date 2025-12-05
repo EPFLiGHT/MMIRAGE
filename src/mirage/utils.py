@@ -192,7 +192,9 @@ def load_datasets_from_configs(configs: List[DatasetConfig]) -> Dataset:
         except Exception as e:
             print(f"⚠️ Failed to load dataset from {path}, skipping. Reason: {e}")
 
-    if len(valid_ds) == 1:
+    if not valid_ds:
+        raise RuntimeError("No valid datasets loaded from the provided configs.")
+    elif len(valid_ds) == 1:
         return valid_ds[0]
     else:
         return concatenate_datasets(valid_ds)
