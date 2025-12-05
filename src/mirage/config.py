@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
-from pydantic import create_model
-from typing import Any, Dict, List, Literal, cast
+from pydantic import BaseModel, create_model
+from typing import Any, Dict, List, Literal, Optional, Type, cast
 
 # Dataclasses
 
@@ -69,7 +69,7 @@ class OutputVar:
         default_factory=list
     )  # empty list if output_type is "plain"
 
-    def get_output_schema(self):
+    def get_output_schema(self) -> Optional[Type[BaseModel]]:
         if self.output_type == "JSON" and self.output_schema:
             fields: Dict[str, Any] = {
                 var: (str, ...) for var in self.output_schema
