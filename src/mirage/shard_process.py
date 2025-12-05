@@ -152,11 +152,12 @@ def main():
     # Apply map with batching
     # -------------------------
     ds_processed = ds_shard.map(
-        lambda x: rewrite_batch(processing_params.inputs, processing_params.outputs, sampling_params, processing_params.output_schema, llm, shard_id, x),
+        rewrite_batch,
         batched=True,
         batch_size=processing_gen_params.get_batch_size(),
         load_from_cache_file=False,
         desc=f"Shard {shard_id}/{num_shards - 1}",
+        fn_kwargs={"shard_id": shard_id, "llm": llm, "processing_outputs": processing_params.outputs, "processing_inputs": processing_params.inputs, "sampling_params": sampling_params, "output_schema": processing_params.output_schema},
     )
 
     # -------------------------
