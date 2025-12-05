@@ -206,7 +206,13 @@ def extract_input_vars(input_vars: List[InputVar], sample: Dict[str, Any]) -> Di
     ret: Dict[str, Any] = {}
     for input_var in input_vars:
         value = search(input_var.key, sample)
+        if value is None:
+            raise ValueError(
+                f"Input variable '{input_var.name}' with key '{input_var.key}' "
+                "not found in the sample."
+            )
         ret[input_var.name] = value
+
     return ret
 
 def fill_template_recursive(template: Any, vars_dict: Dict[str, Any]) -> Any:
