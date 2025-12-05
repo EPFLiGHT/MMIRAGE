@@ -12,7 +12,7 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
     prompts: List[
         Tuple[int, OutputVar, str]
     ] = []  # (example_idx, output_var, prompt_str)
-    vars: List[Dict[str, Any]] = []  # input vars for each example
+    vars_samples: List[Dict[str, Any]] = []  # input vars for each example
 
     # turn the dictionary of lists into a list of dictionaries
     batch_list: List[Dict[str, Any]] = []
@@ -26,14 +26,14 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
 
     for sample in batch_list:
         current_vars = extract_input_vars(processing_inputs, sample)
-        vars.append(current_vars)
+        vars_samples.append(current_vars)
 
     try:
         # Non-streaming synchronous batch generation
         outputs: List[Dict[str, Any]] = []
         for output in processing_outputs:
-            prompts_for_output = [output.prompt.format(**var) for var in vars]
-            prompts += [(i, output, x) for i, x in enumerate(prompts_for_output)]
+            prompts_for_output = [output.prompt.format(**var) for var in vars_samples]
+            prompts += [(i, output) for i in range(len(prompts_for_output))]
 
             sampling_params_output = sampling_params.copy()
             if output.output_type == "JSON":
@@ -69,9 +69,9 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
         return batch
 
     new_results = []
-    for (ex_idx, output_var, _), output in zip(prompts, outputs):
+    for (ex_idx, output_var), output in zip(prompts, outputs):
         out_text = output.get("text", "").strip()
-        vars_ex = vars[ex_idx]
+        vars_ex = vars_samples[ex_idx]
         vars_ex[output_var.name] = out_text
 
         # Rebuild the output according to output_schema template
