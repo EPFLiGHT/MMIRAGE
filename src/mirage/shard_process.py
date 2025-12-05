@@ -410,7 +410,7 @@ def main():
         batch_list: List[Dict[str, Any]] = []
         for i, (key, values) in enumerate(batch.items()):
             if i == 0:  # first column
-                batch_list.append({key: x for x in values})
+                batch_list += [{key: x} for x in values]
             else:
                 assert len(values) == len(batch_list)
                 for j, x in enumerate(values):
