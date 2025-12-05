@@ -5,8 +5,8 @@ import sglang as sgl
 import sys
 from typing import Any, Dict, List, Tuple
 
-from config import InputVar, OutputVar
-from utils import extract_input_vars, fill_template_recursive, load_datasets_from_configs, load_engine_from_yaml, validate_processing_params
+from mirage.config import InputVar, OutputVar
+from mirage.utils import extract_input_vars, fill_template_recursive, load_datasets_from_configs, load_engine_from_yaml, validate_processing_params
 
 def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar], processing_outputs: List[OutputVar], sampling_params: Dict[str, Any], output_schema: Dict[str, Any], llm: sgl.Engine, shard_id: int) -> Dict[str, List[Any]]:
     prompts: List[

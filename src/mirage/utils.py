@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Tuple, TypeAlias, TYPE_CHECKING, Union, cast
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 
 if TYPE_CHECKING:
-    from config import DatasetConfig, InputVar, MirageConfig, ProcessingParams
+    from mirage.config import DatasetConfig, InputVar, MirageConfig, ProcessingParams
 
 # Utilities
 
@@ -72,7 +72,7 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
           content: {{ formatted_answer }}
         modalities: {{ modalities }}
     """
-    from config import MirageConfig
+    from mirage.config import MirageConfig
 
     with open(config_path, "r") as f:
         cfg: EnvValue = yaml.safe_load(f) or {}
