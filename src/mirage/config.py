@@ -2,8 +2,6 @@ from dataclasses import dataclass, field
 from pydantic import create_model
 from typing import Any, Dict, List, Literal, cast
 
-from utils import validate_sampling_params_for_sglang
-
 # Dataclasses
 
 @dataclass
@@ -93,6 +91,3 @@ class MirageConfig:
     sampling_params: Dict[str, Any]
     processing_gen_params: ProcessingGenParams
     processing_params: ProcessingParams
-
-    def __post_init__(self):
-        validate_sampling_params_for_sglang(self.sampling_params)
