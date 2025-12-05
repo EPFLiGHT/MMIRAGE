@@ -16,7 +16,7 @@ def build_prompt(text: str) -> str:
     payload = json.dumps({"assistant_text": text}, ensure_ascii=False)
     return ASSISTANT_ONLY_MD_PROMPT.format(payload=payload)
 
-def rewrite_batch(processing_inputs: List[InputVar], processing_outputs: List[OutputVar], sampling_params: Dict[str, Any], output_schema: Dict[str, Any], llm: sgl.Engine, shard_id: int, batch: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
+def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar], processing_outputs: List[OutputVar], sampling_params: Dict[str, Any], output_schema: Dict[str, Any], llm: sgl.Engine, shard_id: int) -> Dict[str, List[Any]]:
     prompts: List[
         Tuple[int, OutputVar, str]
     ] = []  # (example_idx, output_var, prompt_str)
