@@ -1,5 +1,5 @@
 engine:
-  model_path: "Qwen/Qwen3-8B"
+  model_path: Qwen/Qwen3-4B-Instruct-2507
   tp_size: 4          # use all 4 GPUs on the node
   trust_remote_code: true
 
@@ -7,12 +7,15 @@ sampling_params:
   temperature: 0.1
   top_p: 1.0
   max_new_tokens: 384
+  custom_params:
+    chat_template_kwargs: 
+      enable_thinking: false
 
 processing_gen_params:
   datasets:
-    - path: /capstor/store/cscs/swissai/a127/meditron/datasets/polyglot/english_small.jsonl
+    - path: /capstor/store/cscs/swissai/a127/meditron/datasets/polyglot/english_tiny.jsonl
       type: JSONL
-  output_dir: /capstor/store/cscs/swissai/a127/homes/$USER/datasets/english_small/shards
+  output_dir: /capstor/store/cscs/swissai/a127/homes/$USER/datasets/english_tiny/shards
   num_shards: "$SLURM_ARRAY_TASK_COUNT"
   shard_id: "$SLURM_ARRAY_TASK_ID"
   conversations_field: "conversations"
