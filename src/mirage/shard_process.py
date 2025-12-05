@@ -15,14 +15,10 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
     vars_samples: List[Dict[str, Any]] = []  # input vars for each example
 
     # turn the dictionary of lists into a list of dictionaries
-    batch_list: List[Dict[str, Any]] = []
-    for i, (key, values) in enumerate(batch.items()):
-        if i == 0:  # first column
-            batch_list += [{key: x} for x in values]
-        else:
-            assert len(values) == len(batch_list)
-            for j, x in enumerate(values):
-                batch_list[j][key] = x
+    batch_list: List[Dict[str, Any]] = [
+        {k: batch[k][i] for k in batch.keys()}
+        for i in range(len(next(iter(batch.values()))))
+    ]
 
     for sample in batch_list:
         current_vars = extract_input_vars(processing_inputs, sample)
