@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 # -------------------------
 # helpers
 # -------------------------
-def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, "MirageConfig"]:
+def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
     """
     Load SGLang engine, sampling params, and batch size from YAML config.
 
@@ -70,6 +70,8 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, "MirageConfig"]
           content: {{ formatted_answer }}
         modalities: {{ modalities }}
     """
+    from config import MirageConfig
+
     with open(config_path, "r") as f:
         cfg: EnvValue = yaml.safe_load(f) or {}
 
@@ -91,7 +93,7 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, "MirageConfig"]
     return llm, cfg_obj
 
 
-def validate_processing_params(params: "ProcessingParams") -> None:
+def validate_processing_params(params: ProcessingParams) -> None:
     """
     Validate that ProcessingParams.output_schema uses only variables defined in
     inputs and outputs.
