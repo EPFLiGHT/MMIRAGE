@@ -5,16 +5,8 @@ import sglang as sgl
 import sys
 from typing import Any, Dict, List, Tuple
 
-from datasets import concatenate_datasets
-from prompts import ASSISTANT_ONLY_MD_PROMPT
-
 from config import InputVar, OutputVar
 from utils import extract_input_vars, fill_template_recursive, load_datasets_from_configs, load_engine_from_yaml, validate_processing_params
-
-def build_prompt(text: str) -> str:
-    """Build the Markdown-enhancement prompt for a single assistant message."""
-    payload = json.dumps({"assistant_text": text}, ensure_ascii=False)
-    return ASSISTANT_ONLY_MD_PROMPT.format(payload=payload)
 
 def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar], processing_outputs: List[OutputVar], sampling_params: Dict[str, Any], output_schema: Dict[str, Any], llm: sgl.Engine, shard_id: int) -> Dict[str, List[Any]]:
     prompts: List[

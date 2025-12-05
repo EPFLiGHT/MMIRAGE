@@ -5,8 +5,6 @@ import re
 import sglang as sgl
 import yaml
 
-from sglang.srt.sampling.sampling_params import SamplingParams
-
 from dacite import from_dict
 from dataclasses import asdict
 from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict, concatenate_datasets, load_dataset, load_from_disk
