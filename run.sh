@@ -16,7 +16,7 @@
 export ROOT=/capstor/store/cscs/swissai/a127/homes/$USER/datasets/english_small
 export SHARDS_ROOT="$ROOT/shards"
 export MERGED_DIR="$ROOT/merged"
-export CFG=/users/$USER/MIRAGE/src/mirage/config_small.yaml
+export CFG=/users/$USER/MIRAGE/configs/config_small.yaml
 
 # HF cache/home
 export HF_HOME=/capstor/store/cscs/swissai/a127/homes/$USER/hf
