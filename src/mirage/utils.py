@@ -5,6 +5,8 @@ import re
 import sglang as sgl
 import yaml
 
+from sglang.srt.sampling.sampling_params import SamplingParams
+
 from dacite import from_dict
 from dataclasses import asdict
 from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict, concatenate_datasets, load_dataset, load_from_disk
@@ -168,61 +170,63 @@ def validate_processing_params(params: ProcessingParams) -> None:
     )
 
 def validate_sampling_params_for_sglang(params: dict):
-    VALID_SAMPLING_PARAMS = {
-        "temperature": float,
-        "top_k": int,
-        "top_p": float,
-        "repetition_penalty": float,
-        "frequency_penalty": float,
-        "presence_penalty": float,
-        "max_new_tokens": int,
-        "min_new_tokens": int,
-        "stop": (str, list),
-        "stop_token_ids": list,
-        "seed": int,
-        "ignore_eos": bool,
-        "stream": bool,
-    }
+    params = SamplingParams(**params)
+    params.verify(vocab_size=float("inf")) # Hacky stuff but works
+    # VALID_SAMPLING_PARAMS = {
+    #     "temperature": float,
+    #     "top_k": int,
+    #     "top_p": float,
+    #     "repetition_penalty": float,
+    #     "frequency_penalty": float,
+    #     "presence_penalty": float,
+    #     "max_new_tokens": int,
+    #     "min_new_tokens": int,
+    #     "stop": (str, list),
+    #     "stop_token_ids": list,
+    #     "seed": int,
+    #     "ignore_eos": bool,
+    #     "stream": bool,
+    # }
 
-    errors = []
+    # errors = []
 
-    for key, value in params.items():
-        if key not in VALID_SAMPLING_PARAMS:
-            errors.append(f"Unknown parameter: '{key}'")
-            continue
+    # for key, value in params.items():
+    #     if key not in VALID_SAMPLING_PARAMS:
+    #         errors.append(f"Unknown parameter: '{key}'")
+    #         continue
 
-        expected_type = VALID_SAMPLING_PARAMS[key]
+    #     expected_type = VALID_SAMPLING_PARAMS[key]
 
-        if not isinstance(value, expected_type):
-            errors.append(f"Parameter '{key}' must be of type {expected_type}, got {type(value)} instead.")
-            continue
+    #     if not isinstance(value, expected_type):
+    #         errors.append(f"Parameter '{key}' must be of type {expected_type}, got {type(value)} instead.")
+    #         continue
 
-        # Range checks
-        if key == "temperature" and value <= 0:
-            errors.append("temperature must be > 0")
-        if key == "top_k" and value < 0:
-            errors.append("top_k must be >= 0")
-        if key == "top_p" and not (0 <= value <= 1):
-            errors.append("top_p must be between 0 and 1")
-        if key == "repetition_penalty" and value < 1:
-            errors.append("repetition_penalty must be >= 1")
-        if key in ("frequency_penalty", "presence_penalty") and value < 0:
-            errors.append(f"{key} must be >= 0")
-        if key == "max_new_tokens" and value <= 0:
-            errors.append("max_new_tokens must be > 0")
-        if key == "min_new_tokens" and value < 0:
-            errors.append("min_new_tokens must be >= 0")
+    #     # Range checks
+    #     if key == "temperature" and value <= 0:
+    #         errors.append("temperature must be > 0")
+    #     if key == "top_k" and value < 0:
+    #         errors.append("top_k must be >= 0")
+    #     if key == "top_p" and not (0 <= value <= 1):
+    #         errors.append("top_p must be between 0 and 1")
+    #     if key == "repetition_penalty" and value < 1:
+    #         errors.append("repetition_penalty must be >= 1")
+    #     if key in ("frequency_penalty", "presence_penalty") and value < 0:
+    #         errors.append(f"{key} must be >= 0")
+    #     if key == "max_new_tokens" and value <= 0:
+    #         errors.append("max_new_tokens must be > 0")
+    #     if key == "min_new_tokens" and value < 0:
+    #         errors.append("min_new_tokens must be >= 0")
 
-        if key == "stop":
-            if isinstance(value, list) and not all(isinstance(s, str) for s in value):
-                errors.append("stop must be a string or list of strings")
+    #     if key == "stop":
+    #         if isinstance(value, list) and not all(isinstance(s, str) for s in value):
+    #             errors.append("stop must be a string or list of strings")
 
-        if key == "stop_token_ids":
-            if not all(isinstance(s, int) for s in value):
-                errors.append("stop_token_ids must be a list of integers")
+    #     if key == "stop_token_ids":
+    #         if not all(isinstance(s, int) for s in value):
+    #             errors.append("stop_token_ids must be a list of integers")
 
-    if errors:
-        raise ValueError("Sampling parameters validation errors:\n" + "\n".join(errors))
+    # if errors:
+    #     raise ValueError("Sampling parameters validation errors:\n" + "\n".join(errors))
 
 
 def load_datasets_from_configs(configs: List[DatasetConfig]) -> Dataset:
