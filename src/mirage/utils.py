@@ -8,7 +8,7 @@ import yaml
 from dacite import from_dict
 from dataclasses import asdict
 from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict, concatenate_datasets, load_dataset, load_from_disk
-from jmespath import search  # TODO: use compile to go faster
+from jmespath import search
 from typing import Any, Dict, List, Tuple, TypeAlias, TYPE_CHECKING, Union, cast
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
