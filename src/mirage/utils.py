@@ -9,7 +9,7 @@ from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict,
 from jmespath import search  # TODO: use compile to go faster
 from typing import Any, Dict, List, Tuple, TypeAlias, Union, cast
 
-from .config import DatasetConfig, InputVar, MirageConfig, ProcessingParams
+from config import DatasetConfig, InputVar, MirageConfig, ProcessingParams
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 

@@ -7,8 +7,8 @@ from typing import Any, Dict, List, Tuple
 from datasets import concatenate_datasets
 from prompts import ASSISTANT_ONLY_MD_PROMPT
 
-from .config import OutputVar
-from .utils import extract_input_vars, fill_template_recursive, load_datasets_from_configs, load_engine_from_yaml, validate_processing_params
+from config import OutputVar
+from utils import extract_input_vars, fill_template_recursive, load_datasets_from_configs, load_engine_from_yaml, validate_processing_params
 
 def build_prompt(text: str) -> str:
     """Build the Markdown-enhancement prompt for a single assistant message."""

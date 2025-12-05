@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from pydantic import create_model
 from typing import Any, Dict, List, Literal, cast
 
-from .utils import validate_sampling_params_for_sglang
+from utils import validate_sampling_params_for_sglang
 
 # Dataclasses
 
