@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import json
 import os
 import nest_asyncio
@@ -294,6 +295,7 @@ def build_prompt(text: str) -> str:
 # main
 # -------------------------
 def main():
+    asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
     nest_asyncio.apply()
     ap = argparse.ArgumentParser(
         "Rewrite the assistant turn inside `conversations` into Markdown using SGLang + HF map + sharding."
