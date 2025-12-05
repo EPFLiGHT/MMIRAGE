@@ -7,11 +7,12 @@ from dacite import from_dict
 from dataclasses import asdict
 from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict, concatenate_datasets, load_dataset, load_from_disk
 from jmespath import search  # TODO: use compile to go faster
-from typing import Any, Dict, List, Tuple, TypeAlias, Union, cast
-
-from config import DatasetConfig, InputVar, MirageConfig, ProcessingParams
+from typing import Any, Dict, List, Tuple, TypeAlias, TYPE_CHECKING, Union, cast
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
+
+if TYPE_CHECKING:
+    from config import DatasetConfig, InputVar, MirageConfig, ProcessingParams
 
 # Utilities
 
@@ -219,31 +220,37 @@ def validate_sampling_params_for_sglang(params: dict):
     if errors:
         raise ValueError("Sampling parameters validation errors:\n" + "\n".join(errors))
 
-def load_datasets_from_configs(configs: List[DatasetConfig]) -> List[Dataset]:
-        valid_ds = []
-        for ds_config in configs:
-            path = ds_config.path
 
-            if not os.path.exists(path):
-                print(f"⚠️ Dataset path does not exist, skipping: {path}")
-                continue
-            try:
-                if ds_config.type == "JSONL":
-                    ds = load_dataset("json", data_files=path, streaming=False)
-                    # no support of iterable datasets
-                    assert not isinstance(ds, IterableDatasetDict)
-                    assert not isinstance(ds, IterableDataset)
-                else:
-                    ds = load_from_disk(path)
+def load_datasets_from_configs(configs: List[DatasetConfig]) -> Dataset:
+    valid_ds = []
+    for ds_config in configs:
+        path = ds_config.path
 
-                if isinstance(ds, DatasetDict):
-                    # Merge all splits into one Dataset
-                    ds = concatenate_datasets([ds[split] for split in ds.keys()])
+        if not os.path.exists(path):
+            print(f"⚠️ Dataset path does not exist, skipping: {path}")
+            continue
+        try:
+            if ds_config.type == "JSONL":
+                ds = load_dataset("json", data_files=path, streaming=False)
+                # no support of iterable datasets
+                assert not isinstance(ds, IterableDatasetDict)
+                assert not isinstance(ds, IterableDataset)
+            else:
+                ds = load_from_disk(path)
 
-                valid_ds.append(ds)
-            except Exception as e:
-                print(f"⚠️ Failed to load dataset from {path}, skipping. Reason: {e}")
-        return valid_ds
+            if isinstance(ds, DatasetDict):
+                # Merge all splits into one Dataset
+                ds = concatenate_datasets([ds[split] for split in ds.keys()])
+
+            valid_ds.append(ds)
+        except Exception as e:
+            print(f"⚠️ Failed to load dataset from {path}, skipping. Reason: {e}")
+
+    if len(valid_ds) == 1:
+        return valid_ds[0]
+    else:
+        return concatenate_datasets(valid_ds)
+
 
 def extract_input_vars(input_vars: List[InputVar], sample: Dict[str, Any]) -> Dict[str, Any]:
     """Recursively extract all input variables from a dataset sample."""

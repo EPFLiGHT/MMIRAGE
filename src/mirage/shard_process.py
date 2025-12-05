@@ -1,13 +1,14 @@
 import argparse
 import json
 import os
+import sglang as sgl
 import sys
 from typing import Any, Dict, List, Tuple
 
 from datasets import concatenate_datasets
 from prompts import ASSISTANT_ONLY_MD_PROMPT
 
-from config import OutputVar
+from config import InputVar, OutputVar
 from utils import extract_input_vars, fill_template_recursive, load_datasets_from_configs, load_engine_from_yaml, validate_processing_params
 
 def build_prompt(text: str) -> str:
@@ -15,6 +16,85 @@ def build_prompt(text: str) -> str:
     payload = json.dumps({"assistant_text": text}, ensure_ascii=False)
     return ASSISTANT_ONLY_MD_PROMPT.format(payload=payload)
 
+def rewrite_batch(processing_inputs: List[InputVar], processing_outputs: List[OutputVar], sampling_params: Dict[str, Any], output_schema: Dict[str, Any], llm: sgl.Engine, shard_id: int, batch: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
+    prompts: List[
+        Tuple[int, OutputVar, str]
+    ] = []  # (example_idx, output_var, prompt_str)
+    vars: List[Dict[str, Any]] = []  # input vars for each example
+
+    # turn the dictionary of lists into a list of dictionaries
+    batch_list: List[Dict[str, Any]] = []
+    for i, (key, values) in enumerate(batch.items()):
+        if i == 0:  # first column
+            batch_list += [{key: x} for x in values]
+        else:
+            assert len(values) == len(batch_list)
+            for j, x in enumerate(values):
+                batch_list[j][key] = x
+
+    for sample in batch_list:
+        current_vars = extract_input_vars(processing_inputs, sample)
+        vars.append(current_vars)
+
+    try:
+        # Non-streaming synchronous batch generation
+        outputs: List[Dict[str, Any]] = []
+        for output in processing_outputs:
+            prompts_for_output = [output.prompt.format(**var) for var in vars]
+            prompts += [(i, output, x) for i, x in enumerate(prompts_for_output)]
+
+            sampling_params_output = sampling_params.copy()
+            if output.output_type == "JSON":
+                json_schema = output.get_output_schema()
+                if json_schema is None:
+                    raise ValueError(
+                        f"Output variable {output.name} has output_type=JSON "
+                        "but no output_schema defined."
+                    )
+
+                sampling_params_output["json_schema"] = json.dumps(json_schema)
+
+            outputs_for_output = llm.generate(
+                prompts_for_output, sampling_params_output
+            )
+            assert len(prompts_for_output) == len(outputs_for_output)
+
+            outputs += outputs_for_output
+    except Exception as e:
+        print(
+            f"[shard {shard_id}] Batch generation failed: {e}",
+            file=sys.stderr,
+        )
+        # On error, keep original conversations for this batch
+        return batch
+
+    if not isinstance(outputs, list) or len(outputs) != len(prompts):
+        print(
+            f"[shard {shard_id}] Unexpected outputs length from llm.generate: "
+            f"expected {len(prompts)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
+            file=sys.stderr,
+        )
+        return batch
+
+    new_results = []
+    for (ex_idx, output_var, _), output in zip(prompts, outputs):
+        out_text = output.get("text", "").strip()
+        vars_ex = vars[ex_idx]
+        vars_ex[output_var.name] = out_text
+
+        # Rebuild the output according to output_schema template
+        filled_output = fill_template_recursive(output_schema, vars_ex)
+
+        new_results.append(filled_output)
+
+    # Only return the updated conversations column; HF keeps other columns
+
+    # Build result dict with all columns from output_schema
+    result_batch: Dict[str, List[Any]] = {}
+    for key in output_schema.keys():
+        result_batch[key] = [result.get(key) for result in new_results]
+
+    return result_batch
 
 # -------------------------
 # main
@@ -57,12 +137,7 @@ def main():
     # -------------------------
     # Load all input datasets and concatenate
     # -------------------------
-    ds_list = load_datasets_from_configs(datasets)
-    if len(ds_list) == 1:
-        ds_all = ds_list[0]
-    else:
-        ds_all = concatenate_datasets(ds_list)
-
+    ds_all = load_datasets_from_configs(datasets)
     total_rows = len(ds_all)
 
     ds_shard = ds_all.shard(num_shards=num_shards, index=shard_id)
@@ -74,95 +149,10 @@ def main():
     )
 
     # -------------------------
-    # Batched rewrite function for HF map
-    # -------------------------
-
-    def rewrite_batch(batch: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
-        prompts: List[
-            Tuple[int, OutputVar, str]
-        ] = []  # (example_idx, output_var, prompt_str)
-        vars: List[Dict[str, Any]] = []  # input vars for each example
-
-        # turn the dictionary of lists into a list of dictionaries
-        batch_list: List[Dict[str, Any]] = []
-        for i, (key, values) in enumerate(batch.items()):
-            if i == 0:  # first column
-                batch_list += [{key: x} for x in values]
-            else:
-                assert len(values) == len(batch_list)
-                for j, x in enumerate(values):
-                    batch_list[j][key] = x
-
-        for sample in batch_list:
-            current_vars = extract_input_vars(processing_params.inputs, sample)
-            vars.append(current_vars)
-
-        try:
-            # Non-streaming synchronous batch generation
-            outputs: List[Dict[str, Any]] = []
-            for output in processing_params.outputs:
-                prompts_for_output = [output.prompt.format(**var) for var in vars]
-                prompts += [(i, output, x) for i, x in enumerate(prompts_for_output)]
-
-                sampling_params_output = sampling_params.copy()
-                if output.output_type == "JSON":
-                    json_schema = output.get_output_schema()
-                    if json_schema is None:
-                        raise ValueError(
-                            f"Output variable {output.name} has output_type=JSON "
-                            "but no output_schema defined."
-                        )
-
-                    sampling_params_output["json_schema"] = json.dumps(json_schema)
-
-                outputs_for_output = llm.generate(
-                    prompts_for_output, sampling_params_output
-                )
-                assert len(prompts_for_output) == len(outputs_for_output)
-
-                outputs += outputs_for_output
-        except Exception as e:
-            print(
-                f"[shard {shard_id}] Batch generation failed: {e}",
-                file=sys.stderr,
-            )
-            # On error, keep original conversations for this batch
-            return batch
-
-        if not isinstance(outputs, list) or len(outputs) != len(prompts):
-            print(
-                f"[shard {shard_id}] Unexpected outputs length from llm.generate: "
-                f"expected {len(prompts)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
-                file=sys.stderr,
-            )
-            return batch
-
-        new_results = []
-        for (ex_idx, output_var, _), output in zip(prompts, outputs):
-            out_text = output.get("text", "").strip()
-            vars_ex = vars[ex_idx]
-            vars_ex[output_var.name] = out_text
-
-            # Rebuild the output according to output_schema template
-            output_schema = processing_params.output_schema
-            filled_output = fill_template_recursive(output_schema, vars_ex)
-
-            new_results.append(filled_output)
-
-        # Only return the updated conversations column; HF keeps other columns
-
-        # Build result dict with all columns from output_schema
-        result_batch: Dict[str, List[Any]] = {}
-        for key in processing_params.output_schema.keys():
-            result_batch[key] = [result.get(key) for result in new_results]
-
-        return result_batch
-
-    # -------------------------
     # Apply map with batching
     # -------------------------
     ds_processed = ds_shard.map(
-        rewrite_batch,
+        lambda x: rewrite_batch(processing_params.inputs, processing_params.outputs, sampling_params, processing_params.output_schema, llm, shard_id, x),
         batched=True,
         batch_size=processing_gen_params.get_batch_size(),
         load_from_cache_file=False,
