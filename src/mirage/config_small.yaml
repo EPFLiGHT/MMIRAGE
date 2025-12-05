@@ -1,0 +1,43 @@
+engine:
+  model_path: "Qwen/Qwen3-8B"
+  tp_size: 4          # use all 4 GPUs on the node
+  trust_remote_code: true
+
+sampling_params:
+  temperature: 0.1
+  top_p: 1.0
+  max_new_tokens: 384
+
+processing_gen_params:
+  datasets:
+    - path: /capstor/store/cscs/swissai/a127/meditron/datasets/polyglot/english_small.jsonl
+      type: JSONL
+  output_dir: /capstor/store/cscs/swissai/a127/homes/$USER/datasets/medtrinity/shards
+  num_shards: "$SLURM_ARRAY_TASK_COUNT"
+  shard_id: "$SLURM_ARRAY_TASK_ID"
+  conversations_field: "conversations"
+  batch_size: 64
+
+processing_params:
+  inputs:
+    - name: text
+      key: text
+    - name: language
+      key: language
+    - name: modalities
+      key: modalities
+
+  outputs:
+    - name: formatted_answer
+      type: llm
+      output_type: plain
+      prompt: |
+        Reformat the following in a markdown format without adding anything else:
+        ```
+        {text}
+        ```
+
+  output_schema:
+    text: "{formatted_answer}"
+    language: "{language}"
+    modalities: "{modalities}"
