@@ -12,7 +12,7 @@ processing_gen_params:
   datasets:
     - path: /capstor/store/cscs/swissai/a127/meditron/datasets/polyglot/english_small.jsonl
       type: JSONL
-  output_dir: /capstor/store/cscs/swissai/a127/homes/$USER/datasets/medtrinity/shards
+  output_dir: /capstor/store/cscs/swissai/a127/homes/$USER/datasets/english_small/shards
   num_shards: "$SLURM_ARRAY_TASK_COUNT"
   shard_id: "$SLURM_ARRAY_TASK_ID"
   conversations_field: "conversations"
