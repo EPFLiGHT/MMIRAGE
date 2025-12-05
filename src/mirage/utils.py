@@ -58,7 +58,7 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
           output_type: plain
           prompt: |
             Reformat the answer in a markdown format without adding anything else:
-            {{ assistant_answer }}
+            {assistant_answer}
           output_schema:
             question: question_variable
             explanation: explanation_variable
@@ -67,10 +67,10 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
       output_schema:
         conversations:
         - role: user
-          content: {{ user_prompt }}
+          content: {user_prompt}
         - role: assistant
-          content: {{ formatted_answer }}
-        modalities: {{ modalities }}
+          content: {formatted_answer}
+        modalities: {modalities}
     """
     from mirage.config import MirageConfig
 
