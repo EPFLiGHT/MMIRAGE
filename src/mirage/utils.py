@@ -60,9 +60,9 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
             Reformat the answer in a markdown format without adding anything else:
             {assistant_answer}
           output_schema:
-            question: question_variable
-            explanation: explanation_variable
-            answer: answer_variable
+            - question
+            - explanation
+            - answer
 
       output_schema:
         conversations:
