@@ -20,9 +20,22 @@ def main():
     ap.add_argument(
         "--output_dir",
         required=True,
-        help="Output directory where the merged HF dataset will be saved.",
+        help="Base output directory for the merged HF dataset.",
+    )
+    ap.add_argument(
+        "--split",
+        type=int,
+        default=1,
+        help=(
+            "Number of splits to produce from the merged dataset. "
+            "1 = no split (single dataset at --output_dir). "
+            "N>=2 = save N roughly equal splits as <output_dir>_1 ... <output_dir>_N."
+        ),
     )
     args = ap.parse_args()
+
+    if args.split < 1:
+        raise ValueError("--split must be >= 1")
 
     shard_dsets = []
     skipped_empty_dir = 0
@@ -58,19 +71,14 @@ def main():
 
     # Concatenate into a single dataset
     ds_merged = concatenate_datasets(shard_dsets)
-
-    # Save final merged dataset
-    os.makedirs(args.output_dir, exist_ok=True)
-    ds_merged.save_to_disk(args.output_dir)
+    n_rows = len(ds_merged)
 
     total_skipped = skipped_empty_dir + skipped_zero_rows
 
     print(
-        f"✅ Merged {len(shard_dsets)} shards with data from {args.shards_root} "
-        f"into {args.output_dir} with {len(ds_merged)} rows.\n"
+        f"✅ Concatenated {len(shard_dsets)} shards into a dataset with {n_rows} rows.\n"
         f"   Skipped shards: {total_skipped} total "
-        f"empty/invalid dir: {skipped_empty_dir}, "
-        f"zero rows: {skipped_zero_rows})."
+        f"(empty/invalid dir: {skipped_empty_dir}, zero rows: {skipped_zero_rows})."
     )
 
 
