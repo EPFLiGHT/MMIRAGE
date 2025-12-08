@@ -64,15 +64,17 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
         )
         return batch
 
-    new_results = []
-    for (ex_idx, output_var), output in zip(prompts, outputs):
+    outputs_vars: List[Dict[str, Any]] = []
+    for (ex_ids, output_var), output in zip(prompts, outputs):
         out_text = output.get("text", "").strip()
-        vars_ex = vars_samples[ex_idx]
+        vars_ex = vars_samples[ex_ids]
         vars_ex[output_var.name] = out_text
+        outputs_vars.append(vars_ex)
 
+    new_results = []
+    for output_vars in outputs_vars:
         # Rebuild the output according to output_schema template
-        filled_output = fill_template_recursive(output_schema, vars_ex)
-
+        filled_output = fill_template_recursive(output_schema, output_vars)
         new_results.append(filled_output)
 
     # Only return the updated conversations column; HF keeps other columns
