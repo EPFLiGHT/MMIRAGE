@@ -31,28 +31,28 @@ Then in the YAML configuration file, we could specify
 
 ```yaml
 inputs:
-    - name: assistant_answer
-      key: conversations[1].content
-    - name: user_prompt
-      key: conversations[0].content
-    - name: modalities
-      key: modalities
+  - name: assistant_answer
+    key: conversations[1].content
+  - name: user_prompt
+    key: conversations[0].content
+  - name: modalities
+    key: modalities
 
 outputs:
-    - name: formatted_answer
-      type: llm
-      output_type: plain
-      prompt: | 
-        Reformat the answer in a markdown format without adding anything else:
-        {{ assistant_answer }}
+  - name: formatted_answer
+    type: llm
+    output_type: plain
+    prompt: | 
+      Reformat the answer in a markdown format without adding anything else:
+      {assistant_answer}
       
 output_schema:
-    conversations:
-        - role: user
-          content: {{ user_prompt }}
-        - role: assistant
-          content: {{ formatted_answer }}
-    modalities: {{ modalities }}
+  conversations:
+    - role: user
+      content: {user_prompt}
+    - role: assistant
+      content: {formatted_answer}
+  modalities: {modalities}
 
 ```
 
@@ -81,29 +81,29 @@ Suppose we have the following format:
 
 ```yaml
 inputs:
-    - name: plain_text
-      key: text
+  - name: plain_text
+    key: text
     
 outputs:
-    - name: output_dict
-      type: prompt
-      output_type: json
-      output_schema:
-        question: question_variable
-        explanation: explanation_variable
-        answer: answer_variable
-      prompt: | 
-        I want to generate Q/A pairs from the following text:
-        {{ plain_text }}
+  - name: output_dict
+    type: prompt
+    output_type: JSON
+    prompt: | 
+      I want to generate Q/A pairs from the following text:
+      {plain_text}
+    output_schema:
+      - question
+      - explanation
+      - answer
         
 output_schema:
-    conversations:
-        - role: user
-          content: {{ question_variable }}
-        - role: assistant
-          content: |
-            {{ explanation_variable }} 
-            Answer: {{ answer_variable }}
+  conversations:
+    - role: user
+      content: {question}
+    - role: assistant
+      content: |
+        {explanation}
+        Answer: {answer}
 
 ```
 
@@ -112,5 +112,6 @@ Here, we choose to output a JSON answer with 3 keys ("question", "explanation" a
 ## Usefool tools
 
 - Jinja2 to process the YAML: #[link](https://jinja.palletsprojects.com/en/stable/)
+- JMESPath: #[link](https://jmespath.org/)
 - SGLang: #[link](https://github.com/sgl-project/sglang)
 - Paper for performance drom: #[link](https://arxiv.org/abs/2408.02442)
