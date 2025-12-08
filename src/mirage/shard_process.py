@@ -1,160 +1,109 @@
+import argparse
+import json
 import os
 import sys
-import json
-import argparse
-from typing import Dict, Any, List, Literal, Tuple
+from typing import Any, Dict, List
 
-import yaml
 import sglang as sgl
-from dacite import from_dict
-from dataclasses import asdict, dataclass, field
-from datasets import load_from_disk, concatenate_datasets
-from transformers import GenerationConfig
 
-from prompts import ASSISTANT_ONLY_MD_PROMPT
-
-@dataclass
-class EngineConfig:
-    model_path: str
-    tp_size: int = 4
-    trust_remote_code: bool = True
-
-@dataclass
-class ProcessingGenParams:
-    datasets: List[str]  # One or more paths to HF datasets saved with 'save_to_disk'
-    output_dir: str  # Root directory for shard outputs
-    num_shards: int | str = 1  # Total number of shards (matches your sbatch array size).
-    shard_id: int | str = 0  # Index of this shard (0-based; usually $SLURM_ARRAY_TASK_ID).
-    conversations_field: str = "conversations"  # Name of the column containing the list of dialog turns.
-    batch_size: int | str = 64  # Batch size for processing
-    
-    def __post_init__(self):
-        if isinstance(self.num_shards, str):
-            self.num_shards = int(self.num_shards) if self.num_shards.isdigit() else 1
-        if isinstance(self.shard_id, str):
-            self.shard_id = int(self.shard_id) if self.shard_id.isdigit() else 0
-        if isinstance(self.batch_size, str):
-            self.batch_size = int(self.batch_size) if self.batch_size.isdigit() else 64
-        self.batch_size = max(self.batch_size, 1)
-
-@dataclass
-class InputVar:
-    name: str
-    key: str
-
-@dataclass
-class OutputVar:
-    name: str
-    type: str
-    output_type: Literal["plain", "JSON"]
-    prompt: str
-    output_schema: Dict[str, str] = field(default_factory=dict)  # empty dict if output_type is "plain"
-
-@dataclass
-class Message:
-    role: str
-    content: str
-
-@dataclass
-class OutputSchema:
-    conversations: List[Message]
-    modalities: str
-
-@dataclass
-class ProcessingParams:
-    inputs: List[InputVar]
-    outputs: List[OutputVar]
-    output_schema: OutputSchema
-
-@dataclass
-class MirageConfig:
-    engine: EngineConfig
-    sampling_params: Dict[str, Any]
-    processing_gen_params: ProcessingGenParams
-    processing_params: ProcessingParams
-    
-    def __post_init__(self):
-        self.sampling_params = GenerationConfig(**self.sampling_params)
-
-# -------------------------
-# helpers
-# -------------------------
-def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
-    """
-    Load SGLang engine, sampling params, and batch size from YAML config.
-
-    Example config:
-
-    engine:
-      model_path: "meta-llama/Meta-Llama-3.1-8B-Instruct"
-
-    sampling_params:
-      temperature: 0.2
-      top_p: 0.9
-
-    processing_gen_params:
-      datasets:
-        - "/path/to/dataset1"
-        - "/path/to/dataset2"
-      output_dir: "/path/to/output"
-      num_shards: 8
-      shard_id: 0
-      conversations_field: "conversations"
-    
-    processing_params:
-      inputs:
-        - name: assistant_answer
-          key: conversations[1].content
-        - name: user_prompt
-          key: conversations[0].content
-        - name: modalities
-          key: modalities
-
-      outputs:
-        - name: formatted_answer
-          type: llm
-          output_type: plain
-          prompt: | 
-            Reformat the answer in a markdown format without adding anything else:
-            {{ assistant_answer }}
-          output_schema:
-            question: question_variable
-            explanation: explanation_variable
-            answer: answer_variable
-            
-      output_schema:
-        conversations:
-        - role: user
-          content: {{ user_prompt }}
-        - role: assistant
-          content: {{ formatted_answer }}
-        modalities: {{ modalities }}
-    """
-    with open(config_path, "r") as f:
-        cfg: dict = yaml.safe_load(f) or {}
-    
-    def expand_env_vars(obj):
-        if isinstance(obj, dict):
-            return {key: expand_env_vars(value) for key, value in obj.items()}
-        elif isinstance(obj, list):
-            return [expand_env_vars(item) for item in obj]
-        elif isinstance(obj, str):
-            return os.path.expandvars(obj)
-        else:
-            return obj
-
-    cfg = expand_env_vars(cfg)
-    cfg_obj = from_dict(MirageConfig, cfg)
-    engine_args = cfg_obj.engine
-    llm = sgl.Engine(**asdict(engine_args))
-
-    return llm, cfg_obj
+from mirage.config import InputVar, OutputVar
+from mirage.utils import (
+    extract_input_vars,
+    fill_template_recursive,
+    load_datasets_from_configs,
+    load_engine_from_yaml,
+    validate_processing_params,
+)
 
 
-def build_prompt(text: str) -> str:
-    """Build the Markdown-enhancement prompt for a single assistant message."""
-    payload = json.dumps({"assistant_text": text}, ensure_ascii=False)
-    return ASSISTANT_ONLY_MD_PROMPT.format(payload=payload)
+def rewrite_batch(
+    batch: Dict[str, List[Any]],
+    processing_inputs: List[InputVar],
+    processing_outputs: List[OutputVar],
+    sampling_params: Dict[str, Any],
+    output_schema: Dict[str, Any],
+    llm: sgl.Engine,
+    shard_id: int,
+) -> Dict[str, List[Any]]:
+    vars_samples: List[Dict[str, Any]] = []  # input vars for each example
+
+    # turn the dictionary of lists into a list of dictionaries
+    batch_size = len(next(iter(batch.values())))
+    batch_list: List[Dict[str, Any]] = [
+        {k: batch[k][i] for k in batch.keys()} for i in range(batch_size)
+    ]
+    nb_samples = len(batch_list)
+
+    for sample in batch_list:
+        current_vars = extract_input_vars(processing_inputs, sample)
+        vars_samples.append(current_vars)
+
+    try:
+        # Non-streaming synchronous batch generation
+        outputs: List[Dict[str, Any]] = []
+        for output in processing_outputs:
+            prompts_for_output = [output.prompt.format(**var) for var in vars_samples]
+
+            sampling_params_output = sampling_params.copy()
+            if output.output_type == "JSON":
+                json_schema = output.get_output_schema()
+                if json_schema is None:
+                    raise ValueError(
+                        f"Output variable {output.name} has output_type=JSON "
+                        "but no output_schema defined."
+                    )
+
+                sampling_params_output["json_schema"] = json_schema.model_json_schema()
+
+            outputs_for_output = llm.generate(
+                prompts_for_output, sampling_params_output
+            )
+            if len(prompts_for_output) != len(outputs_for_output):
+                raise RuntimeError(
+                    f"Mismatch between prompts and outputs: {len(prompts_for_output)} vs {len(outputs_for_output)}"
+                )
+
+            outputs += outputs_for_output
+    except Exception as e:
+        print(
+            f"[shard {shard_id}] Batch generation failed: {e}",
+            file=sys.stderr,
+        )
+        # On error, keep original conversations for this batch
+        return batch
+
+    if not isinstance(outputs, list) or len(outputs) != nb_samples * len(
+        processing_outputs
+    ):
+        print(
+            f"[shard {shard_id}] Unexpected outputs length from llm.generate: "
+            f"expected {nb_samples * len(processing_outputs)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
+            file=sys.stderr,
+        )
+        return batch
+
+    # Get the values from outputs and fill into vars_samples
+    for i, output in enumerate(outputs):
+        ex_id = i % nb_samples
+        output_var = processing_outputs[i // nb_samples]
+
+        out_text = output.get("text", "").strip()
+        vars_samples[ex_id][output_var.name] = out_text
+
+    new_results = []
+    for vars_sample in vars_samples:
+        # Rebuild the output according to output_schema template
+        filled_output = fill_template_recursive(output_schema, vars_sample)
+        new_results.append(filled_output)
+
+    # Only return the updated conversations column; HF keeps other columns
+
+    # Build result dict with all columns from output_schema
+    result_batch: Dict[str, List[Any]] = {}
+    for key in output_schema.keys():
+        result_batch[key] = [result.get(key) for result in new_results]
+
+    return result_batch
 
 
 # -------------------------
@@ -169,126 +118,45 @@ def main():
         default="config-sglang.yaml",
         help="YAML config for SGLang engine + sampling + batch_size.",
     )
-    ap.add_argument(
-        "--max_new_tokens",
-        type=int,
-        default=384,
-        help="Override max_new_tokens in sampling params.",
-    )
     args = ap.parse_args()
-    
+
     # -------------------------
     # Load SGLang engine + sampling + batch size
     # -------------------------
     llm, cfg = load_engine_from_yaml(args.config)
+    validate_processing_params(cfg.processing_params)
+    sampling_params = cfg.sampling_params
+    processing_gen_params = cfg.processing_gen_params
+    processing_params = cfg.processing_params
 
-    if not (0 <= cfg.processing_gen_params.shard_id < cfg.processing_gen_params.num_shards):
+    datasets = processing_gen_params.datasets
+    if not datasets:
         raise ValueError(
-            f"Invalid shard_id={cfg.processing_gen_params.shard_id}, num_shards={cfg.processing_gen_params.num_shards}"
+            "No datasets provided in config.processing_gen_params.datasets"
         )
+    shard_id = processing_gen_params.get_shard_id()
+    num_shards = processing_gen_params.get_num_shards()
 
-    os.makedirs(cfg.processing_gen_params.output_dir, exist_ok=True)
-    shard_out_dir = os.path.join(cfg.processing_gen_params.output_dir, f"shard_{cfg.processing_gen_params.shard_id}")
+    if not (0 <= shard_id < num_shards):
+        raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
+
+    os.makedirs(processing_gen_params.output_dir, exist_ok=True)
+    shard_out_dir = os.path.join(processing_gen_params.output_dir, f"shard_{shard_id}")
     os.makedirs(shard_out_dir, exist_ok=True)
 
     # -------------------------
     # Load all input datasets and concatenate
     # -------------------------
-    ds_list = [load_from_disk(p) for p in cfg.processing_gen_params.datasets]
-    if len(ds_list) == 1:
-        ds_all = ds_list[0]
-    else:
-        ds_all = concatenate_datasets(ds_list)
-
+    ds_all = load_datasets_from_configs(datasets)
     total_rows = len(ds_all)
 
-    ds_shard = ds_all.shard(num_shards=cfg.processing_gen_params.num_shards, index=cfg.processing_gen_params.shard_id)
+    ds_shard = ds_all.shard(num_shards=num_shards, index=shard_id)
     shard_rows = len(ds_shard)
 
     print(
-        f"Loaded {len(cfg.processing_gen_params.datasets)} dataset(s): {cfg.processing_gen_params.datasets} "
+        f"Loaded {len(datasets)} dataset(s): {datasets} "
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
-
-    conv_field = cfg.processing_gen_params.conversations_field
-    if conv_field not in ds_shard.column_names:
-        raise ValueError(
-            f"Expected conversations column '{conv_field}', "
-            f"but dataset has columns: {ds_shard.column_names}"
-        )
-
-    # Apply script-level override for max_new_tokens
-    if args.max_new_tokens is not None:
-        cfg.sampling_params.max_new_tokens = int(args.max_new_tokens)
-    # -------------------------
-    # Batched rewrite function for HF map
-    # -------------------------
-    def rewrite_batch(batch: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
-        conv_batch = batch[conv_field]
-
-        prompts: List[str] = []
-        locs: List[Tuple[int, int]] = []  # (example_idx, assistant_turn_idx)
-
-        # First pass: collect prompts where there is a non-empty assistant turn
-        for i, conv in enumerate(conv_batch):
-            if not isinstance(conv, list) or not conv:
-                continue
-
-            assistant_idx = None
-            for ti, turn in enumerate(conv):
-                if isinstance(turn, dict) and turn.get("role") == "assistant":
-                    assistant_idx = ti
-                    break
-
-            if assistant_idx is None:
-                continue
-
-            content = str(conv[assistant_idx].get("content", "") or "")
-            if not content.strip():
-                continue
-
-            prompts.append(build_prompt(content))
-            locs.append((i, assistant_idx))
-
-        # Nothing to rewrite in this batch
-        if not prompts:
-            return {conv_field: conv_batch}
-
-        try:
-            # Non-streaming synchronous batch generation
-            outputs = llm.generate(prompts, cfg.sampling_params.to_dict())
-        except Exception as e:
-            print(
-                f"[shard {cfg.processing_gen_params.shard_id}] Batch generation failed: {e}",
-                file=sys.stderr,
-            )
-            # On error, keep original conversations for this batch
-            return {conv_field: conv_batch}
-
-        if not isinstance(outputs, list) or len(outputs) != len(prompts):
-            print(
-                f"[shard {cfg.processing_gen_params.shard_id}] Unexpected outputs length from llm.generate: "
-                f"expected {len(prompts)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
-                file=sys.stderr,
-            )
-            return {conv_field: conv_batch}
-
-        # Copy original conversations and fill in rewritten Markdown
-        new_conv_batch = list(conv_batch)
-        for out_idx, (ex_idx, turn_idx) in enumerate(locs):
-            out = outputs[out_idx]
-            md_text = out.get("text", "")
-
-            orig_conv = new_conv_batch[ex_idx]
-            # create shallow copies so we don't mutate shared objects
-            conv_list = list(orig_conv)
-            turn = dict(conv_list[turn_idx])
-            turn["content"] = md_text
-            conv_list[turn_idx] = turn
-            new_conv_batch[ex_idx] = conv_list
-
-        # Only return the updated conversations column; HF keeps other columns
-        return {conv_field: new_conv_batch}
 
     # -------------------------
     # Apply map with batching
@@ -296,9 +164,17 @@ def main():
     ds_processed = ds_shard.map(
         rewrite_batch,
         batched=True,
-        batch_size=cfg.processing_gen_params.batch_size,
+        batch_size=processing_gen_params.get_batch_size(),
         load_from_cache_file=False,
-        desc=f"Shard {cfg.processing_gen_params.shard_id}/{cfg.processing_gen_params.num_shards - 1}",
+        desc=f"Shard {shard_id}/{num_shards - 1}",
+        fn_kwargs={
+            "shard_id": shard_id,
+            "llm": llm,
+            "processing_outputs": processing_params.outputs,
+            "processing_inputs": processing_params.inputs,
+            "sampling_params": sampling_params,
+            "output_schema": processing_params.output_schema,
+        },
     )
 
     # -------------------------
@@ -312,7 +188,7 @@ def main():
         pass
 
     print(
-        f"✅ shard_id={cfg.processing_gen_params.shard_id} num_shards={cfg.processing_gen_params.num_shards} "
+        f"✅ shard_id={shard_id} num_shards={num_shards} "
         f"total_rows={total_rows} shard_rows={shard_rows} "
         f"out_dir={shard_out_dir}"
     )

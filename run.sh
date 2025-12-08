@@ -12,15 +12,11 @@
 #SBATCH -A a127
 #SBATCH --array=0-31
 
-# --- input datasets (HF load_from_disk folders) ---
-export DATA1=/capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_1/
-export DATA2=/capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_2/
-
 # --- outputs & config ---
-export ROOT=/capstor/store/cscs/swissai/a127/homes/$USER/datasets/medtrinity
+export ROOT=/capstor/store/cscs/swissai/a127/homes/$USER/datasets/english_small
 export SHARDS_ROOT="$ROOT/shards"
 export MERGED_DIR="$ROOT/merged"
-export CFG=/users/$USER/meditron/MIRAGE/src/mirage/config.yaml
+export CFG=/users/$USER/MIRAGE/configs/config_small.yaml
 
 # HF cache/home
 export HF_HOME=/capstor/store/cscs/swissai/a127/homes/$USER/hf
@@ -28,9 +24,5 @@ export HF_HOME=/capstor/store/cscs/swissai/a127/homes/$USER/hf
 mkdir -p "$SHARDS_ROOT"
 mkdir -p "$MERGED_DIR"
 
-python /users/$USER/meditron/MIRAGE/src/mirage/shard_process.py \
-  --datasets "$DATA1" "$DATA2" \
-  --output_dir "$SHARDS_ROOT" \
-  --num_shards "$SLURM_ARRAY_TASK_COUNT" \
-  --shard_id "$SLURM_ARRAY_TASK_ID" \
+python /users/$USER/MIRAGE/src/mirage/shard_process.py \
   --config "$CFG"
