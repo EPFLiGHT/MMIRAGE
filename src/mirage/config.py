@@ -36,11 +36,20 @@ class ProcessingGenParams:
 
     def __post_init__(self):
         if isinstance(self.num_shards, str):
-            self.num_shards = int(self.num_shards) if self.num_shards.isdigit() else 1
+            try:
+                self.num_shards = int(self.num_shards)
+            except (ValueError, TypeError):
+                raise ValueError(f"Invalid value for num_shards: {self.num_shards!r}")
         if isinstance(self.shard_id, str):
-            self.shard_id = int(self.shard_id) if self.shard_id.isdigit() else 0
+            try:
+                self.shard_id = int(self.shard_id)
+            except (ValueError, TypeError):
+                raise ValueError(f"Invalid value for shard_id: {self.shard_id!r}")
         if isinstance(self.batch_size, str):
-            self.batch_size = int(self.batch_size) if self.batch_size.isdigit() else 64
+            try:
+                self.batch_size = int(self.batch_size)
+            except (ValueError, TypeError):
+                raise ValueError(f"Invalid value for batch_size: {self.batch_size!r}")
         self.batch_size = max(self.batch_size, 1)
 
     def get_num_shards(self) -> int:
