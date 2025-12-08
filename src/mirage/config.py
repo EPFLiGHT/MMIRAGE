@@ -23,16 +23,16 @@ class ProcessingGenParams:
         DatasetConfig
     ]  # One or more paths to HF datasets saved with 'save_to_disk'
     output_dir: str  # Root directory for shard outputs
-    num_shards: int | str = (
+    num_shards: Union[int, str] = (
         1  # Total number of shards (matches your sbatch array size).
     )
-    shard_id: int | str = (
+    shard_id: Union[int, str] = (
         0  # Index of this shard (0-based; usually $SLURM_ARRAY_TASK_ID).
     )
     conversations_field: str = (
         "conversations"  # Name of the column containing the list of dialog turns.
     )
-    batch_size: int | str = 64  # Batch size for processing
+    batch_size: Union[int, str] = 64  # Batch size for processing
 
     def __post_init__(self):
         if isinstance(self.num_shards, str):
