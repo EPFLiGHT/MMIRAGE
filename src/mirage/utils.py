@@ -179,8 +179,8 @@ def load_datasets_from_configs(configs: List[DatasetConfig]) -> Dataset:
             if ds_config.type == "JSONL":
                 ds = load_dataset("json", data_files=path, streaming=False)
                 # no support of iterable datasets
-                assert not isinstance(ds, IterableDatasetDict)
-                assert not isinstance(ds, IterableDataset)
+                if isinstance(ds, (IterableDatasetDict, IterableDataset)):
+                    raise ValueError(f"Iterable datasets are not supported for path: {path}")
             else:
                 ds = load_from_disk(path)
 
