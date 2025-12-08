@@ -9,7 +9,7 @@ from dacite import from_dict
 from dataclasses import asdict
 from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict, concatenate_datasets, load_dataset, load_from_disk
 from jmespath import search
-from typing import Any, Dict, List, Tuple, TypeAlias, TYPE_CHECKING, Union, cast
+from typing import Any, Dict, List, Set, Tuple, TypeAlias, TYPE_CHECKING, Union, cast
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 
@@ -36,8 +36,10 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
 
     processing_gen_params:
       datasets:
-        - "/path/to/dataset1"
-        - "/path/to/dataset2"
+        - path: "/path/to/dataset1"
+          type: loadable
+        - path: "/path/to/dataset2.jsonl"
+          type: JSONL
       output_dir: "/path/to/output"
       num_shards: 8
       shard_id: 0
@@ -116,7 +118,7 @@ def validate_processing_params(params: ProcessingParams) -> None:
         defined_vars.add(output_var.name)
 
     # Extract all template variables (patterns like {var_name})
-    def extract_template_vars(obj: Any) -> set:
+    def extract_template_vars(obj: Any) -> Set[str]:
         """Recursively extract all {var} patterns from templates."""
         vars_found = set()
 

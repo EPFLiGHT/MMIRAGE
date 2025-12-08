@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pydantic import BaseModel, create_model
-from typing import Any, Dict, List, Literal, Optional, Type, cast
+from typing import Any, Dict, List, Literal, Optional, Type, Union, cast
 
 # Dataclasses
 

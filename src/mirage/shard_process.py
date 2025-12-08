@@ -38,7 +38,7 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
                         "but no output_schema defined."
                     )
 
-                sampling_params_output["json_schema"] = json.dumps(json_schema)
+                sampling_params_output["json_schema"] = json_schema.model_json_schema()
 
             outputs_for_output = llm.generate(
                 prompts_for_output, sampling_params_output
