@@ -3,7 +3,7 @@ import json
 import os
 import sglang as sgl
 import sys
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from mirage.config import InputVar, OutputVar
 from mirage.utils import extract_input_vars, fill_template_recursive, load_datasets_from_configs, load_engine_from_yaml, validate_processing_params
