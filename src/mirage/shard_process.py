@@ -12,9 +12,10 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
     vars_samples: List[Dict[str, Any]] = []  # input vars for each example
 
     # turn the dictionary of lists into a list of dictionaries
+    batch_size = len(next(iter(batch.values())))
     batch_list: List[Dict[str, Any]] = [
         {k: batch[k][i] for k in batch.keys()}
-        for i in range(len(next(iter(batch.values()))))
+        for i in range(batch_size)
     ]
     nb_samples = len(batch_list)
 
@@ -42,7 +43,8 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
             outputs_for_output = llm.generate(
                 prompts_for_output, sampling_params_output
             )
-            assert len(prompts_for_output) == len(outputs_for_output)
+            if len(prompts_for_output) != len(outputs_for_output):
+                raise RuntimeError(f"Mismatch between prompts and outputs: {len(prompts_for_output)} vs {len(outputs_for_output)}")
 
             outputs += outputs_for_output
     except Exception as e:

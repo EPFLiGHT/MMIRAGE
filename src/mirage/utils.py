@@ -179,8 +179,8 @@ def load_datasets_from_configs(configs: List[DatasetConfig]) -> Dataset:
             if ds_config.type == "JSONL":
                 ds = load_dataset("json", data_files=path, streaming=False)
                 # no support of iterable datasets
-                assert not isinstance(ds, IterableDatasetDict)
-                assert not isinstance(ds, IterableDataset)
+                if isinstance(ds, (IterableDatasetDict, IterableDataset)):
+                    raise ValueError(f"Iterable datasets are not supported for path: {path}")
             else:
                 ds = load_from_disk(path)
 
@@ -201,7 +201,7 @@ def load_datasets_from_configs(configs: List[DatasetConfig]) -> Dataset:
 
 
 def extract_input_vars(input_vars: List[InputVar], sample: Dict[str, Any]) -> Dict[str, Any]:
-    """Recursively extract all input variables from a dataset sample."""
+    """Extract input variables from a dataset sample using JMESPath queries."""
 
     ret: Dict[str, Any] = {}
     for input_var in input_vars:
