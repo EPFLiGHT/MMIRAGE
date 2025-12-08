@@ -1,21 +1,36 @@
 import argparse
 import json
 import os
-import sglang as sgl
 import sys
 from typing import Any, Dict, List
 
-from mirage.config import InputVar, OutputVar
-from mirage.utils import extract_input_vars, fill_template_recursive, load_datasets_from_configs, load_engine_from_yaml, validate_processing_params
+import sglang as sgl
 
-def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar], processing_outputs: List[OutputVar], sampling_params: Dict[str, Any], output_schema: Dict[str, Any], llm: sgl.Engine, shard_id: int) -> Dict[str, List[Any]]:
+from mirage.config import InputVar, OutputVar
+from mirage.utils import (
+    extract_input_vars,
+    fill_template_recursive,
+    load_datasets_from_configs,
+    load_engine_from_yaml,
+    validate_processing_params,
+)
+
+
+def rewrite_batch(
+    batch: Dict[str, List[Any]],
+    processing_inputs: List[InputVar],
+    processing_outputs: List[OutputVar],
+    sampling_params: Dict[str, Any],
+    output_schema: Dict[str, Any],
+    llm: sgl.Engine,
+    shard_id: int,
+) -> Dict[str, List[Any]]:
     vars_samples: List[Dict[str, Any]] = []  # input vars for each example
 
     # turn the dictionary of lists into a list of dictionaries
     batch_size = len(next(iter(batch.values())))
     batch_list: List[Dict[str, Any]] = [
-        {k: batch[k][i] for k in batch.keys()}
-        for i in range(batch_size)
+        {k: batch[k][i] for k in batch.keys()} for i in range(batch_size)
     ]
     nb_samples = len(batch_list)
 
@@ -44,7 +59,9 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
                 prompts_for_output, sampling_params_output
             )
             if len(prompts_for_output) != len(outputs_for_output):
-                raise RuntimeError(f"Mismatch between prompts and outputs: {len(prompts_for_output)} vs {len(outputs_for_output)}")
+                raise RuntimeError(
+                    f"Mismatch between prompts and outputs: {len(prompts_for_output)} vs {len(outputs_for_output)}"
+                )
 
             outputs += outputs_for_output
     except Exception as e:
@@ -55,7 +72,9 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
         # On error, keep original conversations for this batch
         return batch
 
-    if not isinstance(outputs, list) or len(outputs) != nb_samples * len(processing_outputs):
+    if not isinstance(outputs, list) or len(outputs) != nb_samples * len(
+        processing_outputs
+    ):
         print(
             f"[shard {shard_id}] Unexpected outputs length from llm.generate: "
             f"expected {nb_samples * len(processing_outputs)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
@@ -85,6 +104,7 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
         result_batch[key] = [result.get(key) for result in new_results]
 
     return result_batch
+
 
 # -------------------------
 # main
@@ -147,7 +167,14 @@ def main():
         batch_size=processing_gen_params.get_batch_size(),
         load_from_cache_file=False,
         desc=f"Shard {shard_id}/{num_shards - 1}",
-        fn_kwargs={"shard_id": shard_id, "llm": llm, "processing_outputs": processing_params.outputs, "processing_inputs": processing_params.inputs, "sampling_params": sampling_params, "output_schema": processing_params.output_schema},
+        fn_kwargs={
+            "shard_id": shard_id,
+            "llm": llm,
+            "processing_outputs": processing_params.outputs,
+            "processing_inputs": processing_params.inputs,
+            "sampling_params": sampling_params,
+            "output_schema": processing_params.output_schema,
+        },
     )
 
     # -------------------------

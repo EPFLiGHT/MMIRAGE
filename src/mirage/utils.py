@@ -2,14 +2,22 @@ from __future__ import annotations
 
 import os
 import re
+from dataclasses import asdict
+from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple, TypeAlias, Union, cast
+
 import sglang as sgl
 import yaml
-
 from dacite import from_dict
-from dataclasses import asdict
-from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict, concatenate_datasets, load_dataset, load_from_disk
+from datasets import (
+    Dataset,
+    DatasetDict,
+    IterableDataset,
+    IterableDatasetDict,
+    concatenate_datasets,
+    load_dataset,
+    load_from_disk,
+)
 from jmespath import search
-from typing import Any, Dict, List, Set, Tuple, TypeAlias, TYPE_CHECKING, Union, cast
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 
@@ -17,6 +25,7 @@ if TYPE_CHECKING:
     from mirage.config import DatasetConfig, InputVar, MirageConfig, ProcessingParams
 
 # Utilities
+
 
 # -------------------------
 # helpers
@@ -169,6 +178,7 @@ def validate_processing_params(params: ProcessingParams) -> None:
         f"Defined variables: {', '.join(sorted(defined_vars))}"
     )
 
+
 def load_datasets_from_configs(configs: List[DatasetConfig]) -> Dataset:
     valid_ds = []
     for ds_config in configs:
@@ -182,7 +192,9 @@ def load_datasets_from_configs(configs: List[DatasetConfig]) -> Dataset:
                 ds = load_dataset("json", data_files=path, streaming=False)
                 # no support of iterable datasets
                 if isinstance(ds, (IterableDatasetDict, IterableDataset)):
-                    raise ValueError(f"Iterable datasets are not supported for path: {path}")
+                    raise ValueError(
+                        f"Iterable datasets are not supported for path: {path}"
+                    )
             else:
                 ds = load_from_disk(path)
 
@@ -202,7 +214,9 @@ def load_datasets_from_configs(configs: List[DatasetConfig]) -> Dataset:
         return concatenate_datasets(valid_ds)
 
 
-def extract_input_vars(input_vars: List[InputVar], sample: Dict[str, Any]) -> Dict[str, Any]:
+def extract_input_vars(
+    input_vars: List[InputVar], sample: Dict[str, Any]
+) -> Dict[str, Any]:
     """Extract input variables from a dataset sample using JMESPath queries."""
 
     ret: Dict[str, Any] = {}
@@ -217,15 +231,14 @@ def extract_input_vars(input_vars: List[InputVar], sample: Dict[str, Any]) -> Di
 
     return ret
 
+
 def fill_template_recursive(template: Any, vars_dict: Dict[str, Any]) -> Any:
     """Recursively fill templates in nested structures."""
 
     if isinstance(template, str):
         return template.format(**vars_dict)
     elif isinstance(template, dict):
-        return {
-            k: fill_template_recursive(v, vars_dict) for k, v in template.items()
-        }
+        return {k: fill_template_recursive(v, vars_dict) for k, v in template.items()}
     elif isinstance(template, list):
         return [fill_template_recursive(item, vars_dict) for item in template]
     else:

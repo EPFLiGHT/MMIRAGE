@@ -1,7 +1,7 @@
-import os
 import argparse
+import os
 
-from datasets import load_from_disk, concatenate_datasets
+from datasets import concatenate_datasets, load_from_disk
 
 
 def main():
