@@ -9,9 +9,6 @@ from mirage.config import InputVar, OutputVar
 from mirage.utils import extract_input_vars, fill_template_recursive, load_datasets_from_configs, load_engine_from_yaml, validate_processing_params
 
 def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar], processing_outputs: List[OutputVar], sampling_params: Dict[str, Any], output_schema: Dict[str, Any], llm: sgl.Engine, shard_id: int) -> Dict[str, List[Any]]:
-    prompts: List[
-        Tuple[int, OutputVar, str]
-    ] = []  # (example_idx, output_var, prompt_str)
     vars_samples: List[Dict[str, Any]] = []  # input vars for each example
 
     # turn the dictionary of lists into a list of dictionaries
@@ -19,6 +16,7 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
         {k: batch[k][i] for k in batch.keys()}
         for i in range(len(next(iter(batch.values()))))
     ]
+    nb_samples = len(batch_list)
 
     for sample in batch_list:
         current_vars = extract_input_vars(processing_inputs, sample)
@@ -29,7 +27,6 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
         outputs: List[Dict[str, Any]] = []
         for output in processing_outputs:
             prompts_for_output = [output.prompt.format(**var) for var in vars_samples]
-            prompts += [(i, output) for i in range(len(prompts_for_output))]
 
             sampling_params_output = sampling_params.copy()
             if output.output_type == "JSON":
@@ -56,16 +53,19 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
         # On error, keep original conversations for this batch
         return batch
 
-    if not isinstance(outputs, list) or len(outputs) != len(prompts):
+    if not isinstance(outputs, list) or len(outputs) != nb_samples * len(processing_outputs):
         print(
             f"[shard {shard_id}] Unexpected outputs length from llm.generate: "
-            f"expected {len(prompts)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
+            f"expected {nb_samples * len(processing_outputs)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
             file=sys.stderr,
         )
         return batch
 
     # Get the values from outputs and fill into vars_samples
-    for (ex_id, output_var), output in zip(prompts, outputs):
+    for i, output in enumerate(outputs):
+        ex_id = i % nb_samples
+        output_var = processing_outputs[i // nb_samples]
+
         out_text = output.get("text", "").strip()
         vars_samples[ex_id][output_var.name] = out_text
 
