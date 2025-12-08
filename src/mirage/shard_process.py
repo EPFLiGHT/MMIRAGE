@@ -46,7 +46,8 @@ def rewrite_batch(batch: Dict[str, List[Any]], processing_inputs: List[InputVar]
             outputs_for_output = llm.generate(
                 prompts_for_output, sampling_params_output
             )
-            assert len(prompts_for_output) == len(outputs_for_output)
+            if len(prompts_for_output) != len(outputs_for_output):
+                raise RuntimeError(f"Mismatch between prompts and outputs: {len(prompts_for_output)} vs {len(outputs_for_output)}")
 
             outputs += outputs_for_output
     except Exception as e:
