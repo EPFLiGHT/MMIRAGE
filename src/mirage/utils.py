@@ -201,7 +201,7 @@ def load_datasets_from_configs(configs: List[DatasetConfig]) -> Dataset:
 
 
 def extract_input_vars(input_vars: List[InputVar], sample: Dict[str, Any]) -> Dict[str, Any]:
-    """Recursively extract all input variables from a dataset sample."""
+    """Extract input variables from a dataset sample using JMESPath queries."""
 
     ret: Dict[str, Any] = {}
     for input_var in input_vars:
