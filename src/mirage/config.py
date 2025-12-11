@@ -69,6 +69,7 @@ class InputVar:
     name: str
     key: str
     type: Literal["text", "image"] = "text"
+    image_base_path: Optional[str] = None  # Base directory for resolving relative image paths
 
     def is_image(self) -> bool:
         """Check if this input variable represents an image."""

@@ -23,6 +23,7 @@ processing_params:
     - name: medical_image
       key: image
       type: image  # Image field from PMC-OA dataset
+      image_base_path: /path/to/images  # Base directory where images are stored (e.g., extracted images.zip)
     - name: original_caption
       key: caption
       type: text

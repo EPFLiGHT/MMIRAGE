@@ -112,9 +112,15 @@ Here, we choose to output a JSON answer with 3 keys ("question", "explanation" a
 
 ### Working with Images (Multimodal)
 
-MIRAGE supports Vision-Language Models (VLMs) for processing datasets that contain images. Images are passed to the model in their original format (file paths, URLs, PIL Images, etc.).
+MIRAGE supports Vision-Language Models (VLMs) for processing datasets that contain images. It handles two common scenarios:
 
-**Example: Enhancing medical image captions**
+**Scenario 1: Embedded Images**  
+Dataset has actual image objects (PIL Images) in the columns. HuggingFace automatically decodes these when loading datasets with `Image` feature types.
+
+**Scenario 2: Path-Based Images**  
+Dataset contains image filenames/paths that reference external image files (like PMC-OA with `images.zip`).
+
+**Example: Path-based dataset (PMC-OA)**
 
 Suppose you have a medical imaging dataset with the following format:
 
@@ -125,7 +131,7 @@ Suppose you have a medical imaging dataset with the following format:
 }
 ```
 
-You can use MIRAGE with a VLM to enhance the captions:
+The images are stored separately (e.g., in an extracted `images/` folder). Configure MIRAGE like this:
 
 ```yaml
 engine:
@@ -135,6 +141,7 @@ inputs:
   - name: medical_image
     key: image
     type: image  # Indicates this is an image input
+    image_base_path: /path/to/images  # Base directory where image files are stored
   - name: original_caption
     key: caption
     type: text
@@ -156,9 +163,23 @@ output_schema:
   original_caption: "{original_caption}"
 ```
 
+**Example: Embedded images (HuggingFace datasets with Image feature)**
+
+For datasets where images are already embedded as PIL Images:
+
+```yaml
+inputs:
+  - name: photo
+    key: image
+    type: image  # No image_base_path needed - images are already loaded
+  - name: caption
+    key: caption
+```
+
 **Important notes:**
 - Images are **never modified** - they are passed through to the output unchanged
-- Supports any image format that SGLang accepts (file paths, URLs, PIL Images, base64, etc.)
+- Use `image_base_path` only for path-based datasets where images are stored separately
+- Supports file paths, URLs, PIL Images, and other formats accepted by SGLang
 - See [SGLang supported VLMs](https://docs.sglang.io/supported_models/multimodal_language_models.html) for compatible models
 - The model must be a Vision-Language Model to process images
 

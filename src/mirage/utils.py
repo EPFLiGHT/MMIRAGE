@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple, TypeAlias, Union, cast
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, TypeAlias, Union, cast
 
 import sglang as sgl
 import yaml
@@ -18,6 +19,7 @@ from datasets import (
     load_from_disk,
 )
 from jmespath import search
+from PIL import Image
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 
@@ -217,7 +219,12 @@ def load_datasets_from_configs(configs: List[DatasetConfig]) -> Dataset:
 def extract_input_vars(
     input_vars: List[InputVar], sample: Dict[str, Any]
 ) -> Dict[str, Any]:
-    """Extract input variables from a dataset sample using JMESPath queries."""
+    """Extract input variables from a dataset sample using JMESPath queries.
+    
+    For images, handles two scenarios:
+    1. Embedded images (PIL Image objects) - passed through directly
+    2. Path-based images (strings) - resolved using image_base_path if provided
+    """
 
     ret: Dict[str, Any] = {}
     for input_var in input_vars:
@@ -227,9 +234,41 @@ def extract_input_vars(
                 f"Input variable '{input_var.name}' with key '{input_var.key}' "
                 "not found in the sample."
             )
+        
+        # Handle image inputs with path resolution
+        if input_var.is_image():
+            value = resolve_image_input(value, input_var.image_base_path)
+        
         ret[input_var.name] = value
 
     return ret
+
+
+def resolve_image_input(value: Any, image_base_path: Optional[str] = None) -> Any:
+    """Resolve image input to a format SGLang can use."""
+    # Case 1: Already a PIL Image - pass through
+    if isinstance(value, Image.Image):
+        return value
+    
+    # Case 2: Not a string - pass through (might be other image format)
+    if not isinstance(value, str):
+        return value
+    
+    # Case 3: URL - pass through as-is
+    if value.startswith(('http://', 'https://')):
+        return value
+    
+    # Case 4: Absolute path that exists - pass through
+    if os.path.isabs(value) and os.path.exists(value):
+        return value
+    
+    # Case 5: Relative path - try to resolve with base path
+    if image_base_path:
+        resolved_path = os.path.join(image_base_path, value)
+        return resolved_path
+    
+    # Case 6: No base path - return as-is and let SGLang handle it
+    return value
 
 
 def fill_template_recursive(template: Any, vars_dict: Dict[str, Any]) -> Any:

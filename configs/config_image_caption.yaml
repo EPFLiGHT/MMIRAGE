@@ -23,6 +23,7 @@ processing_params:
     - name: image
       key: image  # Path to the image field in your dataset
       type: image  # Indicates this is an image input
+      # image_base_path: /path/to/images  # Optional: only needed if dataset has relative paths
     - name: caption
       key: caption  # Path to the caption field in your dataset
       type: text  # Default type for text inputs
