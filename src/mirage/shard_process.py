@@ -16,6 +16,29 @@ from mirage.utils import (
 )
 
 
+def build_multimodal_prompt(
+    prompt_text: str, vars_dict: Dict[str, Any], processing_inputs: List[InputVar]
+) -> Any:
+    """Build a prompt that can be either text or multimodal format for SGLang."""
+    has_images = any(inp.is_image() for inp in processing_inputs)
+    
+    if not has_images:
+        # Text-only: return formatted string
+        return prompt_text.format(**vars_dict)
+    
+    # Text inputs
+    content_items = [{"type": "text", "text": prompt_text.format(**vars_dict)}]
+    
+    # Image inputs
+    for inp in processing_inputs:
+        if inp.is_image():
+            image_value = vars_dict.get(inp.name)
+            if image_value is not None:
+                content_items.append({"type": "image", "image": image_value})
+    
+    return content_items
+
+
 def rewrite_batch(
     batch: Dict[str, List[Any]],
     processing_inputs: List[InputVar],
@@ -42,7 +65,10 @@ def rewrite_batch(
         # Non-streaming synchronous batch generation
         outputs: List[Dict[str, Any]] = []
         for output in processing_outputs:
-            prompts_for_output = [output.prompt.format(**var) for var in vars_samples]
+            prompts_for_output = [
+                build_multimodal_prompt(output.prompt, var, processing_inputs)
+                for var in vars_samples
+            ]
 
             sampling_params_output = sampling_params.copy()
             if output.output_type == "JSON":

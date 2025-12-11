@@ -7,9 +7,10 @@ MIRAGE, which stands for Multimodal Intelligent Reformatting and Augmentation Ge
 - Easily configurable with a YAML file which configure the following parameters
     - The prompt to the LLM
     - Variables with the name and their key to a JSON
+    - Image inputs for multimodal processing
 - Parallelizable with a multi-node support
     - The training pipeline should use either distributed inference using accelerate 
-- Support a variety of LLMs and VLMs (LLM only for a first version)
+- Support a variety of LLMs and VLMs (Vision-Language Models)
 - Support any dataset schemas (configurable with the YAML format)
 - The ability to either output a JSON (or any other structured format) or a plain text
 
@@ -108,6 +109,58 @@ output_schema:
 ```
 
 Here, we choose to output a JSON answer with 3 keys ("question", "explanation" and "answer"). That we will match
+
+### Working with Images (Multimodal)
+
+MIRAGE supports Vision-Language Models (VLMs) for processing datasets that contain images. Images are passed to the model in their original format (file paths, URLs, PIL Images, etc.).
+
+**Example: Enhancing medical image captions**
+
+Suppose you have a medical imaging dataset with the following format:
+
+```json
+{
+    "image": "PMC212319_Fig3_4.jpg",
+    "caption": "A. Real time image of the translocation of ARF1-GFP to the plasma membrane..."
+}
+```
+
+You can use MIRAGE with a VLM to enhance the captions:
+
+```yaml
+engine:
+  model_path: Qwen/Qwen2.5-VL-7B-Instruct  # Vision-language model
+
+inputs:
+  - name: medical_image
+    key: image
+    type: image  # Indicates this is an image input
+  - name: original_caption
+    key: caption
+    type: text
+
+outputs:
+  - name: enhanced_caption
+    type: llm
+    output_type: plain
+    prompt: |
+      You are a medical imaging expert. Analyze the provided medical image and enhance the caption.
+      
+      Original caption: {original_caption}
+      
+      Provide a more detailed and accurate caption based on what you see in the image.
+
+output_schema:
+  image: "{medical_image}"  # Image passed through unchanged
+  caption: "{enhanced_caption}"
+  original_caption: "{original_caption}"
+```
+
+**Important notes:**
+- Images are **never modified** - they are passed through to the output unchanged
+- Supports any image format that SGLang accepts (file paths, URLs, PIL Images, base64, etc.)
+- See [SGLang supported VLMs](https://docs.sglang.io/supported_models/multimodal_language_models.html) for compatible models
+- The model must be a Vision-Language Model to process images
 
 ## Usefool tools
 

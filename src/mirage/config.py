@@ -68,6 +68,11 @@ class ProcessingGenParams:
 class InputVar:
     name: str
     key: str
+    type: Literal["text", "image"] = "text"
+
+    def is_image(self) -> bool:
+        """Check if this input variable represents an image."""
+        return self.type == "image"
 
 
 @dataclass
