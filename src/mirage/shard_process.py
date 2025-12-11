@@ -18,25 +18,21 @@ from mirage.utils import (
 
 def build_multimodal_prompt(
     prompt_text: str, vars_dict: Dict[str, Any], processing_inputs: List[InputVar]
-) -> Any:
-    """Build a prompt that can be either text or multimodal format for SGLang."""
-    has_images = any(inp.is_image() for inp in processing_inputs)
+) -> tuple[str, List[Any]]:
+    """Build a prompt and extract images for SGLang Engine.
+    """
+    # Format the text prompt
+    formatted_prompt = prompt_text.format(**vars_dict)
     
-    if not has_images:
-        # Text-only: return formatted string
-        return prompt_text.format(**vars_dict)
-    
-    # Text inputs
-    content_items = [{"type": "text", "text": prompt_text.format(**vars_dict)}]
-    
-    # Image inputs
+    # Extract images from vars_dict based on processing_inputs
+    images = []
     for inp in processing_inputs:
         if inp.is_image():
             image_value = vars_dict.get(inp.name)
             if image_value is not None:
-                content_items.append({"type": "image", "image": image_value})
+                images.append(image_value)
     
-    return content_items
+    return formatted_prompt, images
 
 
 def rewrite_batch(
@@ -65,10 +61,13 @@ def rewrite_batch(
         # Non-streaming synchronous batch generation
         outputs: List[Dict[str, Any]] = []
         for output in processing_outputs:
-            prompts_for_output = [
+            # Build prompts and extract images
+            prompt_image_pairs = [
                 build_multimodal_prompt(output.prompt, var, processing_inputs)
                 for var in vars_samples
             ]
+            prompts_for_output = [pair[0] for pair in prompt_image_pairs]
+            images_for_output = [pair[1] for pair in prompt_image_pairs]
 
             sampling_params_output = sampling_params.copy()
             if output.output_type == "JSON":
@@ -81,6 +80,10 @@ def rewrite_batch(
 
                 sampling_params_output["json_schema"] = json_schema.model_json_schema()
 
+            # Pass images if any exist
+            if any(images_for_output):
+                sampling_params_output["image_data"] = images_for_output
+            
             outputs_for_output = llm.generate(
                 prompts_for_output, sampling_params_output
             )
