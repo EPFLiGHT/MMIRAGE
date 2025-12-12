@@ -15,6 +15,17 @@ from mirage.utils import (
     validate_processing_params,
 )
 
+_LLM = None
+
+def set_llm(llm):
+    global _LLM
+    _LLM = llm
+
+def get_llm():
+    if _LLM is None:
+        raise RuntimeError("LLM not initialized. Call set_llm(llm) in main().")
+    return _LLM
+
 
 def build_multimodal_prompt(
     prompt_text: str, vars_dict: Dict[str, Any], processing_inputs: List[InputVar]
@@ -41,9 +52,9 @@ def rewrite_batch(
     processing_outputs: List[OutputVar],
     sampling_params: Dict[str, Any],
     output_schema: Dict[str, Any],
-    llm: sgl.Engine,
     shard_id: int,
 ) -> Dict[str, List[Any]]:
+    llm = get_llm()
     vars_samples: List[Dict[str, Any]] = []  # input vars for each example
 
     # turn the dictionary of lists into a list of dictionaries
@@ -205,6 +216,8 @@ def main():
         except Exception:
             pass
         return
+    
+    set_llm(llm)
 
     # -------------------------
     # Apply map with batching
@@ -218,7 +231,6 @@ def main():
         desc=f"Shard {shard_id}/{num_shards - 1}",
         fn_kwargs={
             "shard_id": shard_id,
-            "llm": llm,
             "processing_outputs": processing_params.outputs,
             "processing_inputs": processing_params.inputs,
             "sampling_params": sampling_params,
