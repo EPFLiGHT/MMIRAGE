@@ -275,6 +275,20 @@ def fill_template_recursive(template: Any, vars_dict: Dict[str, Any]) -> Any:
     """Recursively fill templates in nested structures."""
 
     if isinstance(template, str):
+        # Check if this is a simple variable reference like "{image}"
+        # If so and it's a PIL Image, return it directly without formatting
+        stripped = template.strip()
+        if stripped.startswith("{") and stripped.endswith("}") and stripped.count("{") == 1:
+            var_name = stripped[1:-1].strip()
+            if var_name in vars_dict:
+                value = vars_dict[var_name]
+                # Preserve PIL Images and other non-string objects
+                if isinstance(value, Image.Image):
+                    return value
+                # For other types that shouldn't be formatted, add checks here
+                # e.g., numpy arrays, torch tensors, etc.
+        
+        # Normal string formatting for text
         return template.format(**vars_dict)
     elif isinstance(template, dict):
         return {k: fill_template_recursive(v, vars_dict) for k, v in template.items()}
