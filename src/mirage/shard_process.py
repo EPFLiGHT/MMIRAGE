@@ -81,13 +81,19 @@ def rewrite_batch(
                 sampling_params_output["json_schema"] = json_schema.model_json_schema()
 
             # Pass images as separate argument if any exist
-            if any(images_for_output):
+            # Check if we have any non-empty image lists
+            has_images = any(len(img_list) > 0 for img_list in images_for_output)
+            
+            if has_images:
                 outputs_for_output = llm.generate(
-                    prompts_for_output, sampling_params_output, image_data=images_for_output
+                    prompt=prompts_for_output,
+                    sampling_params=sampling_params_output,
+                    image_data=images_for_output
                 )
             else:
                 outputs_for_output = llm.generate(
-                    prompts_for_output, sampling_params_output
+                    prompt=prompts_for_output,
+                    sampling_params=sampling_params_output
                 )
             if len(prompts_for_output) != len(outputs_for_output):
                 raise RuntimeError(
@@ -188,6 +194,17 @@ def main():
         f"Loaded {len(datasets)} dataset(s): {datasets} "
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
+
+    # Handle empty shards gracefully
+    if shard_rows == 0:
+        print(f"⚠️  Shard {shard_id} is empty (dataset has only {total_rows} samples for {num_shards} shards).")
+        print(f"✅ Saving empty shard to {shard_out_dir}")
+        ds_shard.save_to_disk(shard_out_dir)
+        try:
+            llm.shutdown()
+        except Exception:
+            pass
+        return
 
     # -------------------------
     # Apply map with batching
