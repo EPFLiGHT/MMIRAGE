@@ -1,22 +1,22 @@
 engine:
-  model_path: Qwen/Qwen2.5-VL-7B-Instruct  # Vision-language model
+  model_path: Qwen/Qwen3-VL-8B-Instruct
   tp_size: 4
   trust_remote_code: true
 
 sampling_params:
-  temperature: 0.2
+  temperature: 0.1
   top_p: 0.95
   max_new_tokens: 768
 
 processing_gen_params:
   datasets:
-    - path: axiong/pmc_oa  # HuggingFace dataset
+    - path: path/to/your/dataset
       type: loadable
   output_dir: /capstor/store/cscs/swissai/a127/homes/$USER/datasets/pmc_oa_enhanced/shards
   num_shards: "$SLURM_ARRAY_TASK_COUNT"
   shard_id: "$SLURM_ARRAY_TASK_ID"
   conversations_field: "conversations"
-  batch_size: 16
+  batch_size: 64
 
 processing_params:
   inputs:
@@ -33,15 +33,13 @@ processing_params:
       type: llm
       output_type: plain
       prompt: |
-        You are a medical imaging expert. Analyze the provided medical image and enhance the caption.
+        Analyze the image and enhance the caption in a markdown format.
         
-        Original caption: {original_caption}
-        
-        Instructions:
-        - Enhance the caption with more precise medical terminology if appropriate
-        - Maintain accuracy - do not add information not visible in the image
-        - Keep the scientific tone suitable for medical documentation
-        - Format the enhanced caption in clear, professional language
+        Original: {original_caption}
+      output_schema:
+        - question
+        - explanation
+        - answer
 
   output_schema:
     image: "{medical_image}"  # Preserve original image

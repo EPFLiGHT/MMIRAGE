@@ -214,6 +214,7 @@ def main():
         batched=True,
         batch_size=processing_gen_params.get_batch_size(),
         load_from_cache_file=False,
+        num_proc=1, # avoid multiprocessing issues with SGLang engine
         desc=f"Shard {shard_id}/{num_shards - 1}",
         fn_kwargs={
             "shard_id": shard_id,
