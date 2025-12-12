@@ -80,13 +80,15 @@ def rewrite_batch(
 
                 sampling_params_output["json_schema"] = json_schema.model_json_schema()
 
-            # Pass images if any exist
+            # Pass images as separate argument if any exist
             if any(images_for_output):
-                sampling_params_output["image_data"] = images_for_output
-            
-            outputs_for_output = llm.generate(
-                prompts_for_output, sampling_params_output
-            )
+                outputs_for_output = llm.generate(
+                    prompts_for_output, sampling_params_output, image_data=images_for_output
+                )
+            else:
+                outputs_for_output = llm.generate(
+                    prompts_for_output, sampling_params_output
+                )
             if len(prompts_for_output) != len(outputs_for_output):
                 raise RuntimeError(
                     f"Mismatch between prompts and outputs: {len(prompts_for_output)} vs {len(outputs_for_output)}"
