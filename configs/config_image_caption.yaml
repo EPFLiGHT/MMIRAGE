@@ -33,11 +33,17 @@ processing_params:
       type: llm
       output_type: plain
       prompt: |
-        You are provided with an image and its original caption.
-        Please enhance the caption to be more descriptive and accurate while maintaining the original meaning.
-        Do not add information that is not visible in the image.
-        
-        Original caption: {caption}
+        Write a single enhanced caption describing the image.
+
+        Requirements:
+        - Do NOT include labels, headings, or prefixes.
+        - Do NOT mention the original caption.
+        - Do NOT explain your reasoning.
+        - Return only the final caption text.
+        - Use plain text or light markdown (no code blocks).
+
+        Caption to enhance:
+        {original_caption}
 
   output_schema:
     image: "{image}"  # Pass through unchanged

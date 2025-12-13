@@ -4,8 +4,6 @@ import os
 import sys
 from typing import Any, Dict, List
 
-import sglang as sgl
-
 from mirage.config import InputVar, OutputVar
 from mirage.utils import (
     extract_input_vars,
