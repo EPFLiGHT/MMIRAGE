@@ -30,19 +30,16 @@ def get_llm():
 def build_multimodal_prompt(
     prompt_text: str, vars_dict: Dict[str, Any], processing_inputs: List[InputVar]
 ) -> tuple[str, List[Any]]:
-    """Build a prompt and extract images for SGLang Engine.
-    """
-    # Format the text prompt
+    """Build a prompt and extract images for SGLang Engine."""
     formatted_prompt = prompt_text.format(**vars_dict)
-    
-    # Extract images from vars_dict based on processing_inputs
+
     images = []
     for inp in processing_inputs:
         if inp.is_image():
             image_value = vars_dict.get(inp.name)
             if image_value is not None:
                 images.append(image_value)
-    
+
     return formatted_prompt, images
 
 
@@ -69,8 +66,7 @@ def rewrite_batch(
         vars_samples.append(current_vars)
 
     try:
-        # Non-streaming synchronous batch generation
-        outputs: List[Dict[str, Any]] = []
+        # Generate and fill vars_samples[i][output.name]
         for output in processing_outputs:
             # Build prompts and extract images
             prompt_image_pairs = [
@@ -80,7 +76,7 @@ def rewrite_batch(
             prompts_for_output = [pair[0] for pair in prompt_image_pairs]
             images_for_output = [pair[1] for pair in prompt_image_pairs]
 
-            sampling_params_output = sampling_params.copy()
+            sampling_params_output = dict(sampling_params)
             if output.output_type == "JSON":
                 json_schema = output.get_output_schema()
                 if json_schema is None:
@@ -88,63 +84,76 @@ def rewrite_batch(
                         f"Output variable {output.name} has output_type=JSON "
                         "but no output_schema defined."
                     )
-
                 sampling_params_output["json_schema"] = json_schema.model_json_schema()
 
-            # Pass images as separate argument if any exist
-            # Check if we have any non-empty image lists
-            has_images = any(len(img_list) > 0 for img_list in images_for_output)
-            
-            if has_images:
+            # Check if ANY sample has images for this output
+            has_images_any = any(len(img_list) > 0 for img_list in images_for_output)
+
+            if has_images_any:
+                # Robust path: per-example calls for multimodal
+                for i in range(nb_samples):
+                    prompt_i = prompts_for_output[i]
+                    imgs_i = images_for_output[i]
+
+                    try:
+                        if imgs_i:
+                            out = llm.generate(
+                                prompt=[prompt_i],
+                                sampling_params=sampling_params_output,
+                                image_data=[imgs_i],
+                            )
+                        else:
+                            # some rows might have no image even if others do
+                            out = llm.generate(
+                                prompt=[prompt_i],
+                                sampling_params=sampling_params_output,
+                            )
+
+                        text = ""
+                        if isinstance(out, list) and out:
+                            text = out[0].get("text", "").strip()
+
+                        vars_samples[i][output.name] = text
+
+                    except Exception as e:
+                        print(
+                            f"[shard {shard_id}] Generation failed for output '{output.name}' "
+                            f"example {i}/{nb_samples-1}: {e}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                        vars_samples[i][output.name] = ""
+            else:
+                # Fast path: batched calls for text-only
                 outputs_for_output = llm.generate(
                     prompt=prompts_for_output,
                     sampling_params=sampling_params_output,
-                    image_data=images_for_output
-                )
-            else:
-                outputs_for_output = llm.generate(
-                    prompt=prompts_for_output,
-                    sampling_params=sampling_params_output
-                )
-            if len(prompts_for_output) != len(outputs_for_output):
-                raise RuntimeError(
-                    f"Mismatch between prompts and outputs: {len(prompts_for_output)} vs {len(outputs_for_output)}"
                 )
 
-            outputs += outputs_for_output
+                if not isinstance(outputs_for_output, list) or len(outputs_for_output) != nb_samples:
+                    raise RuntimeError(
+                        f"Mismatch between prompts and outputs for '{output.name}': "
+                        f"{len(prompts_for_output)} vs "
+                        f"{len(outputs_for_output) if isinstance(outputs_for_output, list) else 'non-list'}"
+                    )
+
+                for i in range(nb_samples):
+                    vars_samples[i][output.name] = outputs_for_output[i].get("text", "").strip()
+
     except Exception as e:
         print(
             f"[shard {shard_id}] Batch generation failed: {e}",
             file=sys.stderr,
+            flush=True,
         )
-        # On error, keep original conversations for this batch
+        # On error, keep original batch
         return batch
 
-    if not isinstance(outputs, list) or len(outputs) != nb_samples * len(
-        processing_outputs
-    ):
-        print(
-            f"[shard {shard_id}] Unexpected outputs length from llm.generate: "
-            f"expected {nb_samples * len(processing_outputs)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
-            file=sys.stderr,
-        )
-        return batch
-
-    # Get the values from outputs and fill into vars_samples
-    for i, output in enumerate(outputs):
-        ex_id = i % nb_samples
-        output_var = processing_outputs[i // nb_samples]
-
-        out_text = output.get("text", "").strip()
-        vars_samples[ex_id][output_var.name] = out_text
-
+    # Rebuild the output according to output_schema template
     new_results = []
     for vars_sample in vars_samples:
-        # Rebuild the output according to output_schema template
         filled_output = fill_template_recursive(output_schema, vars_sample)
         new_results.append(filled_output)
-
-    # Only return the updated conversations column; HF keeps other columns
 
     # Build result dict with all columns from output_schema
     result_batch: Dict[str, List[Any]] = {}
@@ -179,9 +188,8 @@ def main():
 
     datasets = processing_gen_params.datasets
     if not datasets:
-        raise ValueError(
-            "No datasets provided in config.processing_gen_params.datasets"
-        )
+        raise ValueError("No datasets provided in config.processing_gen_params.datasets")
+
     shard_id = processing_gen_params.get_shard_id()
     num_shards = processing_gen_params.get_num_shards()
 
@@ -216,7 +224,8 @@ def main():
         except Exception:
             pass
         return
-    
+
+    # Make engine available inside rewrite_batch without passing via fn_kwargs
     set_llm(llm)
 
     # -------------------------
@@ -227,7 +236,6 @@ def main():
         batched=True,
         batch_size=processing_gen_params.get_batch_size(),
         load_from_cache_file=False,
-        num_proc=1, # avoid multiprocessing issues with SGLang engine
         desc=f"Shard {shard_id}/{num_shards - 1}",
         fn_kwargs={
             "shard_id": shard_id,

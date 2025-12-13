@@ -33,14 +33,20 @@ processing_params:
       type: llm
       output_type: plain
       prompt: |
-        Analyze the image and enhance the caption in a markdown format.
-        
-        Original: {original_caption}
-      output_schema:
-        - question
-        - explanation
-        - answer
+        Write a single enhanced caption describing the image.
 
+        Requirements:
+        - Do NOT include labels, headings, or prefixes.
+        - Do NOT mention the original caption.
+        - Do NOT explain your reasoning.
+        - Return only the final caption text.
+        - Use plain text or light markdown (no code blocks).
+
+        Caption to enhance:
+        {original_caption}
+      output_schema:
+        - caption_enhanced
+        
   output_schema:
     image: "{medical_image}"  # Preserve original image
     caption: "{enhanced_medical_caption}"  # Enhanced caption
