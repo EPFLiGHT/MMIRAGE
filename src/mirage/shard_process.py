@@ -1,9 +1,9 @@
 import argparse
-import json
 import os
 import sys
 from typing import Any, Dict, List
 from sglang.srt.parser.conversation import chat_templates
+import sglang as sgl
 
 from mirage.config import InputVar, OutputVar
 from mirage.utils import (
@@ -13,17 +13,6 @@ from mirage.utils import (
     load_engine_from_yaml,
     validate_processing_params,
 )
-
-_LLM = None
-
-def set_llm(llm):
-    global _LLM
-    _LLM = llm
-
-def get_llm():
-    if _LLM is None:
-        raise RuntimeError("LLM not initialized. Call set_llm(llm) in main().")
-    return _LLM
 
 
 def build_multimodal_prompt(
@@ -48,9 +37,9 @@ def rewrite_batch(
     processing_outputs: List[OutputVar],
     sampling_params: Dict[str, Any],
     output_schema: Dict[str, Any],
+    llm: sgl.Engine,
     shard_id: int,
 ) -> Dict[str, List[Any]]:
-    llm = get_llm()
     vars_samples: List[Dict[str, Any]] = []  # input vars for each example
 
     # turn the dictionary of lists into a list of dictionaries
@@ -226,9 +215,6 @@ def main():
             pass
         return
 
-    # Make engine available inside rewrite_batch without passing via fn_kwargs
-    set_llm(llm)
-
     # -------------------------
     # Apply map with batching
     # -------------------------
@@ -240,6 +226,7 @@ def main():
         desc=f"Shard {shard_id}/{num_shards - 1}",
         fn_kwargs={
             "shard_id": shard_id,
+            "llm": llm,
             "processing_outputs": processing_params.outputs,
             "processing_inputs": processing_params.inputs,
             "sampling_params": sampling_params,
