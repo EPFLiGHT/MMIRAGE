@@ -3,6 +3,7 @@ import json
 import os
 import sys
 from typing import Any, Dict, List
+from sglang.srt.parser.conversation import chat_templates
 
 from mirage.config import InputVar, OutputVar
 from mirage.utils import (
@@ -90,7 +91,9 @@ def rewrite_batch(
             if has_images_any:
                 # Robust path: per-example calls for multimodal
                 for i in range(nb_samples):
-                    prompt_i = prompts_for_output[i]
+                    conv = chat_templates["qwen2-vl"].copy()
+                    image_token = conv.image_token
+                    prompt_i = prompts_for_output[i] + f"\n{image_token}\n"
                     imgs_i = images_for_output[i]
 
                     try:
