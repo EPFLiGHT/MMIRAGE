@@ -136,6 +136,7 @@ The images are stored separately (e.g., in an extracted `images/` folder). Confi
 ```yaml
 engine:
   model_path: Qwen/Qwen2.5-VL-7B-Instruct  # Vision-language model
+  chat_template: qwen2-vl  # Chat template for vision-language models (defaults to "qwen2-vl")
 
 inputs:
   - name: medical_image
@@ -182,6 +183,7 @@ inputs:
 - Supports file paths, URLs, PIL Images, and other formats accepted by SGLang
 - See [SGLang supported VLMs](https://docs.sglang.io/supported_models/multimodal_language_models.html) for compatible models
 - The model must be a Vision-Language Model to process images
+- **Chat template**: Specify the appropriate chat template in the engine config (e.g., `chat_template: qwen2-vl`). Defaults to "qwen2-vl" if not specified
 
 ## Useful tools
 

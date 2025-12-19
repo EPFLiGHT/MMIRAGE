@@ -39,6 +39,7 @@ def rewrite_batch(
     output_schema: Dict[str, Any],
     llm: sgl.Engine,
     shard_id: int,
+    chat_template: str,
 ) -> Dict[str, List[Any]]:
     vars_samples: List[Dict[str, Any]] = []  # input vars for each example
 
@@ -79,8 +80,15 @@ def rewrite_batch(
 
             if has_images_any:
                 # Robust path: per-example calls for multimodal
+                # Validate chat template exists
+                if chat_template not in chat_templates:
+                    raise ValueError(
+                        f"Chat template '{chat_template}' not found. "
+                        f"Available templates: {list(chat_templates.keys())}"
+                    )
+                
                 for i in range(nb_samples):
-                    conv = chat_templates["qwen2-vl"].copy()
+                    conv = chat_templates[chat_template].copy()
                     image_token = conv.image_token
                     imgs_i = images_for_output[i]
                     # Only append the image token when there are images for this sample
@@ -179,6 +187,21 @@ def main():
     sampling_params = cfg.sampling_params
     processing_gen_params = cfg.processing_gen_params
     processing_params = cfg.processing_params
+    
+    # Get chat template from config
+    chat_template = cfg.engine.chat_template
+    
+    # Validate chat template early to provide clear error feedback
+    if chat_template not in chat_templates:
+        available = list(chat_templates.keys())
+        raise ValueError(
+            f"Chat template '{chat_template}' not found. "
+            f"Available templates: {available}. "
+            f"Please set a valid 'chat_template' in your engine config. "
+            f"Common template: 'qwen2-vl'"
+        )
+    
+    print(f"Using chat template: {chat_template}")
 
     datasets = processing_gen_params.datasets
     if not datasets:
@@ -235,6 +258,7 @@ def main():
             "processing_inputs": processing_params.inputs,
             "sampling_params": sampling_params,
             "output_schema": processing_params.output_schema,
+            "chat_template": chat_template,
         },
     )
 

@@ -2,6 +2,7 @@ engine:
   model_path: Qwen/Qwen3-VL-8B-Instruct
   tp_size: 4
   trust_remote_code: true
+  chat_template: qwen2-vl  # Chat template for vision-language models (defaults to "qwen2-vl" if omitted)
 
 sampling_params:
   temperature: 0.1
