@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import asdict
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, TypeAlias, Union, cast
 
 import sglang as sgl
