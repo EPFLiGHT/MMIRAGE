@@ -15,6 +15,31 @@ from mirage.utils import (
 )
 
 
+def infer_chat_template(model_path: str) -> str:
+    """
+    Infer the appropriate chat template based on the model path.
+    
+    Args:
+        model_path: Path or name of the model (e.g., "Qwen/Qwen2.5-VL-7B-Instruct")
+    
+    Returns:
+        The chat template name to use (e.g., "qwen2-vl")
+    """
+    model_lower = model_path.lower()
+    
+    # Check for Qwen vision models
+    if "qwen" in model_lower and ("vl" in model_lower or "vision" in model_lower):
+        # Qwen2-VL, Qwen2.5-VL, Qwen3-VL all use qwen2-vl template
+        return "qwen2-vl"
+    
+    # Add more model families as needed
+    # if "llama" in model_lower and "vision" in model_lower:
+    #     return "llama-3-vision"
+    
+    # Default fallback
+    return "qwen2-vl"
+
+
 def build_multimodal_prompt(
     prompt_text: str, vars_dict: Dict[str, Any], processing_inputs: List[InputVar]
 ) -> Tuple[str, List[Any]]:
@@ -39,6 +64,7 @@ def rewrite_batch(
     output_schema: Dict[str, Any],
     llm: sgl.Engine,
     shard_id: int,
+    chat_template: str = "qwen2-vl",
 ) -> Dict[str, List[Any]]:
     vars_samples: List[Dict[str, Any]] = []  # input vars for each example
 
@@ -80,7 +106,7 @@ def rewrite_batch(
             if has_images_any:
                 # Robust path: per-example calls for multimodal
                 for i in range(nb_samples):
-                    conv = chat_templates["qwen2-vl"].copy()
+                    conv = chat_templates[chat_template].copy()
                     image_token = conv.image_token
                     imgs_i = images_for_output[i]
                     # Only append the image token when there are images for this sample
@@ -179,6 +205,10 @@ def main():
     sampling_params = cfg.sampling_params
     processing_gen_params = cfg.processing_gen_params
     processing_params = cfg.processing_params
+    
+    # Determine chat template: use explicit config or infer from model path
+    chat_template = cfg.engine.chat_template or infer_chat_template(cfg.engine.model_path)
+    print(f"Using chat template: {chat_template}")
 
     datasets = processing_gen_params.datasets
     if not datasets:
@@ -235,6 +265,7 @@ def main():
             "processing_inputs": processing_params.inputs,
             "sampling_params": sampling_params,
             "output_schema": processing_params.output_schema,
+            "chat_template": chat_template,
         },
     )
 

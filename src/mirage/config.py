@@ -11,6 +11,7 @@ class EngineConfig:
     model_path: str
     tp_size: int = 4
     trust_remote_code: bool = True
+    chat_template: Optional[str] = None  # Optional chat template name (e.g., "qwen2-vl", "llama-3-vision")
 
 
 @dataclass
