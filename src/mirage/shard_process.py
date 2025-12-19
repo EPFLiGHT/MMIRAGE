@@ -117,16 +117,17 @@ def rewrite_batch(
             
             # Process multimodal samples individually if any exist
             if multimodal_indices:
-                # Validate chat template exists
+                # Validate chat template exists and extract image token once
                 if chat_template not in chat_templates:
                     raise ValueError(
                         f"Chat template '{chat_template}' not found. "
                         f"Available templates: {list(chat_templates.keys())}"
                     )
                 
+                conv = chat_templates[chat_template].copy()
+                image_token = conv.image_token
+                
                 for i in multimodal_indices:
-                    conv = chat_templates[chat_template].copy()
-                    image_token = conv.image_token
                     imgs_i = images_for_output[i]
                     prompt_i = prompts_for_output[i] + f"\n{image_token}\n"
                     
