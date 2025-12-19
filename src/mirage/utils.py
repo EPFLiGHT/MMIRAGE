@@ -264,7 +264,12 @@ def resolve_image_input(value: Any, image_base_path: Optional[str] = None) -> An
     # Case 5: Relative path - try to resolve with base path
     if image_base_path:
         resolved_path = os.path.join(image_base_path, value)
-        return resolved_path
+        if os.path.exists(resolved_path):
+            return resolved_path
+        raise FileNotFoundError(
+            f"Resolved image path '{resolved_path}' does not exist "
+            f"(from base '{image_base_path}' and relative path '{value}')."
+        )
     
     # Case 6: No base path - return as-is and let SGLang handle it
     return value
