@@ -82,8 +82,12 @@ def rewrite_batch(
                 for i in range(nb_samples):
                     conv = chat_templates["qwen2-vl"].copy()
                     image_token = conv.image_token
-                    prompt_i = prompts_for_output[i] + f"\n{image_token}\n"
                     imgs_i = images_for_output[i]
+                    # Only append the image token when there are images for this sample
+                    if imgs_i:
+                        prompt_i = prompts_for_output[i] + f"\n{image_token}\n"
+                    else:
+                        prompt_i = prompts_for_output[i]
 
                     try:
                         if imgs_i:
