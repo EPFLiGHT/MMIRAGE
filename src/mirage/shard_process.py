@@ -75,11 +75,48 @@ def rewrite_batch(
                     )
                 sampling_params_output["json_schema"] = json_schema.model_json_schema()
 
-            # Check if ANY sample has images for this output
-            has_images_any = any(len(img_list) > 0 for img_list in images_for_output)
-
-            if has_images_any:
-                # Robust path: per-example calls for multimodal
+            # Separate samples into text-only and multimodal groups
+            text_only_indices = []
+            multimodal_indices = []
+            
+            for i in range(nb_samples):
+                if len(images_for_output[i]) > 0:
+                    multimodal_indices.append(i)
+                else:
+                    text_only_indices.append(i)
+            
+            # Process text-only samples in batch if any exist
+            if text_only_indices:
+                text_only_prompts = [prompts_for_output[i] for i in text_only_indices]
+                
+                try:
+                    text_only_outputs = llm.generate(
+                        prompt=text_only_prompts,
+                        sampling_params=sampling_params_output,
+                    )
+                    
+                    if not isinstance(text_only_outputs, list) or len(text_only_outputs) != len(text_only_indices):
+                        raise RuntimeError(
+                            f"Mismatch between text-only prompts and outputs for '{output.name}': "
+                            f"{len(text_only_prompts)} vs "
+                            f"{len(text_only_outputs) if isinstance(text_only_outputs, list) else 'non-list'}"
+                        )
+                    
+                    for idx, i in enumerate(text_only_indices):
+                        vars_samples[i][output.name] = text_only_outputs[idx].get("text", "").strip()
+                
+                except Exception as e:
+                    print(
+                        f"[shard {shard_id}] Batch generation failed for text-only samples in output '{output.name}': {e}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    # On error, set empty strings for failed samples
+                    for i in text_only_indices:
+                        vars_samples[i][output.name] = ""
+            
+            # Process multimodal samples individually if any exist
+            if multimodal_indices:
                 # Validate chat template exists
                 if chat_template not in chat_templates:
                     raise ValueError(
@@ -87,60 +124,33 @@ def rewrite_batch(
                         f"Available templates: {list(chat_templates.keys())}"
                     )
                 
-                for i in range(nb_samples):
+                for i in multimodal_indices:
                     conv = chat_templates[chat_template].copy()
                     image_token = conv.image_token
                     imgs_i = images_for_output[i]
-                    # Only append the image token when there are images for this sample
-                    if imgs_i:
-                        prompt_i = prompts_for_output[i] + f"\n{image_token}\n"
-                    else:
-                        prompt_i = prompts_for_output[i]
-
+                    prompt_i = prompts_for_output[i] + f"\n{image_token}\n"
+                    
                     try:
-                        if imgs_i:
-                            out = llm.generate(
-                                prompt=[prompt_i],
-                                sampling_params=sampling_params_output,
-                                image_data=[imgs_i],
-                            )
-                        else:
-                            # some rows might have no image even if others do
-                            out = llm.generate(
-                                prompt=[prompt_i],
-                                sampling_params=sampling_params_output,
-                            )
-
+                        out = llm.generate(
+                            prompt=[prompt_i],
+                            sampling_params=sampling_params_output,
+                            image_data=[imgs_i],
+                        )
+                        
                         text = ""
                         if isinstance(out, list) and out:
                             text = out[0].get("text", "").strip()
-
+                        
                         vars_samples[i][output.name] = text
-
+                    
                     except Exception as e:
                         print(
-                            f"[shard {shard_id}] Generation failed for output '{output.name}' "
+                            f"[shard {shard_id}] Generation failed for multimodal output '{output.name}' "
                             f"example {i}/{nb_samples-1}: {e}",
                             file=sys.stderr,
                             flush=True,
                         )
                         vars_samples[i][output.name] = ""
-            else:
-                # Fast path: batched calls for text-only
-                outputs_for_output = llm.generate(
-                    prompt=prompts_for_output,
-                    sampling_params=sampling_params_output,
-                )
-
-                if not isinstance(outputs_for_output, list) or len(outputs_for_output) != nb_samples:
-                    raise RuntimeError(
-                        f"Mismatch between prompts and outputs for '{output.name}': "
-                        f"{len(prompts_for_output)} vs "
-                        f"{len(outputs_for_output) if isinstance(outputs_for_output, list) else 'non-list'}"
-                    )
-
-                for i in range(nb_samples):
-                    vars_samples[i][output.name] = outputs_for_output[i].get("text", "").strip()
 
     except Exception as e:
         print(
