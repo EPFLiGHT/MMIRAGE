@@ -183,7 +183,7 @@ inputs:
 - See [SGLang supported VLMs](https://docs.sglang.io/supported_models/multimodal_language_models.html) for compatible models
 - The model must be a Vision-Language Model to process images
 
-## Usefool tools
+## Useful tools
 
 - Jinja2 to process the YAML: #[link](https://jinja.palletsprojects.com/en/stable/)
 - JMESPath: #[link](https://jmespath.org/)
