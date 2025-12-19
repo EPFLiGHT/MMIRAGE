@@ -27,16 +27,17 @@ def infer_chat_template(model_path: str) -> str:
     """
     model_lower = model_path.lower()
     
-    # Check for Qwen vision models
-    if "qwen" in model_lower and ("vl" in model_lower or "vision" in model_lower):
-        # Qwen2-VL, Qwen2.5-VL, Qwen3-VL all use qwen2-vl template
+    # Check for Qwen vision models (Qwen2-VL, Qwen2.5-VL, Qwen3-VL)
+    # Match patterns like "qwen/qwen2-vl", "qwen/qwen2.5-vl-7b", "qwen3-vl"
+    if "qwen" in model_lower and ("-vl" in model_lower or "/vl" in model_lower):
         return "qwen2-vl"
     
     # Add more model families as needed
-    # if "llama" in model_lower and "vision" in model_lower:
+    # Example for future expansion:
+    # if "llama" in model_lower and ("vision" in model_lower or "-v" in model_lower):
     #     return "llama-3-vision"
     
-    # Default fallback
+    # Default fallback to qwen2-vl for compatibility
     return "qwen2-vl"
 
 
@@ -64,7 +65,7 @@ def rewrite_batch(
     output_schema: Dict[str, Any],
     llm: sgl.Engine,
     shard_id: int,
-    chat_template: str = "qwen2-vl",
+    chat_template: str,
 ) -> Dict[str, List[Any]]:
     vars_samples: List[Dict[str, Any]] = []  # input vars for each example
 
@@ -105,6 +106,13 @@ def rewrite_batch(
 
             if has_images_any:
                 # Robust path: per-example calls for multimodal
+                # Validate chat template exists
+                if chat_template not in chat_templates:
+                    raise ValueError(
+                        f"Chat template '{chat_template}' not found. "
+                        f"Available templates: {list(chat_templates.keys())}"
+                    )
+                
                 for i in range(nb_samples):
                     conv = chat_templates[chat_template].copy()
                     image_token = conv.image_token
