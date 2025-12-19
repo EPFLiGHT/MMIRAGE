@@ -1,7 +1,7 @@
 import argparse
 import os
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from sglang.srt.parser.conversation import chat_templates
 import sglang as sgl
 
@@ -17,7 +17,7 @@ from mirage.utils import (
 
 def build_multimodal_prompt(
     prompt_text: str, vars_dict: Dict[str, Any], processing_inputs: List[InputVar]
-) -> tuple[str, List[Any]]:
+) -> Tuple[str, List[Any]]:
     """Build a prompt and extract images for SGLang Engine."""
     formatted_prompt = prompt_text.format(**vars_dict)
 
