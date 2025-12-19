@@ -15,38 +15,6 @@ from mirage.utils import (
 )
 
 
-def infer_chat_template(model_path: str) -> str:
-    """
-    Infer the appropriate chat template based on the model path.
-    
-    Args:
-        model_path: Path or name of the model (e.g., "Qwen/Qwen2.5-VL-7B-Instruct")
-    
-    Returns:
-        The chat template name to use (e.g., "qwen2-vl")
-    """
-    # Extract the model name from the path (last component after /)
-    model_name = model_path.split('/')[-1].lower()
-    
-    # Check for Qwen vision models (Qwen2-VL, Qwen2.5-VL, Qwen3-VL)
-    # Match model names containing "qwen" and ending with "-vl" or containing "vl-"
-    if "qwen" in model_name and ("vl-" in model_name or model_name.endswith("-vl")):
-        return "qwen2-vl"
-    
-    # Also check the full path for organization/repo patterns like "Qwen/QwenVL"
-    model_lower = model_path.lower()
-    if "qwen" in model_lower and "vl" in model_lower:
-        return "qwen2-vl"
-    
-    # Add more model families as needed
-    # Example for future expansion:
-    # if "llama" in model_name and ("vision" in model_name or model_name.endswith("-v")):
-    #     return "llama-3-vision"
-    
-    # Default fallback to qwen2-vl for compatibility
-    return "qwen2-vl"
-
-
 def build_multimodal_prompt(
     prompt_text: str, vars_dict: Dict[str, Any], processing_inputs: List[InputVar]
 ) -> Tuple[str, List[Any]]:
@@ -220,15 +188,15 @@ def main():
     processing_gen_params = cfg.processing_gen_params
     processing_params = cfg.processing_params
     
-    # Determine chat template: use explicit config or infer from model path
-    chat_template = cfg.engine.chat_template or infer_chat_template(cfg.engine.model_path)
+    # Get chat template from config
+    chat_template = cfg.engine.chat_template
     
     # Validate chat template early to provide clear error feedback
     if chat_template not in chat_templates:
         raise ValueError(
             f"Chat template '{chat_template}' not found. "
             f"Available templates: {list(chat_templates.keys())}. "
-            f"Please set 'chat_template' explicitly in your engine config."
+            f"Please set a valid 'chat_template' in your engine config."
         )
     
     print(f"Using chat template: {chat_template}")
