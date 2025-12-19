@@ -11,7 +11,7 @@ class EngineConfig:
     model_path: str
     tp_size: int = 4
     trust_remote_code: bool = True
-    chat_template: str = "qwen2-vl"  # Chat template name (e.g., "qwen2-vl", "llama-3-vision")
+    chat_template: str = "qwen2-vl"  # Chat template name for vision-language models
 
 
 @dataclass

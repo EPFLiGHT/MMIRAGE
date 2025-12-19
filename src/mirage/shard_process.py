@@ -193,10 +193,12 @@ def main():
     
     # Validate chat template early to provide clear error feedback
     if chat_template not in chat_templates:
+        available = list(chat_templates.keys())
         raise ValueError(
             f"Chat template '{chat_template}' not found. "
-            f"Available templates: {list(chat_templates.keys())}. "
-            f"Please set a valid 'chat_template' in your engine config."
+            f"Available templates: {available}. "
+            f"Please set a valid 'chat_template' in your engine config. "
+            f"Common template: 'qwen2-vl'"
         )
     
     print(f"Using chat template: {chat_template}")
