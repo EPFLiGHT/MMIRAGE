@@ -12,7 +12,7 @@ processing_gen_params:
   datasets:
     - path: path/to/your/dataset
       type: loadable
-  output_dir: /capstor/store/cscs/swissai/a127/homes/$USER/datasets/pmc_oa_enhanced/shards
+  output_dir: path/to/your/output/shards
   num_shards: "$SLURM_ARRAY_TASK_COUNT"
   shard_id: "$SLURM_ARRAY_TASK_ID"
   conversations_field: "conversations"
