@@ -11,6 +11,7 @@ class EngineConfig:
     model_path: str
     tp_size: int = 4
     trust_remote_code: bool = True
+    chat_template: str = "qwen2-vl"  # Chat template name for vision-language models
 
 
 @dataclass
@@ -68,6 +69,12 @@ class ProcessingGenParams:
 class InputVar:
     name: str
     key: str
+    type: Literal["text", "image"] = "text"
+    image_base_path: Optional[str] = None  # Base directory for resolving relative image paths
+
+    def is_image(self) -> bool:
+        """Check if this input variable represents an image."""
+        return self.type == "image"
 
 
 @dataclass

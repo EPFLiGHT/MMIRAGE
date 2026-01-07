@@ -1,9 +1,8 @@
 import argparse
-import json
 import os
 import sys
-from typing import Any, Dict, List
-
+from typing import Any, Dict, List, Tuple
+from sglang.srt.parser.conversation import chat_templates
 import sglang as sgl
 
 from mirage.config import InputVar, OutputVar
@@ -16,6 +15,22 @@ from mirage.utils import (
 )
 
 
+def build_multimodal_prompt(
+    prompt_text: str, vars_dict: Dict[str, Any], processing_inputs: List[InputVar]
+) -> Tuple[str, List[Any]]:
+    """Build a prompt and extract images for SGLang Engine."""
+    formatted_prompt = prompt_text.format(**vars_dict)
+
+    images = []
+    for inp in processing_inputs:
+        if inp.is_image():
+            image_value = vars_dict.get(inp.name)
+            if image_value is not None:
+                images.append(image_value)
+
+    return formatted_prompt, images
+
+
 def rewrite_batch(
     batch: Dict[str, List[Any]],
     processing_inputs: List[InputVar],
@@ -24,6 +39,7 @@ def rewrite_batch(
     output_schema: Dict[str, Any],
     llm: sgl.Engine,
     shard_id: int,
+    chat_template: str,
 ) -> Dict[str, List[Any]]:
     vars_samples: List[Dict[str, Any]] = []  # input vars for each example
 
@@ -39,12 +55,17 @@ def rewrite_batch(
         vars_samples.append(current_vars)
 
     try:
-        # Non-streaming synchronous batch generation
-        outputs: List[Dict[str, Any]] = []
+        # Generate and fill vars_samples[i][output.name]
         for output in processing_outputs:
-            prompts_for_output = [output.prompt.format(**var) for var in vars_samples]
+            # Build prompts and extract images
+            prompt_image_pairs = [
+                build_multimodal_prompt(output.prompt, var, processing_inputs)
+                for var in vars_samples
+            ]
+            prompts_for_output = [pair[0] for pair in prompt_image_pairs]
+            images_for_output = [pair[1] for pair in prompt_image_pairs]
 
-            sampling_params_output = sampling_params.copy()
+            sampling_params_output = dict(sampling_params)
             if output.output_type == "JSON":
                 json_schema = output.get_output_schema()
                 if json_schema is None:
@@ -52,51 +73,108 @@ def rewrite_batch(
                         f"Output variable {output.name} has output_type=JSON "
                         "but no output_schema defined."
                     )
-
                 sampling_params_output["json_schema"] = json_schema.model_json_schema()
 
-            outputs_for_output = llm.generate(
-                prompts_for_output, sampling_params_output
-            )
-            if len(prompts_for_output) != len(outputs_for_output):
-                raise RuntimeError(
-                    f"Mismatch between prompts and outputs: {len(prompts_for_output)} vs {len(outputs_for_output)}"
-                )
+            # Separate samples into text-only and multimodal groups
+            text_only_indices = []
+            multimodal_indices = []
+            
+            for i in range(nb_samples):
+                if len(images_for_output[i]) > 0:
+                    multimodal_indices.append(i)
+                else:
+                    text_only_indices.append(i)
+            
+            # Process text-only samples in batch if any exist
+            if text_only_indices:
+                text_only_prompts = [prompts_for_output[i] for i in text_only_indices]
+                
+                try:
+                    text_only_outputs = llm.generate(
+                        prompt=text_only_prompts,
+                        sampling_params=sampling_params_output,
+                    )
+                    
+                    if not isinstance(text_only_outputs, list) or len(text_only_outputs) != len(text_only_indices):
+                        raise RuntimeError(
+                            f"Mismatch between text-only prompts and outputs for '{output.name}': "
+                            f"{len(text_only_prompts)} vs "
+                            f"{len(text_only_outputs) if isinstance(text_only_outputs, list) else 'non-list'}"
+                        )
+                    
+                    for idx, i in enumerate(text_only_indices):
+                        vars_samples[i][output.name] = text_only_outputs[idx].get("text", "").strip()
+                
+                except Exception as e:
+                    print(
+                        f"[shard {shard_id}] Batch generation failed for text-only samples in output '{output.name}': {e}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    # On error, set empty strings for failed samples
+                    for i in text_only_indices:
+                        vars_samples[i][output.name] = ""
+            
+            # Process multimodal samples in batch if any exist
+            if multimodal_indices:
+                # Validate chat template exists and extract image token once
+                if chat_template not in chat_templates:
+                    raise ValueError(
+                        f"Chat template '{chat_template}' not found. "
+                        f"Available templates: {list(chat_templates.keys())}"
+                    )
+                
+                conv = chat_templates[chat_template].copy()
+                image_token = conv.image_token
+                
+                # Prepare batched inputs for multimodal generation
+                multimodal_prompts = [
+                    prompts_for_output[i] + f"\n{image_token}\n" 
+                    for i in multimodal_indices
+                ]
+                multimodal_images = [images_for_output[i] for i in multimodal_indices]
+                
+                try:
+                    multimodal_outputs = llm.generate(
+                        prompt=multimodal_prompts,
+                        sampling_params=sampling_params_output,
+                        image_data=multimodal_images,
+                    )
+                    
+                    if not isinstance(multimodal_outputs, list) or len(multimodal_outputs) != len(multimodal_indices):
+                        raise RuntimeError(
+                            f"Mismatch between multimodal prompts and outputs for '{output.name}': "
+                            f"{len(multimodal_prompts)} vs "
+                            f"{len(multimodal_outputs) if isinstance(multimodal_outputs, list) else 'non-list'}"
+                        )
+                    
+                    for idx, i in enumerate(multimodal_indices):
+                        vars_samples[i][output.name] = multimodal_outputs[idx].get("text", "").strip()
+                
+                except Exception as e:
+                    print(
+                        f"[shard {shard_id}] Batch generation failed for multimodal samples in output '{output.name}': {e}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    # On error, set empty strings for failed samples
+                    for i in multimodal_indices:
+                        vars_samples[i][output.name] = ""
 
-            outputs += outputs_for_output
     except Exception as e:
         print(
             f"[shard {shard_id}] Batch generation failed: {e}",
             file=sys.stderr,
+            flush=True,
         )
-        # On error, keep original conversations for this batch
+        # On error, keep original batch
         return batch
 
-    if not isinstance(outputs, list) or len(outputs) != nb_samples * len(
-        processing_outputs
-    ):
-        print(
-            f"[shard {shard_id}] Unexpected outputs length from llm.generate: "
-            f"expected {nb_samples * len(processing_outputs)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
-            file=sys.stderr,
-        )
-        return batch
-
-    # Get the values from outputs and fill into vars_samples
-    for i, output in enumerate(outputs):
-        ex_id = i % nb_samples
-        output_var = processing_outputs[i // nb_samples]
-
-        out_text = output.get("text", "").strip()
-        vars_samples[ex_id][output_var.name] = out_text
-
+    # Rebuild the output according to output_schema template
     new_results = []
     for vars_sample in vars_samples:
-        # Rebuild the output according to output_schema template
         filled_output = fill_template_recursive(output_schema, vars_sample)
         new_results.append(filled_output)
-
-    # Only return the updated conversations column; HF keeps other columns
 
     # Build result dict with all columns from output_schema
     result_batch: Dict[str, List[Any]] = {}
@@ -128,12 +206,26 @@ def main():
     sampling_params = cfg.sampling_params
     processing_gen_params = cfg.processing_gen_params
     processing_params = cfg.processing_params
+    
+    # Get chat template from config
+    chat_template = cfg.engine.chat_template
+    
+    # Validate chat template early to provide clear error feedback
+    if chat_template not in chat_templates:
+        available = list(chat_templates.keys())
+        raise ValueError(
+            f"Chat template '{chat_template}' not found. "
+            f"Available templates: {available}. "
+            f"Please set a valid 'chat_template' in your engine config. "
+            f"Common template: 'qwen2-vl'"
+        )
+    
+    print(f"Using chat template: {chat_template}")
 
     datasets = processing_gen_params.datasets
     if not datasets:
-        raise ValueError(
-            "No datasets provided in config.processing_gen_params.datasets"
-        )
+        raise ValueError("No datasets provided in config.processing_gen_params.datasets")
+
     shard_id = processing_gen_params.get_shard_id()
     num_shards = processing_gen_params.get_num_shards()
 
@@ -158,6 +250,17 @@ def main():
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
 
+    # Handle empty shards gracefully
+    if shard_rows == 0:
+        print(f"⚠️  Shard {shard_id} is empty (dataset has only {total_rows} samples for {num_shards} shards).")
+        print(f"✅ Saving empty shard to {shard_out_dir}")
+        ds_shard.save_to_disk(shard_out_dir)
+        try:
+            llm.shutdown()
+        except Exception:
+            pass
+        return
+
     # -------------------------
     # Apply map with batching
     # -------------------------
@@ -174,6 +277,7 @@ def main():
             "processing_inputs": processing_params.inputs,
             "sampling_params": sampling_params,
             "output_schema": processing_params.output_schema,
+            "chat_template": chat_template,
         },
     )
 

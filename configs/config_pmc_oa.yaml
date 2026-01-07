@@ -1,0 +1,54 @@
+engine:
+  model_path: Qwen/Qwen3-VL-8B-Instruct
+  tp_size: 4
+  trust_remote_code: true
+  chat_template: qwen2-vl  # Chat template for vision-language models (defaults to "qwen2-vl" if omitted)
+
+sampling_params:
+  temperature: 0.1
+  top_p: 0.95
+  max_new_tokens: 768
+
+processing_gen_params:
+  datasets:
+    - path: path/to/your/dataset
+      type: loadable
+  output_dir: path/to/your/output/shards
+  num_shards: "$SLURM_ARRAY_TASK_COUNT"
+  shard_id: "$SLURM_ARRAY_TASK_ID"
+  conversations_field: "conversations"
+  batch_size: 64
+
+processing_params:
+  inputs:
+    - name: medical_image
+      key: image
+      type: image  # Image field from PMC-OA dataset
+      image_base_path: /path/to/images  # Base directory where images are stored (e.g., extracted images.zip)
+    - name: original_caption
+      key: caption
+      type: text
+
+  outputs:
+    - name: enhanced_medical_caption
+      type: llm
+      output_type: plain
+      prompt: |
+        Write a single enhanced caption describing the image.
+
+        Requirements:
+        - Do NOT include labels, headings, or prefixes.
+        - Do NOT mention the original caption.
+        - Do NOT explain your reasoning.
+        - Return only the final caption text.
+        - Use plain text or light markdown (no code blocks).
+
+        Caption to enhance:
+        {original_caption}
+      output_schema:
+        - caption_enhanced
+        
+  output_schema:
+    image: "{medical_image}"  # Preserve original image
+    caption: "{enhanced_medical_caption}"  # Enhanced caption
+    original_caption: "{original_caption}"  # Keep original for reference

@@ -12,17 +12,11 @@
 #SBATCH -A a127
 #SBATCH --array=0-31
 
-# --- outputs & config ---
-export ROOT=/capstor/store/cscs/swissai/a127/homes/$USER/datasets/english_small
-export SHARDS_ROOT="$ROOT/shards"
-export MERGED_DIR="$ROOT/merged"
+# --- config ---
 export CFG=/users/$USER/MIRAGE/configs/config_small.yaml
 
-# HF cache/home
+# --- HF cache/home 
 export HF_HOME=/capstor/store/cscs/swissai/a127/homes/$USER/hf
-
-mkdir -p "$SHARDS_ROOT"
-mkdir -p "$MERGED_DIR"
 
 python /users/$USER/MIRAGE/src/mirage/shard_process.py \
   --config "$CFG"

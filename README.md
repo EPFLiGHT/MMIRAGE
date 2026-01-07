@@ -7,9 +7,10 @@ MIRAGE, which stands for Multimodal Intelligent Reformatting and Augmentation Ge
 - Easily configurable with a YAML file which configure the following parameters
     - The prompt to the LLM
     - Variables with the name and their key to a JSON
+    - Image inputs for multimodal processing
 - Parallelizable with a multi-node support
     - The training pipeline should use either distributed inference using accelerate 
-- Support a variety of LLMs and VLMs (LLM only for a first version)
+- Support a variety of LLMs and VLMs (Vision-Language Models)
 - Support any dataset schemas (configurable with the YAML format)
 - The ability to either output a JSON (or any other structured format) or a plain text
 
@@ -109,7 +110,82 @@ output_schema:
 
 Here, we choose to output a JSON answer with 3 keys ("question", "explanation" and "answer"). That we will match
 
-## Usefool tools
+### Working with Images (Multimodal)
+
+MIRAGE supports Vision-Language Models (VLMs) for processing datasets that contain images. It handles two common scenarios:
+
+**Scenario 1: Embedded Images**  
+Dataset has actual image objects (PIL Images) in the columns. HuggingFace automatically decodes these when loading datasets with `Image` feature types.
+
+**Scenario 2: Path-Based Images**  
+Dataset contains image filenames/paths that reference external image files (like PMC-OA with `images.zip`).
+
+**Example: Path-based dataset (PMC-OA)**
+
+Suppose you have a medical imaging dataset with the following format:
+
+```json
+{
+    "image": "PMC212319_Fig3_4.jpg",
+    "caption": "A. Real time image of the translocation of ARF1-GFP to the plasma membrane..."
+}
+```
+
+The images are stored separately (e.g., in an extracted `images/` folder). Configure MIRAGE like this:
+
+```yaml
+engine:
+  model_path: Qwen/Qwen2.5-VL-7B-Instruct  # Vision-language model
+  chat_template: qwen2-vl  # Chat template for vision-language models (defaults to "qwen2-vl")
+
+inputs:
+  - name: medical_image
+    key: image
+    type: image  # Indicates this is an image input
+    image_base_path: /path/to/images  # Base directory where image files are stored
+  - name: original_caption
+    key: caption
+    type: text
+
+outputs:
+  - name: enhanced_caption
+    type: llm
+    output_type: plain
+    prompt: |
+      You are a medical imaging expert. Analyze the provided medical image and enhance the caption.
+      
+      Original caption: {original_caption}
+      
+      Provide a more detailed and accurate caption based on what you see in the image.
+
+output_schema:
+  image: "{medical_image}"  # Image passed through unchanged
+  caption: "{enhanced_caption}"
+  original_caption: "{original_caption}"
+```
+
+**Example: Embedded images (HuggingFace datasets with Image feature)**
+
+For datasets where images are already embedded as PIL Images:
+
+```yaml
+inputs:
+  - name: photo
+    key: image
+    type: image  # No image_base_path needed - images are already loaded
+  - name: caption
+    key: caption
+```
+
+**Important notes:**
+- Images are **never modified** - they are passed through to the output unchanged
+- Use `image_base_path` only for path-based datasets where images are stored separately
+- Supports file paths, URLs, PIL Images, and other formats accepted by SGLang
+- See [SGLang supported VLMs](https://docs.sglang.io/supported_models/multimodal_language_models.html) for compatible models
+- The model must be a Vision-Language Model to process images
+- **Chat template**: Specify the appropriate chat template in the engine config (e.g., `chat_template: qwen2-vl`). Defaults to "qwen2-vl" if not specified
+
+## Useful tools
 
 - Jinja2 to process the YAML: #[link](https://jinja.palletsprojects.com/en/stable/)
 - JMESPath: #[link](https://jmespath.org/)
