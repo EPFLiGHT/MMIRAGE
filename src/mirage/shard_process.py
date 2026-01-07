@@ -115,7 +115,7 @@ def rewrite_batch(
                     for i in text_only_indices:
                         vars_samples[i][output.name] = ""
             
-            # Process multimodal samples individually if any exist
+            # Process multimodal samples in batch if any exist
             if multimodal_indices:
                 # Validate chat template exists and extract image token once
                 if chat_template not in chat_templates:
@@ -127,30 +127,38 @@ def rewrite_batch(
                 conv = chat_templates[chat_template].copy()
                 image_token = conv.image_token
                 
-                for i in multimodal_indices:
-                    imgs_i = images_for_output[i]
-                    prompt_i = prompts_for_output[i] + f"\n{image_token}\n"
+                # Prepare batched inputs for multimodal generation
+                multimodal_prompts = [
+                    prompts_for_output[i] + f"\n{image_token}\n" 
+                    for i in multimodal_indices
+                ]
+                multimodal_images = [images_for_output[i] for i in multimodal_indices]
+                
+                try:
+                    multimodal_outputs = llm.generate(
+                        prompt=multimodal_prompts,
+                        sampling_params=sampling_params_output,
+                        image_data=multimodal_images,
+                    )
                     
-                    try:
-                        out = llm.generate(
-                            prompt=[prompt_i],
-                            sampling_params=sampling_params_output,
-                            image_data=[imgs_i],
+                    if not isinstance(multimodal_outputs, list) or len(multimodal_outputs) != len(multimodal_indices):
+                        raise RuntimeError(
+                            f"Mismatch between multimodal prompts and outputs for '{output.name}': "
+                            f"{len(multimodal_prompts)} vs "
+                            f"{len(multimodal_outputs) if isinstance(multimodal_outputs, list) else 'non-list'}"
                         )
-                        
-                        text = ""
-                        if isinstance(out, list) and out:
-                            text = out[0].get("text", "").strip()
-                        
-                        vars_samples[i][output.name] = text
                     
-                    except Exception as e:
-                        print(
-                            f"[shard {shard_id}] Generation failed for multimodal output '{output.name}' "
-                            f"example {i}/{nb_samples-1}: {e}",
-                            file=sys.stderr,
-                            flush=True,
-                        )
+                    for idx, i in enumerate(multimodal_indices):
+                        vars_samples[i][output.name] = multimodal_outputs[idx].get("text", "").strip()
+                
+                except Exception as e:
+                    print(
+                        f"[shard {shard_id}] Batch generation failed for multimodal samples in output '{output.name}': {e}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    # On error, set empty strings for failed samples
+                    for i in multimodal_indices:
                         vars_samples[i][output.name] = ""
 
     except Exception as e:
