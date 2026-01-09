@@ -32,7 +32,6 @@ jobs:
 
     steps:
       - name: Move Docker storage to /mnt for more disk space
-        if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo systemctl stop docker
           sudo rm -rf /var/lib/docker
