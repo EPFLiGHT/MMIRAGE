@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Free space
-        run:
+        run: |
           df -h
           rm -rf /opt/hostedtoolcache
 
