@@ -33,11 +33,16 @@ jobs:
     steps:
       - name: Move Docker storage to /mnt for more disk space
         run: |
+          df -h
           sudo systemctl stop docker
           sudo rm -rf /var/lib/docker
           sudo mkdir /mnt/docker
           sudo ln -s /mnt/docker /var/lib/docker
+          sudo rm -rf /opt/hostedtoolcache
           sudo systemctl start docker
+
+      - name: Check free space
+        run: df -h 
 
       - name: Checkout repository
         uses: actions/checkout@v4
