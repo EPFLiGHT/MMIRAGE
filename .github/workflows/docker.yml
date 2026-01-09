@@ -31,10 +31,18 @@ jobs:
     environment: docker
 
     steps:
-      - name: Free space
+      - name: Free space (ARM)
+        if: matrix.platform == 'ubuntu-24.04-arm'
         run: |
           df -h
+          du -h -d1 /home/runner || true
+
           rm -rf /opt/hostedtoolcache
+          rm -rf /home/runner/.cache
+          rm -rf /home/runner/.docker
+          rm -rf /home/runner/actions-runner/_work/_tool
+
+          df -h
 
       - name: Move Docker storage to /mnt for more disk space
         if: matrix.platform == 'ubuntu-latest'
