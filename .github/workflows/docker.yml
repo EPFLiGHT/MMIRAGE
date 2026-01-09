@@ -31,14 +31,18 @@ jobs:
     environment: docker
 
     steps:
-      - name: Move Docker storage to /mnt for more disk space
-        run: |
+      - name: Free space
+        run:
           df -h
+          rm -rf /opt/hostedtoolcache
+
+      - name: Move Docker storage to /mnt for more disk space
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
           sudo systemctl stop docker
           sudo rm -rf /var/lib/docker
           sudo mkdir /mnt/docker
           sudo ln -s /mnt/docker /var/lib/docker
-          sudo rm -rf /opt/hostedtoolcache
           sudo systemctl start docker
 
       - name: Check free space
