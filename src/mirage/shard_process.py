@@ -53,11 +53,12 @@ def rewrite_batch(
                         "but no output_schema defined."
                     )
 
-                sampling_params_output["json_schema"] = json_schema.model_json_schema()
+                sampling_params_output["json_schema"] = json.dumps(json_schema.model_json_schema())
 
             outputs_for_output = llm.generate(
                 prompts_for_output, sampling_params_output
             )
+
             if len(prompts_for_output) != len(outputs_for_output):
                 raise RuntimeError(
                     f"Mismatch between prompts and outputs: {len(prompts_for_output)} vs {len(outputs_for_output)}"
@@ -87,8 +88,12 @@ def rewrite_batch(
         ex_id = i % nb_samples
         output_var = processing_outputs[i // nb_samples]
 
-        out_text = output.get("text", "").strip()
-        vars_samples[ex_id][output_var.name] = out_text
+        if output_var.output_type == "JSON":
+            out_dict = json.loads(output.get("text", ""))
+        else:
+            out_dict = output.get("text", "")
+
+        vars_samples[ex_id][output_var.name] = out_dict
 
     new_results = []
     for vars_sample in vars_samples:

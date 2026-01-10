@@ -31,12 +31,19 @@ processing_params:
   outputs:
     - name: formatted_answer
       type: llm
-      output_type: plain
+      output_type: JSON
+      output_schema:
+        - question
+        - answer
       prompt: |
-        Reformat the following in a markdown format without adding anything else:
+        Generate one question and its corresponding answer using the following text:
         ```
         {text}
         ```
 
   output_schema:
-    text: "{formatted_answer}"
+    conversations:
+      - role: "user"
+        content: "{{ formatted_answer.question }}"
+      - role: "assistant"
+        content: "{{ formatted_answer.answer }}"

@@ -4,7 +4,7 @@ import os
 import re
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple, TypeAlias, Union, cast
-
+from jinja2 import Template
 import sglang as sgl
 import yaml
 from dacite import from_dict
@@ -153,16 +153,16 @@ def validate_processing_params(params: ProcessingParams) -> None:
         prompt_vars.update(extract_template_vars(output_var.prompt))
 
     # Validate all template variables are defined
-    undefined_in_schema = schema_vars - defined_vars
+    # undefined_in_schema = schema_vars - defined_vars
     undefined_in_prompts = prompt_vars - defined_vars
 
     errors = []
 
-    if undefined_in_schema:
-        errors.append(
-            f"Undefined variables in output_schema: {', '.join(sorted(undefined_in_schema))}. "
-            f"Available variables: {', '.join(sorted(defined_vars))}"
-        )
+    # if undefined_in_schema:
+    #     errors.append(
+    #         f"Undefined variables in output_schema: {', '.join(sorted(undefined_in_schema))}. "
+    #         f"Available variables: {', '.join(sorted(defined_vars))}"
+    #     )
 
     if undefined_in_prompts:
         errors.append(
@@ -232,14 +232,26 @@ def extract_input_vars(
     return ret
 
 
-def fill_template_recursive(template: Any, vars_dict: Dict[str, Any]) -> Any:
+def fill_template_recursive(template_obj: Any, context: Dict[str, Any]) -> Any:
     """Recursively fill templates in nested structures."""
-
-    if isinstance(template, str):
-        return template.format(**vars_dict)
-    elif isinstance(template, dict):
-        return {k: fill_template_recursive(v, vars_dict) for k, v in template.items()}
-    elif isinstance(template, list):
-        return [fill_template_recursive(item, vars_dict) for item in template]
+    if isinstance(template_obj, dict):
+        return {
+            k: fill_template_recursive(v, context)
+            for k, v in template_obj.items()
+        }
+    elif isinstance(template_obj, list):
+        return [fill_template_recursive(v, context) for v in template_obj]
+    elif isinstance(template_obj, str):
+        return Template(template_obj).render(context)
     else:
-        return template
+        return template_obj
+
+
+    # if isinstance(template, str):
+    #     return template.format(**vars_dict)
+    # elif isinstance(template, dict):
+    #     return {k: fill_template_recursive(v, vars_dict) for k, v in template.items()}
+    # elif isinstance(template, list):
+    #     return [fill_template_recursive(item, vars_dict) for item in template]
+    # else:
+    #     return template
