@@ -18,11 +18,13 @@ from datasets import (
     load_from_disk,
 )
 from jmespath import search
+from transformers import AutoTokenizer
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 
 if TYPE_CHECKING:
     from mirage.config import DatasetConfig, InputVar, MirageConfig, ProcessingParams
+    from transformers import PreTrainedTokenizer
 
 # Utilities
 
@@ -30,7 +32,7 @@ if TYPE_CHECKING:
 # -------------------------
 # helpers
 # -------------------------
-def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
+def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, PreTrainedTokenizer, MirageConfig]:
     """
     Load SGLang engine, sampling params, and batch size from YAML config.
 
@@ -103,7 +105,9 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, MirageConfig]:
     engine_args = cfg_obj.engine
     llm = sgl.Engine(**asdict(engine_args))
 
-    return llm, cfg_obj
+    tokenizer = AutoTokenizer.from_pretrained(engine_args.model_path)
+
+    return llm, tokenizer, cfg_obj
 
 
 def validate_processing_params(params: ProcessingParams) -> None:
