@@ -246,7 +246,6 @@ def fill_template_recursive(template_obj: Any, context: Dict[str, Any]) -> Any:
     else:
         return template_obj
 
-
     # if isinstance(template, str):
     #     return template.format(**vars_dict)
     # elif isinstance(template, dict):

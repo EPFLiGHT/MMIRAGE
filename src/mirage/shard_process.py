@@ -40,16 +40,16 @@ def rewrite_batch(
 
     try:
         # Non-streaming synchronous batch generation
-        outputs: List[Dict[str, Any]] = []
-        for output in processing_outputs:
-            prompts_for_output = [output.prompt.format(**var) for var in vars_samples]
+        # outputs: List[Dict[str, Any]] = []
+        for output_var in processing_outputs:
+            prompts_for_output = [output_var.prompt.format(**var) for var in vars_samples]
 
             sampling_params_output = sampling_params.copy()
-            if output.output_type == "JSON":
-                json_schema = output.get_output_schema()
+            if output_var.output_type == "JSON":
+                json_schema = output_var.get_output_schema()
                 if json_schema is None:
                     raise ValueError(
-                        f"Output variable {output.name} has output_type=JSON "
+                        f"Output variable {output_var.name} has output_type=JSON "
                         "but no output_schema defined."
                     )
 
@@ -59,12 +59,27 @@ def rewrite_batch(
                 prompts_for_output, sampling_params_output
             )
 
+            if len(outputs_for_output) != nb_samples:
+                raise RuntimeError(
+                    f"Mismatch between the number of generated answers ({len(outputs_for_output)}) and the size of the batch ({nb_samples})"
+                )
+
+            # Update the variables
+            for i, llm_output in enumerate(outputs_for_output):
+                if output_var.output_type == "JSON":
+                    out_dict = json.loads(llm_output.get("text", ""))
+                else:
+                    out_dict = llm_output.get("text", "")
+
+                vars_samples[i][output_var.name] = out_dict
+
+
             if len(prompts_for_output) != len(outputs_for_output):
                 raise RuntimeError(
                     f"Mismatch between prompts and outputs: {len(prompts_for_output)} vs {len(outputs_for_output)}"
                 )
 
-            outputs += outputs_for_output
+            # outputs += outputs_for_output
     except Exception as e:
         print(
             f"[shard {shard_id}] Batch generation failed: {e}",
@@ -73,27 +88,27 @@ def rewrite_batch(
         # On error, keep original conversations for this batch
         return batch
 
-    if not isinstance(outputs, list) or len(outputs) != nb_samples * len(
-        processing_outputs
-    ):
-        print(
-            f"[shard {shard_id}] Unexpected outputs length from llm.generate: "
-            f"expected {nb_samples * len(processing_outputs)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
-            file=sys.stderr,
-        )
-        return batch
+    # if not isinstance(outputs, list) or len(outputs) != nb_samples * len(
+    #     processing_outputs
+    # ):
+    #     print(
+    #         f"[shard {shard_id}] Unexpected outputs length from llm.generate: "
+    #         f"expected {nb_samples * len(processing_outputs)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
+    #         file=sys.stderr,
+    #     )
+    #     return batch
 
     # Get the values from outputs and fill into vars_samples
-    for i, output in enumerate(outputs):
-        ex_id = i % nb_samples
-        output_var = processing_outputs[i // nb_samples]
-
-        if output_var.output_type == "JSON":
-            out_dict = json.loads(output.get("text", ""))
-        else:
-            out_dict = output.get("text", "")
-
-        vars_samples[ex_id][output_var.name] = out_dict
+    # for i, output in enumerate(outputs):
+    #     ex_id = i % nb_samples
+    #     output_var = processing_outputs[i // nb_samples]
+    #
+    #     if output_var.output_type == "JSON":
+    #         out_dict = json.loads(output.get("text", ""))
+    #     else:
+    #         out_dict = output.get("text", "")
+    #
+    #     vars_samples[ex_id][output_var.name] = out_dict
 
     new_results = []
     for vars_sample in vars_samples:
