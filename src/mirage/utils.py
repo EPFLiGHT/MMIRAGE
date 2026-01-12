@@ -4,7 +4,7 @@ import os
 import re
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple, TypeAlias, Union, cast
-from jinja2 import Template
+from mirage.config.variables import ProcessingParams
 import sglang as sgl
 import yaml
 from dacite import from_dict
@@ -23,7 +23,8 @@ from transformers import AutoTokenizer
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 
 if TYPE_CHECKING:
-    from mirage.config import DatasetConfig, InputVar, MirageConfig, ProcessingParams
+    from mirage.config.config import MirageConfig
+    from mirage.config.generation import GenerationParams
     from transformers import PreTrainedTokenizer
 
 # Utilities
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
 # -------------------------
 # helpers
 # -------------------------
-def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, PreTrainedTokenizer, MirageConfig]:
+def load_mirage_config(config_path: str) -> MirageConfig:
     """
     Load SGLang engine, sampling params, and batch size from YAML config.
 
@@ -85,7 +86,7 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, PreTrainedToken
           content: {formatted_answer}
         modalities: {modalities}
     """
-    from mirage.config import MirageConfig
+    from mirage.config.config import MirageConfig
 
     with open(config_path, "r") as f:
         cfg: EnvValue = yaml.safe_load(f) or {}
@@ -102,12 +103,8 @@ def load_engine_from_yaml(config_path: str) -> Tuple[sgl.Engine, PreTrainedToken
 
     cfg = expand_env_vars(cfg)
     cfg_obj = from_dict(MirageConfig, cast(dict, cfg))
-    engine_args = cfg_obj.engine
-    llm = sgl.Engine(**asdict(engine_args))
 
-    tokenizer = AutoTokenizer.from_pretrained(engine_args.model_path)
-
-    return llm, tokenizer, cfg_obj
+    return cfg_obj
 
 
 def validate_processing_params(params: ProcessingParams) -> None:
@@ -157,16 +154,16 @@ def validate_processing_params(params: ProcessingParams) -> None:
         prompt_vars.update(extract_template_vars(output_var.prompt))
 
     # Validate all template variables are defined
-    # undefined_in_schema = schema_vars - defined_vars
+    undefined_in_schema = schema_vars - defined_vars
     undefined_in_prompts = prompt_vars - defined_vars
 
     errors = []
 
-    # if undefined_in_schema:
-    #     errors.append(
-    #         f"Undefined variables in output_schema: {', '.join(sorted(undefined_in_schema))}. "
-    #         f"Available variables: {', '.join(sorted(defined_vars))}"
-    #     )
+    if undefined_in_schema:
+        errors.append(
+            f"Undefined variables in output_schema: {', '.join(sorted(undefined_in_schema))}. "
+            f"Available variables: {', '.join(sorted(defined_vars))}"
+        )
 
     if undefined_in_prompts:
         errors.append(
@@ -183,78 +180,3 @@ def validate_processing_params(params: ProcessingParams) -> None:
     )
 
 
-def load_datasets_from_configs(configs: List[DatasetConfig]) -> Dataset:
-    valid_ds = []
-    for ds_config in configs:
-        path = ds_config.path
-
-        if not os.path.exists(path):
-            print(f"⚠️ Dataset path does not exist, skipping: {path}")
-            continue
-        try:
-            if ds_config.type == "JSONL":
-                ds = load_dataset("json", data_files=path, streaming=False)
-                # no support of iterable datasets
-                if isinstance(ds, (IterableDatasetDict, IterableDataset)):
-                    raise ValueError(
-                        f"Iterable datasets are not supported for path: {path}"
-                    )
-            else:
-                ds = load_from_disk(path)
-
-            if isinstance(ds, DatasetDict):
-                # Merge all splits into one Dataset
-                ds = concatenate_datasets([ds[split] for split in ds.keys()])
-
-            valid_ds.append(ds)
-        except Exception as e:
-            print(f"⚠️ Failed to load dataset from {path}, skipping. Reason: {e}")
-
-    if not valid_ds:
-        raise RuntimeError("No valid datasets loaded from the provided configs.")
-    elif len(valid_ds) == 1:
-        return valid_ds[0]
-    else:
-        return concatenate_datasets(valid_ds)
-
-
-def extract_input_vars(
-    input_vars: List[InputVar], sample: Dict[str, Any]
-) -> Dict[str, Any]:
-    """Extract input variables from a dataset sample using JMESPath queries."""
-
-    ret: Dict[str, Any] = {}
-    for input_var in input_vars:
-        value = search(input_var.key, sample)
-        if value is None:
-            raise ValueError(
-                f"Input variable '{input_var.name}' with key '{input_var.key}' "
-                "not found in the sample."
-            )
-        ret[input_var.name] = value
-
-    return ret
-
-
-def fill_template_recursive(template_obj: Any, context: Dict[str, Any]) -> Any:
-    """Recursively fill templates in nested structures."""
-    if isinstance(template_obj, dict):
-        return {
-            k: fill_template_recursive(v, context)
-            for k, v in template_obj.items()
-        }
-    elif isinstance(template_obj, list):
-        return [fill_template_recursive(v, context) for v in template_obj]
-    elif isinstance(template_obj, str):
-        return Template(template_obj).render(context)
-    else:
-        return template_obj
-
-    # if isinstance(template, str):
-    #     return template.format(**vars_dict)
-    # elif isinstance(template, dict):
-    #     return {k: fill_template_recursive(v, vars_dict) for k, v in template.items()}
-    # elif isinstance(template, list):
-    #     return [fill_template_recursive(item, vars_dict) for item in template]
-    # else:
-    #     return template

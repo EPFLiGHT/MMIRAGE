@@ -1,129 +1,29 @@
 import argparse
-import json
 import os
-import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from transformers import PreTrainedTokenizer
+from mirage.process.mapper import MIRAGEMapper
 
-import sglang as sgl
-
-from mirage.config import InputVar, OutputVar
 from mirage.utils import (
-    extract_input_vars,
-    fill_template_recursive,
-    load_datasets_from_configs,
-    load_engine_from_yaml,
-    validate_processing_params,
+    load_mirage_config,
 )
 
-def build_prompt(prompt_template: str,
-                 vars_samples: List[Dict[str, Any]],
-                 tokenizer: PreTrainedTokenizer) -> List[str]:
-    prompts_for_output = []
+from mirage.writer.renderer import TemplateRenderer
+from mirage.loader.utils import load_datasets_from_configs
+import logging
 
-    for var in vars_samples:
-        user_prompt = [{
-            "role" : "user", 
-            "content" : prompt_template.format(**var)
-        }]
-        formatted_conv = tokenizer.apply_chat_template(user_prompt, tokenize=False, add_generation_prompt=True)
-        prompts_for_output.append(formatted_conv)
-
-    return prompts_for_output
-
+logger = logging.getLogger(__name__)
 
 def rewrite_batch(
-    batch: Dict[str, List[Any]],
-    processing_inputs: List[InputVar],
-    processing_outputs: List[OutputVar],
-    sampling_params: Dict[str, Any],
-    output_schema: Dict[str, Any],
-    llm: sgl.Engine,
-    tokenizer: PreTrainedTokenizer, 
-    shard_id: int,
-) -> Dict[str, List[Any]]:
-    vars_samples: List[Dict[str, Any]] = []  # input vars for each example
+        batch: Dict[str, List[Any]],
+        mapper: MIRAGEMapper,
+        renderer: TemplateRenderer,
+    ) -> Dict[str, List[Any]]:
 
-    # turn the dictionary of lists into a list of dictionaries
-    batch_size = len(next(iter(batch.values())))
-    batch_list: List[Dict[str, Any]] = [
-        {k: batch[k][i] for k in batch.keys()} for i in range(batch_size)
-    ]
-    nb_samples = len(batch_list)
+    batch_environment = mapper.rewrite_batch(batch)
+    rendered_list = renderer.batch_render(batch_environment)
+    return rendered_list
 
-    for sample in batch_list:
-        current_vars = extract_input_vars(processing_inputs, sample)
-        vars_samples.append(current_vars)
-
-    try:
-        # Non-streaming synchronous batch generation
-        # outputs: List[Dict[str, Any]] = []
-        for output_var in processing_outputs:
-            prompts_for_output = build_prompt(
-                prompt_template=output_var.prompt,
-                vars_samples=vars_samples,
-                tokenizer=tokenizer
-            )
-
-            sampling_params_output = sampling_params.copy()
-            if output_var.output_type == "JSON":
-                json_schema = output_var.get_output_schema()
-                if json_schema is None:
-                    raise ValueError(
-                        f"Output variable {output_var.name} has output_type=JSON "
-                        "but no output_schema defined."
-                    )
-
-                sampling_params_output["json_schema"] = json.dumps(json_schema.model_json_schema())
-
-            outputs_for_output = llm.generate(
-                prompts_for_output, sampling_params_output
-            )
-
-            if len(outputs_for_output) != nb_samples:
-                raise RuntimeError(
-                    f"Mismatch between the number of generated answers ({len(outputs_for_output)}) and the size of the batch ({nb_samples})"
-                )
-
-            # Update the variables
-            for i, llm_output in enumerate(outputs_for_output):
-                if output_var.output_type == "JSON":
-                    out_dict = json.loads(llm_output.get("text", ""))
-                else:
-                    out_dict = llm_output.get("text", "")
-
-                vars_samples[i][output_var.name] = out_dict
-
-
-            if len(prompts_for_output) != len(outputs_for_output):
-                raise RuntimeError(
-                    f"Mismatch between prompts and outputs: {len(prompts_for_output)} vs {len(outputs_for_output)}"
-                )
-
-            # outputs += outputs_for_output
-    except Exception as e:
-        print(
-            f"[shard {shard_id}] Batch generation failed: {e}",
-            file=sys.stderr,
-        )
-        # On error, keep original conversations for this batch
-        return batch
-
-    new_results = []
-    for vars_sample in vars_samples:
-        # Rebuild the output according to output_schema template
-        filled_output = fill_template_recursive(output_schema, vars_sample)
-        new_results.append(filled_output)
-
-    # Only return the updated conversations column; HF keeps other columns
-
-    # Build result dict with all columns from output_schema
-    result_batch: Dict[str, List[Any]] = {}
-    for key in output_schema.keys():
-        result_batch[key] = [result.get(key) for result in new_results]
-
-    return result_batch
 
 
 # -------------------------
@@ -143,17 +43,15 @@ def main():
     # -------------------------
     # Load SGLang engine + sampling + batch size
     # -------------------------
-    llm, tokenizer, cfg = load_engine_from_yaml(args.config)
-    validate_processing_params(cfg.processing_params)
-    sampling_params = cfg.sampling_params
+    cfg = load_mirage_config(args.config)
     processing_gen_params = cfg.processing_gen_params
     processing_params = cfg.processing_params
-
     datasets = processing_gen_params.datasets
     if not datasets:
         raise ValueError(
             "No datasets provided in config.processing_gen_params.datasets"
         )
+
     shard_id = processing_gen_params.get_shard_id()
     num_shards = processing_gen_params.get_num_shards()
 
@@ -173,7 +71,7 @@ def main():
     ds_shard = ds_all.shard(num_shards=num_shards, index=shard_id)
     shard_rows = len(ds_shard)
 
-    print(
+    logger.info(
         f"Loaded {len(datasets)} dataset(s): {datasets} "
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
@@ -181,6 +79,9 @@ def main():
     # -------------------------
     # Apply map with batching
     # -------------------------
+    # variable_extractor = VariableExtractor(processing_params.inputs)
+    mapper = MIRAGEMapper(cfg.processors, processing_params.inputs, processing_params.outputs) 
+    renderer = TemplateRenderer(processing_params.output_schema)
     ds_processed = ds_shard.map(
         rewrite_batch,
         batched=True,
@@ -188,13 +89,8 @@ def main():
         load_from_cache_file=False,
         desc=f"Shard {shard_id}/{num_shards - 1}",
         fn_kwargs={
-            "shard_id": shard_id,
-            "llm": llm,
-            "tokenizer" : tokenizer,
-            "processing_outputs": processing_params.outputs,
-            "processing_inputs": processing_params.inputs,
-            "sampling_params": sampling_params,
-            "output_schema": processing_params.output_schema,
+            "mapper" : mapper,
+            "renderer": renderer
         },
     )
 
@@ -203,12 +99,7 @@ def main():
     # -------------------------
     ds_processed.save_to_disk(shard_out_dir)
 
-    try:
-        llm.shutdown()
-    except Exception:
-        pass
-
-    print(
+    logger.info(
         f"✅ shard_id={shard_id} num_shards={num_shards} "
         f"total_rows={total_rows} shard_rows={shard_rows} "
         f"out_dir={shard_out_dir}"

@@ -75,6 +75,8 @@ def main():
 
     total_skipped = skipped_empty_dir + skipped_zero_rows
 
+    ds_merged.save_to_disk(args.output_dir)
+
     print(
         f"✅ Concatenated {len(shard_dsets)} shards into a dataset with {n_rows} rows.\n"
         f"   Skipped shards: {total_skipped} total "

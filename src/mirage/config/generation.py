@@ -1,16 +1,5 @@
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Type, Union, cast
-
-from pydantic import BaseModel, create_model
-
-# Dataclasses
-
-
-@dataclass
-class EngineConfig:
-    model_path: str
-    tp_size: int = 4
-    trust_remote_code: bool = True
+from dataclasses import dataclass
+from typing import Union, List, Literal, cast
 
 
 @dataclass
@@ -20,7 +9,7 @@ class DatasetConfig:
 
 
 @dataclass
-class ProcessingGenParams:
+class GenerationParams:
     datasets: List[
         DatasetConfig
     ]  # One or more paths to HF datasets saved with 'save_to_disk'
@@ -30,9 +19,6 @@ class ProcessingGenParams:
     )
     shard_id: Union[int, str] = (
         0  # Index of this shard (0-based; usually $SLURM_ARRAY_TASK_ID).
-    )
-    conversations_field: str = (
-        "conversations"  # Name of the column containing the list of dialog turns.
     )
     batch_size: Union[int, str] = 64  # Batch size for processing
 
@@ -64,41 +50,3 @@ class ProcessingGenParams:
         return cast(int, self.batch_size)
 
 
-@dataclass
-class InputVar:
-    name: str
-    key: str
-
-
-@dataclass
-class OutputVar:
-    name: str
-    type: str
-    output_type: Literal["plain", "JSON"]
-    prompt: str
-    output_schema: List[str] = field(
-        default_factory=list
-    )  # empty list if output_type is "plain"
-
-    def get_output_schema(self) -> Optional[Type[BaseModel]]:
-        if self.output_type == "JSON" and self.output_schema:
-            fields: Dict[str, Any] = {
-                var: (str, ...) for var in self.output_schema
-            }  # ... means required field
-            return create_model(f"OutputSchema", **fields)
-        return None
-
-
-@dataclass
-class ProcessingParams:
-    inputs: List[InputVar]
-    outputs: List[OutputVar]
-    output_schema: Dict[str, Any]
-
-
-@dataclass
-class MirageConfig:
-    engine: EngineConfig
-    sampling_params: Dict[str, Any]
-    processing_gen_params: ProcessingGenParams
-    processing_params: ProcessingParams
