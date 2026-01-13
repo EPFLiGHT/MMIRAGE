@@ -1,5 +1,12 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import List, Dict, Any, Type
+from typing import List, Dict, Any
+
+
+from typing import Dict, Any, List, TypeVar
+from types import MappingProxyType
+from jmespath import search
 
 @dataclass
 class InputVar:
@@ -11,38 +18,55 @@ class OutputVar:
     name: str = ""
     type: str = ""
 
-@dataclass
-class ProcessingParams:
-    inputs: List[InputVar]
-    outputs: List[OutputVar]
-    output_schema: Dict[str, Any]
 
-
-class OutputVarRegistry:
-    """
-    Registry for managing and accessing available processors.
-
-    Attributes:
-        _registry (List[type]): List of registered processor classes.
-    """
-
-    _registry = dict()
+C = TypeVar("C")
+class VariableEnvironment():
+    def __init__(self, var_env: Dict[str, Any]) -> None:
+        self._vars_env = var_env
     
-    @classmethod
-    def register(cls, name: str, ):
-        """
-        Register a processor class.
-        """
-        def inner_register(config_cls: Type[OutputVar]):
-            cls._registry[name] = config_cls
+    def with_variable(self, key: str, value: Any) -> VariableEnvironment:
+        return VariableEnvironment(self._vars_env | {key : value})
 
-        return inner_register
+    def to_dict(self) -> MappingProxyType:
+        return MappingProxyType(self._vars_env)
+
     
-    @classmethod
-    def get_config(cls, name: str) -> Type[OutputVar]:
-        if name not in OutputVarRegistry._registry:
-            raise ValueError(f"OutputVar {name} not found in registry, available keys are: {list(OutputVarRegistry._registry.keys())}")
+    @staticmethod
+    def from_input_variables(
+        sample: Dict[str, Any],
+        input_vars: List[InputVar]
+    ) -> VariableEnvironment:
+        """Extract input variables from a dataset sample using JMESPath queries."""
 
-        return OutputVarRegistry._registry[name]
+        ret: Dict[str, Any] = {}
+        for input_var in input_vars:
+            value = search(input_var.key, sample)
+            if value is None:
+                raise ValueError(
+                    f"Input variable '{input_var.name}' with key '{input_var.key}' "
+                    "not found in the sample."
+                )
+            ret[input_var.name] = value
 
+        return VariableEnvironment(ret)
+    
+    @staticmethod
+    def from_batch_input_variables(
+            batch: Dict[str, List[Any]],
+            input_vars: List[InputVar]
+        ) -> List[VariableEnvironment]:
+        vars_samples: List[VariableEnvironment] = []  # input vars for each example
+
+        # turn the dictionary of lists into a list of dictionaries
+        batch_size = len(next(iter(batch.values())))
+        batch_list: List[Dict[str, Any]] = [
+            {k: batch[k][i] for k in batch.keys()} for i in range(batch_size)
+        ]
+
+        for sample in batch_list:
+            current_vars = VariableEnvironment.from_input_variables(sample, input_vars)
+            vars_samples.append(current_vars)
+
+
+        return vars_samples
 

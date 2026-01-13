@@ -41,7 +41,8 @@ processing_params:
         ```
         {text}
         ```
-
+  
+  remove_columns: True
   output_schema:
     conversations:
       - role: "user"

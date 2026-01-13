@@ -5,7 +5,7 @@ from mirage.core.process.base import AutoProcessor, BaseProcessor, BaseProcessor
 
 import logging
 
-from mirage.core.variables import VariableEnvironment
+from mirage.core.process.variables import VariableEnvironment
 
 logger = logging.getLogger(__name__)
 

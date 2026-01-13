@@ -25,7 +25,6 @@ def rewrite_batch(
     return rendered_list
 
 
-
 # -------------------------
 # main
 # -------------------------
@@ -92,11 +91,13 @@ def main():
             "mapper" : mapper,
             "renderer": renderer
         },
+        remove_columns=ds_shard.column_names if processing_params.remove_columns else []
     )
 
     # -------------------------
     # Save shard as its own HF dataset (all columns preserved)
     # -------------------------
+    print("Features", ds_processed.features)
     ds_processed.save_to_disk(shard_out_dir)
 
     logger.info(

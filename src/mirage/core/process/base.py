@@ -2,20 +2,10 @@ import abc
 from dataclasses import dataclass
 from typing import  Generic, List, Type, TypeVar
 
-from mirage.core.variables import VariableEnvironment
+from mirage.core.process.variables import VariableEnvironment, OutputVar
 
 @dataclass
 class BaseProcessorConfig:
-    type: str = ""
-
-@dataclass
-class InputVar:
-    name: str = ""
-    key: str = ""
-
-@dataclass
-class OutputVar:
-    name: str = ""
     type: str = ""
 
 

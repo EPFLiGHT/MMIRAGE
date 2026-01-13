@@ -1,7 +1,7 @@
 from typing import List, override
 from mirage.core.process.base import BaseProcessor, ProcessorRegistry
 from transformers import AutoTokenizer
-from mirage.core.variables import VariableEnvironment
+from mirage.core.process.variables import VariableEnvironment
 import sglang as sgl
 import json
 from dataclasses import asdict
