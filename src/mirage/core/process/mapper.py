@@ -1,24 +1,22 @@
 from typing import Dict, Any, List
-from transformers import PreTrainedTokenizer
 
-from mirage.config.variables import InputVar, OutputVar
-from mirage.loader.extractor import VariableExtractor
-from mirage.process.base import AutoProcessor, BaseProcessor, ProcessorConfig
+from mirage.core.process.variables import InputVar, OutputVar
+from mirage.core.process.base import AutoProcessor, BaseProcessor, BaseProcessorConfig
 
 import logging
 
-from mirage.variables.environment import VariableEnvironment
+from mirage.core.variables import VariableEnvironment
 
 logger = logging.getLogger(__name__)
 
 class MIRAGEMapper():
     def __init__(self, 
-                 processor_configs: List[ProcessorConfig], 
+                 processor_configs: List[BaseProcessorConfig], 
                 input_vars: List[InputVar],
                 output_vars: List[OutputVar]) -> None:
         self.processors: Dict[str, BaseProcessor] = dict()
-        self.variable_extractor = VariableExtractor(input_vars)
         self.output_vars = output_vars
+        self.input_vars = input_vars
 
         for config in processor_configs:
             processor_cls = AutoProcessor.from_name(config.type)
@@ -31,7 +29,7 @@ class MIRAGEMapper():
             self,
             batch: Dict[str, List[Any]],
             ) -> List[VariableEnvironment]:
-        batch_environment = self.variable_extractor.batch_extract_input_variables(batch)
+        batch_environment = VariableEnvironment.from_batch_input_variables(batch, self.input_vars)
 
         for output_var in self.output_vars:
             if output_var.type not in self.processors:

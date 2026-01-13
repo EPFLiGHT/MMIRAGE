@@ -1,8 +1,17 @@
 from dataclasses import dataclass, field
 
-from mirage.config.variables import InputVar, OutputVar
+from mirage.core.process.base import OutputVar
 from typing import Dict, Optional, Type, Any, List
 from pydantic import BaseModel, create_model
+
+from sglang.srt.server_args import ServerArgs
+
+from mirage.core.process.base import BaseProcessorConfig
+
+@dataclass
+class SGLangLLMConfig(BaseProcessorConfig):
+    server_args: ServerArgs = field(default_factory=ServerArgs(model_path="none"))
+    default_sampling_params: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class LLMOutputVar(OutputVar):
@@ -10,6 +19,7 @@ class LLMOutputVar(OutputVar):
     output_schema: List[str] = field(
         default_factory=list
     )  # empty list if output_type is "plain"
+    output_type: str = ""
 
     def get_output_schema(self) -> Optional[Type[BaseModel]]:
         if self.output_type == "JSON" and self.output_schema:

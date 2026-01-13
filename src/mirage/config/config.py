@@ -1,24 +1,20 @@
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, List
 
-from pydantic import BaseModel, create_model
-from sglang.srt.server_args import ServerArgs
+from mirage.config.loading import LoadingParams
+from mirage.core.process.base import BaseProcessorConfig, InputVar, OutputVar
 
-from mirage.config.variables import ProcessingParams
-from mirage.config.generation import GenerationParams
-
-# @dataclass 
-# class EngineArgs:
-#     server_args: ServerArgs
-#     sampling_params: Dict[str, Any]
-
-class ProcessorConfig:
-    type: str = ""
+@dataclass
+class ProcessingParams:
+    inputs: List[InputVar]
+    outputs: List[OutputVar]
+    output_schema: Dict[str, Any]
 
 
 @dataclass
 class MirageConfig:
-    # engine: EngineArgs
-    processors: List[ProcessorConfig]
-    processing_gen_params: GenerationParams
+    processors: List[BaseProcessorConfig]
+    loading_params: LoadingParams
     processing_params: ProcessingParams
+
+

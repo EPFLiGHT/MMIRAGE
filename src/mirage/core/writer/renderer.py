@@ -2,19 +2,19 @@ from collections import defaultdict
 from typing import Any, Dict, Union, List
 from jinja2 import Template
 
-from mirage.variables.environment import VariableEnvironment
+from mirage.core.variables import VariableEnvironment
 import logging
 
 logger = logging.getLogger(__name__)
 
 class TemplateRenderer():
-    def __init__(self, output_schema: Dict[str, Any]]) -> None:
+    def __init__(self, output_schema: Dict[str, Any]) -> None:
         self.output_schema = output_schema
 
     def batch_render(self, batch: List[VariableEnvironment]) -> Dict[str, List[Any]]:
         rendered_batch = defaultdict(list)
         for env in batch:
-            for key, template_obj in self.output_schema:
+            for key, template_obj in self.output_schema.items():
                 rendered_batch[key].append(self._fill_template_recursive(template_obj, env))
 
         return rendered_batch
@@ -33,7 +33,7 @@ class TemplateRenderer():
         elif isinstance(template_obj, list):
             return [self._fill_template_recursive(v, context) for v in template_obj]
         elif isinstance(template_obj, str):
-            return Template(template_obj).render(context)
+            return Template(template_obj).render(context.to_dict())
         else:
             logger.warning(f"Unable to render template {template_obj}")
             return template_obj

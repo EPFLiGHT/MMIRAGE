@@ -1,17 +1,18 @@
-engine:
-  model_path: Qwen/Qwen3-4B-Instruct-2507
-  tp_size: 1          # use all 4 GPUs on the node
-  trust_remote_code: true
+processors:
+  - type: llm
+    server_args:
+      model_path: Qwen/Qwen3-4B-Instruct-2507
+      tp_size: 4          # use all 4 GPUs on the node
+      disable_custom_all_reduce: true
+    sampling_params:
+      temperature: 0.1
+      top_p: 0.9
+      max_new_tokens: 1024
+      custom_params:
+        chat_template_kwargs: 
+          enable_thinking: false
 
-sampling_params:
-  temperature: 0.1
-  top_p: 1.0
-  max_new_tokens: 384
-  custom_params:
-    chat_template_kwargs: 
-      enable_thinking: false
-
-processing_gen_params:
+loading_params:
   datasets:
     - path: tests/mock_data/data.jsonl
       type: JSONL

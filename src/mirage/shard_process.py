@@ -2,14 +2,14 @@ import argparse
 import os
 from typing import Any, Dict, List
 
-from mirage.process.mapper import MIRAGEMapper
+from mirage.core.process.mapper import MIRAGEMapper
 
-from mirage.utils import (
+from mirage.config.utils import (
     load_mirage_config,
 )
 
-from mirage.writer.renderer import TemplateRenderer
-from mirage.loader.utils import load_datasets_from_configs
+from mirage.core.writer.renderer import TemplateRenderer
+from mirage.core.loader.utils import load_datasets_from_configs
 import logging
 
 logger = logging.getLogger(__name__)
@@ -44,22 +44,22 @@ def main():
     # Load SGLang engine + sampling + batch size
     # -------------------------
     cfg = load_mirage_config(args.config)
-    processing_gen_params = cfg.processing_gen_params
+    loading_params = cfg.loading_params
     processing_params = cfg.processing_params
-    datasets = processing_gen_params.datasets
+    datasets = loading_params.datasets
     if not datasets:
         raise ValueError(
             "No datasets provided in config.processing_gen_params.datasets"
         )
 
-    shard_id = processing_gen_params.get_shard_id()
-    num_shards = processing_gen_params.get_num_shards()
+    shard_id = loading_params.get_shard_id()
+    num_shards = loading_params.get_num_shards()
 
     if not (0 <= shard_id < num_shards):
         raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
 
-    os.makedirs(processing_gen_params.output_dir, exist_ok=True)
-    shard_out_dir = os.path.join(processing_gen_params.output_dir, f"shard_{shard_id}")
+    os.makedirs(loading_params.output_dir, exist_ok=True)
+    shard_out_dir = os.path.join(loading_params.output_dir, f"shard_{shard_id}")
     os.makedirs(shard_out_dir, exist_ok=True)
 
     # -------------------------
@@ -85,7 +85,7 @@ def main():
     ds_processed = ds_shard.map(
         rewrite_batch,
         batched=True,
-        batch_size=processing_gen_params.get_batch_size(),
+        batch_size=loading_params.get_batch_size(),
         load_from_cache_file=False,
         desc=f"Shard {shard_id}/{num_shards - 1}",
         fn_kwargs={

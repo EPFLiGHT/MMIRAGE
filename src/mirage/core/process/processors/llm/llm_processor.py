@@ -1,22 +1,21 @@
-from typing import List
-from mirage.process.base import BaseProcessor, ProcessorRegistry
+from typing import List, override
+from mirage.core.process.base import BaseProcessor, ProcessorRegistry
 from transformers import AutoTokenizer
-from mirage.variables.environment import VariableEnvironment
+from mirage.core.variables import VariableEnvironment
 import sglang as sgl
 import json
 from dataclasses import asdict
 
-from mirage.process.processors.llm.config import LLMOutputVar, EngineConfig
+from mirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMConfig
 
 
-
-@ProcessorRegistry.register("llm")
-class LLMProcessor(BaseProcessor):
-    def __init__(self, engine_args: EngineConfig, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.llm = sgl.Engine(**asdict(engine_args))
+@ProcessorRegistry.register("llm", SGLangLLMConfig, LLMOutputVar)
+class LLMProcessor(BaseProcessor[LLMOutputVar]):
+    def __init__(self, engine_args: SGLangLLMConfig, **kwargs) -> None:
+        super().__init__(engine_args, **kwargs)
+        self.llm = sgl.Engine(**asdict(engine_args.server_args))
         self.tokenizer = AutoTokenizer.from_pretrained(engine_args.server_args.model_path)
-        self.sampling_params = engine_args.sampling_params
+        self.sampling_params = engine_args.default_sampling_params
 
     def build_prompt(
             self,
@@ -35,7 +34,8 @@ class LLMProcessor(BaseProcessor):
 
         return prompts_for_output
 
-
+    
+    @override
     def batch_process_sample(self, batch: List[VariableEnvironment], output_var: LLMOutputVar) -> List[VariableEnvironment]:
         prompts_for_output = self.build_prompt(
                 prompt_template=output_var.prompt,
