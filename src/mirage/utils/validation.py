@@ -20,8 +20,8 @@ def validate_processing_params(params: ProcessingParams) -> None:
         defined_vars.add(input_var.name)
 
     # From outputs
-    for output_var in params.outputs:
-        defined_vars.add(output_var.name)
+    for variable in params.outputs:
+        defined_vars.add(variable.name)
 
     # Extract all template variables (patterns like {var_name})
     def extract_template_vars(obj: Any) -> Set[str]:
@@ -46,8 +46,8 @@ def validate_processing_params(params: ProcessingParams) -> None:
 
     # Check output prompts
     prompt_vars = set()
-    for output_var in params.outputs:
-        prompt_vars.update(extract_template_vars(output_var.prompt))
+    for variable in params.outputs:
+        prompt_vars.update(extract_template_vars(variable.prompt))
 
     # Validate all template variables are defined
     undefined_in_schema = schema_vars - defined_vars

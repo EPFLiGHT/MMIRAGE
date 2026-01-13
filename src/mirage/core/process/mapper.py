@@ -1,6 +1,6 @@
 from typing import Dict, Any, List
 
-from mirage.core.process.variables import InputVar, OutputVar
+from mirage.core.process.variables import InputVar, Variable
 from mirage.core.process.base import AutoProcessor, BaseProcessor, BaseProcessorConfig
 
 import logging
@@ -13,7 +13,7 @@ class MIRAGEMapper():
     def __init__(self, 
                  processor_configs: List[BaseProcessorConfig], 
                 input_vars: List[InputVar],
-                output_vars: List[OutputVar]) -> None:
+                output_vars: List[Variable]) -> None:
         self.processors: Dict[str, BaseProcessor] = dict()
         self.output_vars = output_vars
         self.input_vars = input_vars

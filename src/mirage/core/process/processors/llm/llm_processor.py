@@ -36,19 +36,19 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
 
     
     @override
-    def batch_process_sample(self, batch: List[VariableEnvironment], output_var: LLMOutputVar) -> List[VariableEnvironment]:
+    def batch_process_sample(self, batch: List[VariableEnvironment], variable: LLMOutputVar) -> List[VariableEnvironment]:
         prompts_for_output = self.build_prompt(
-                prompt_template=output_var.prompt,
+                prompt_template=variable.prompt,
                 vars_samples=batch,
         )
 
         sampling_params_output = self.sampling_params.copy()
 
-        if output_var.output_type == "JSON":
-            json_schema = output_var.get_output_schema()
+        if variable.output_type == "JSON":
+            json_schema = variable.get_output_schema()
             if json_schema is None:
                 raise ValueError(
-                    f"Output variable {output_var.name} has output_type=JSON "
+                    f"Output variable {variable.name} has output_type=JSON "
                     "but no output_schema defined."
                 )
 
@@ -67,10 +67,10 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         mapped_batch = []
         for i, llm_output in enumerate(outputs_for_output):
             value = llm_output.get("text", "")
-            if output_var.output_type == "JSON":
+            if variable.output_type == "JSON":
                 value = json.loads(llm_output.get("text", ""))
 
-            mapped_batch.append(batch[i].with_variable(output_var.name, value))
+            mapped_batch.append(batch[i].with_variable(variable.name, value))
 
         return mapped_batch
 

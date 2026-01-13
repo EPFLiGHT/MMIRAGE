@@ -14,7 +14,7 @@ class InputVar:
     key: str = ""
 
 @dataclass
-class OutputVar:
+class Variable:
     name: str = ""
     type: str = ""
 
