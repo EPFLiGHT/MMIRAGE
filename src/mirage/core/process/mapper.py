@@ -1,6 +1,6 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, cast
 
-from mirage.core.process.variables import InputVar, Variable
+from mirage.core.process.variables import BaseVar, InputVar, OutputVar
 from mirage.core.process.base import AutoProcessor, BaseProcessor, BaseProcessorConfig
 
 import logging
@@ -13,7 +13,7 @@ class MIRAGEMapper():
     def __init__(self, 
                  processor_configs: List[BaseProcessorConfig], 
                 input_vars: List[InputVar],
-                output_vars: List[Variable]) -> None:
+                output_vars: List[OutputVar]) -> None:
         self.processors: Dict[str, BaseProcessor] = dict()
         self.output_vars = output_vars
         self.input_vars = input_vars
@@ -23,6 +23,19 @@ class MIRAGEMapper():
             logger.info(f"✅ Sucessfully loaded processor of type {config.type}")
 
             self.processors[config.type] = processor_cls(config)
+
+    def validate_vars(self) -> bool:
+        vars = cast(List[BaseVar], self.input_vars.copy())
+
+        for output_var in self.output_vars:
+            if not output_var.is_computable(vars):
+                context = list(map(lambda v : v.name, vars))
+                logger.info(f"⚠️ Variable {output_var.name} not computable given current context: {context}")
+                return False
+            
+            vars.append(output_var)
+
+        return True
 
 
     def rewrite_batch(

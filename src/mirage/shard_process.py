@@ -19,6 +19,9 @@ def rewrite_batch(
         mapper: MIRAGEMapper,
         renderer: TemplateRenderer,
     ) -> Dict[str, List[Any]]:
+    
+    if not mapper.validate_vars():
+        raise ValueError("Uncomputable variables detected. Verify your configuration and make sure that there is no undefined variables")
 
     batch_environment = mapper.rewrite_batch(batch)
     rendered_list = renderer.batch_render(batch_environment)

@@ -4,7 +4,7 @@ import yaml
 import os
 
 from mirage.config.config import MirageConfig
-from mirage.core.process.base import BaseProcessorConfig, ProcessorRegistry, Variable
+from mirage.core.process.base import BaseProcessorConfig, ProcessorRegistry, OutputVar
 from mirage.core.loader.base import BaseDataLoaderConfig, DataLoaderRegistry
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
@@ -86,7 +86,7 @@ def load_mirage_config(config_path: str) -> MirageConfig:
         clz = DataLoaderRegistry.get_config_cls(data["type"])
         return from_dict(clz, data, config=config)
 
-    def output_var_hook(data: Dict[str, Any]) -> Variable:
+    def output_var_hook(data: Dict[str, Any]) -> OutputVar:
         clz = ProcessorRegistry.get_output_var_cls(data["type"])
         return from_dict(clz, data, config=config)
 
@@ -95,7 +95,7 @@ def load_mirage_config(config_path: str) -> MirageConfig:
     config = Config(type_hooks={
         BaseProcessorConfig : processor_config_hook,
         BaseDataLoaderConfig : loader_config_hook,
-        Variable : output_var_hook
+        OutputVar : output_var_hook
     })
     cfg_obj = from_dict(MirageConfig, cast(dict, cfg), config=config)
 

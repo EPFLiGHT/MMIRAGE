@@ -2,14 +2,14 @@ import abc
 from dataclasses import dataclass
 from typing import  Generic, List, Type, TypeVar
 
-from mirage.core.process.variables import VariableEnvironment, Variable
+from mirage.core.process.variables import VariableEnvironment, OutputVar
 
 @dataclass
 class BaseProcessorConfig:
     type: str = ""
 
 
-C = TypeVar("C", bound=Variable)
+C = TypeVar("C", bound=OutputVar)
 
 class BaseProcessor(abc.ABC, Generic[C]):
     def __init__(self, config: BaseProcessorConfig) -> None:
@@ -33,7 +33,7 @@ class ProcessorRegistry:
     _output_var_registry = dict()
     
     @classmethod
-    def register(cls, name: str, config_cls: Type[BaseProcessorConfig], output_var_cls: Type[Variable]):
+    def register(cls, name: str, config_cls: Type[BaseProcessorConfig], output_var_cls: Type[OutputVar]):
         """
         Register a processor class.
         """
@@ -60,7 +60,7 @@ class ProcessorRegistry:
         return cls._config_registry[name]
 
     @classmethod
-    def get_output_var_cls(cls, name: str) -> Type[Variable]:
+    def get_output_var_cls(cls, name: str) -> Type[OutputVar]:
         if name not in cls._output_var_registry:
             raise ValueError(f"Processor {name} not registered. Available processors are {list(cls._output_var_registry.keys())}")
 

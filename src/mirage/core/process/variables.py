@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import abc
 from dataclasses import dataclass
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Sequence
 
 
 from typing import Dict, Any, List, TypeVar
@@ -9,14 +10,21 @@ from types import MappingProxyType
 from jmespath import search
 
 @dataclass
-class InputVar:
+class BaseVar(abc.ABC):
     name: str = ""
+
+@dataclass
+class InputVar(BaseVar):
     key: str = ""
 
 @dataclass
-class Variable:
-    name: str = ""
+class OutputVar(BaseVar):
     type: str = ""
+    
+    @abc.abstractmethod
+    def is_computable(self, vars: Sequence[BaseVar]) -> bool:
+        ...
+    
 
 
 C = TypeVar("C")
