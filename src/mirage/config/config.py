@@ -10,7 +10,7 @@ class ProcessingParams:
     inputs: List[InputVar]
     outputs: List[OutputVar]
     output_schema: Dict[str, Any]
-    remove_columns: bool
+    remove_columns: bool = False
 
 
 @dataclass

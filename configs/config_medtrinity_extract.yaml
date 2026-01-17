@@ -17,11 +17,9 @@ loading_params:
     - path: /capstor/store/cscs/swissai/a127/meditron/multimediset/dirty/medtrinity_conversations_1
       type: loadable
   output_dir: /iopsstor/scratch/cscs/mzhang/medtrinity_question
-  # num_shards: "$SLURM_ARRAY_TASK_COUNT"
-  # shard_id: "$SLURM_ARRAY_TASK_ID"
-  num_shards: 100000
-  shard_id: 0
-  batch_size: 8
+  num_shards: "$SLURM_ARRAY_TASK_COUNT"
+  shard_id: "$SLURM_ARRAY_TASK_ID"
+  batch_size: 64
 
 processing_params:
   inputs:
