@@ -100,7 +100,6 @@ def main():
     # -------------------------
     # Save shard as its own HF dataset (all columns preserved)
     # -------------------------
-    print("Features", ds_processed.features)
     ds_processed.save_to_disk(shard_out_dir)
 
     logger.info(
