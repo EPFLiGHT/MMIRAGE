@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import abc
-from os import wait
-from typing import Generic, Optional, Type, TypeVar
+from typing import Any, Callable, Generic, Optional, Type, TypeVar
 from dataclasses import dataclass
 
 from datasets import Dataset
@@ -32,11 +31,11 @@ class DataLoaderRegistry:
     _config_registry = dict()
     
     @classmethod
-    def register(cls, name: str, config_cls: Type[BaseDataLoaderConfig]):
+    def register(cls, name: str, config_cls: Type[BaseDataLoaderConfig]) -> Callable:
         """
         Register a processor class.
         """
-        def inner_register(clazz):
+        def inner_register(clazz: Any):
             cls._registry[name] = clazz
             cls._config_registry[name] = config_cls
 

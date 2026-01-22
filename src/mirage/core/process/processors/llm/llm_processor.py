@@ -1,4 +1,6 @@
 from typing import List, override
+
+import jinja2
 from mirage.core.process.base import BaseProcessor, ProcessorRegistry
 from transformers import AutoTokenizer
 from mirage.core.process.variables import VariableEnvironment
@@ -24,10 +26,12 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         ) -> List[str]:
         prompts_for_output = []
 
+        jinja_template = jinja2.Template(prompt_template)
+
         for var in vars_samples:
             user_prompt = [{
                 "role" : "user", 
-                "content" : prompt_template.format(**var.to_dict())
+                "content" : jinja_template.render(**var.to_dict())
             }]
             formatted_conv = self.tokenizer.apply_chat_template(user_prompt, tokenize=False, add_generation_prompt=True)
             prompts_for_output.append(formatted_conv)
@@ -68,7 +72,7 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         for i, llm_output in enumerate(outputs_for_output):
             value = llm_output.get("text", "")
             if output_var.output_type == "JSON":
-                value = json.loads(llm_output.get("text", ""))
+                value = json.loads(llm_output.get("text", "{}"))
 
             mapped_batch.append(batch[i].with_variable(output_var.name, value))
 

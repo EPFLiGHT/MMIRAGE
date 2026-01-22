@@ -37,7 +37,7 @@ processing_params:
       prompt: |
         Generate one question and its corresponding answer using the following text:
         ```
-        {text}
+        {{ text }}
         ```
   
   remove_columns: True

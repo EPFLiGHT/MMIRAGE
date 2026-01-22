@@ -15,53 +15,56 @@ def load_mirage_config(config_path: str) -> MirageConfig:
     Load SGLang engine, sampling params, and batch size from YAML config.
 
     Example config:
+    
+    processors:
+      - type: llm
+        server_args:
+          model_path: Qwen/Qwen3-4B-Instruct-2507
+          tp_size: 4          # use all 4 GPUs on the node
+          disable_custom_all_reduce: true
+        sampling_params:
+          temperature: 0.1
+          top_p: 0.9
+          max_new_tokens: 1024
+          custom_params:
+            chat_template_kwargs: 
+              enable_thinking: false
 
-    engine:
-      model_path: "meta-llama/Meta-Llama-3.1-8B-Instruct"
-
-    sampling_params:
-      temperature: 0.2
-      top_p: 0.9
-
-    processing_gen_params:
+    loading_params:
       datasets:
-        - path: "/path/to/dataset1"
-          type: loadable
-        - path: "/path/to/dataset2.jsonl"
+        - path: tests/mock_data/data.jsonl
           type: JSONL
-      output_dir: "/path/to/output"
-      num_shards: 8
+      output_dir: tests/output
+      num_shards: 4
       shard_id: 0
       conversations_field: "conversations"
+      batch_size: 64
 
     processing_params:
       inputs:
-        - name: assistant_answer
-          key: conversations[1].content
-        - name: user_prompt
-          key: conversations[0].content
-        - name: modalities
-          key: modalities
+        - name: text
+          key: text
 
       outputs:
         - name: formatted_answer
           type: llm
-          output_type: plain
-          prompt: |
-            Reformat the answer in a markdown format without adding anything else:
-            {assistant_answer}
+          output_type: JSON
           output_schema:
             - question
-            - explanation
             - answer
-
+          prompt: |
+            Generate one question and its corresponding answer using the following text:
+            ```
+            {{ text }}
+            ```
+      
+      remove_columns: True
       output_schema:
         conversations:
-        - role: user
-          content: {user_prompt}
-        - role: assistant
-          content: {formatted_answer}
-        modalities: {modalities}
+          - role: "user"
+            content: "{{ formatted_answer.question }}"
+          - role: "assistant"
+            content: "{{ formatted_answer.answer }}"
     """
     from mirage.config.config import MirageConfig
 

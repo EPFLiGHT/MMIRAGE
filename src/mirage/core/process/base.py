@@ -1,6 +1,6 @@
 import abc
 from dataclasses import dataclass
-from typing import  Generic, List, Type, TypeVar
+from typing import  Callable, Generic, List, Type, TypeVar
 
 from mirage.core.process.variables import VariableEnvironment, OutputVar
 
@@ -33,7 +33,7 @@ class ProcessorRegistry:
     _output_var_registry = dict()
     
     @classmethod
-    def register(cls, name: str, config_cls: Type[BaseProcessorConfig], output_var_cls: Type[OutputVar]):
+    def register(cls, name: str, config_cls: Type[BaseProcessorConfig], output_var_cls: Type[OutputVar]) -> Callable:
         """
         Register a processor class.
         """

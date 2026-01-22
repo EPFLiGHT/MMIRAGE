@@ -30,7 +30,7 @@ SRUN_ARGS=" \
   --jobid $SLURM_JOB_ID \
   --wait 60 \
   -A a127 \
-  --reservation=sai-a127
+  --reservation sai-a127 \
   --environment /users/$USER/.edf/mirage.toml
   "
 # bash -c is needed for the delayed interpolation of env vars to work

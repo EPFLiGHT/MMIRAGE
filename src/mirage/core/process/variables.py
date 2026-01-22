@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import List, Dict, Any, Sequence
-
-
-from typing import Dict, Any, List, TypeVar
+from typing import List, Dict, Any, Sequence, TypeVar
 from types import MappingProxyType
 from jmespath import search
 

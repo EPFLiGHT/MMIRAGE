@@ -16,8 +16,10 @@ processing_gen_params:
     - path: /capstor/store/cscs/swissai/a127/meditron/datasets/polyglot/english_tiny.jsonl
       type: JSONL
   output_dir: /capstor/store/cscs/swissai/a127/homes/$USER/datasets/english_tiny/shards
-  num_shards: "$SLURM_ARRAY_TASK_COUNT"
-  shard_id: "$SLURM_ARRAY_TASK_ID"
+  # num_shards: "$SLURM_ARRAY_TASK_COUNT"
+  # shard_id: "$SLURM_ARRAY_TASK_ID"
+  num_shards: 4
+  shard_id: 0
   conversations_field: "conversations"
   batch_size: 64
 
@@ -37,10 +39,10 @@ processing_params:
       prompt: |
         Reformat the following in a markdown format without adding anything else:
         ```
-        {text}
+        {{ text }}
         ```
 
   output_schema:
-    text: "{formatted_answer}"
-    language: "{language}"
-    modalities: "{modalities}"
+    text: "{{ formatted_answer }}"
+    language: "{{ language }}"
+    modalities: "{{ modalities }}"

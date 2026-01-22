@@ -51,7 +51,7 @@ def main():
     datasets = loading_params.datasets
     if not datasets:
         raise ValueError(
-            "No datasets provided in config.processing_gen_params.datasets"
+            "No datasets provided in config.loading_params.datasets"
         )
 
     shard_id = loading_params.get_shard_id()
@@ -81,7 +81,6 @@ def main():
     # -------------------------
     # Apply map with batching
     # -------------------------
-    # variable_extractor = VariableExtractor(processing_params.inputs)
     mapper = MIRAGEMapper(cfg.processors, processing_params.inputs, processing_params.outputs) 
     renderer = TemplateRenderer(processing_params.output_schema)
     ds_processed = ds_shard.map(

@@ -8,7 +8,7 @@ from mirage.core.process.variables import BaseVar, OutputVar
 from sglang.srt.server_args import ServerArgs
 
 from mirage.core.process.base import BaseProcessorConfig
-from jinja2 import Environment, PackageLoader, meta
+from jinja2 import Environment, meta
 
 logger = logging.getLogger(__name__)
 env = Environment()

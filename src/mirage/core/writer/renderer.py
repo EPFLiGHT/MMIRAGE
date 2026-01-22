@@ -8,7 +8,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-env = Environment()
+JINJA_ENV = Environment()
 
 class TemplateRenderer():
     def __init__(self, output_schema: Dict[str, Any]) -> None:
@@ -27,7 +27,7 @@ class TemplateRenderer():
         If s is exactly '{{ var }}', return 'var'.
         Otherwise return None.
         """
-        ast = env.parse(s)
+        ast = JINJA_ENV.parse(s)
         
         if len(ast.body) != 1:
             return None

@@ -18,10 +18,10 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          # - platform: ubuntu-latest
-          #   path: docker/Dockerfile
-          #   tag_base: amd64
-          #   name: mirage-git
+          - platform: ubuntu-latest
+            path: docker/Dockerfile
+            tag_base: amd64
+            name: mirage-git
           - platform: ubuntu-24.04-arm
             path: docker/Dockerfile
             tag_base: arm64
