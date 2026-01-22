@@ -25,7 +25,9 @@ class ProcessorRegistry:
     Registry for managing and accessing available processors.
 
     Attributes:
-        _registry (List[type]): List of registered processor classes.
+        _registry (dict[type]): List of registered processor classes.
+        _config_registry (dict[type]): List of registered processor config classes.
+        _output_var_registry (dict[type]): List of registered output var classes.
     """
 
     _registry = dict()
