@@ -62,13 +62,16 @@ class AutoDataLoader:
     @classmethod
     def from_name(cls, name: str):
         """
-        Determine and return the appropriate processor for the given file.
+        Determine and return the appropriate data loader/processor class for the given name.
 
         Args:
-            file (FileDescriptor): The file descriptor to process.
+            name (str): The registry name of the data loader/processor.
 
         Returns:
-            Processor: The appropriate processor for the file, or None if no processor is found.
+            Type[BaseDataLoader]: The registered data loader/processor class associated with the given name.
+
+        Raises:
+            ValueError: If no data loader/processor is registered under the given name.
         """
 
         return DataLoaderRegistry.get_processor(name)
