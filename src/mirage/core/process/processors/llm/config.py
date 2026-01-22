@@ -15,7 +15,7 @@ env = Environment()
 
 @dataclass
 class SGLangLLMConfig(BaseProcessorConfig):
-    server_args: ServerArgs = field(default_factory=ServerArgs(model_path="none"))
+    server_args: ServerArgs = field(default_factory=lambda: ServerArgs(model_path="none"))
     default_sampling_params: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass

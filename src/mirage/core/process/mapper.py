@@ -20,7 +20,7 @@ class MIRAGEMapper():
 
         for config in processor_configs:
             processor_cls = AutoProcessor.from_name(config.type)
-            logger.info(f"✅ Sucessfully loaded processor of type {config.type}")
+            logger.info(f"✅ Successfully loaded processor of type {config.type}")
 
             self.processors[config.type] = processor_cls(config)
 

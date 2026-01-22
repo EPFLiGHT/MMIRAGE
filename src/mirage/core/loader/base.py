@@ -24,7 +24,8 @@ class DataLoaderRegistry:
     Registry for managing and accessing available processors.
 
     Attributes:
-        _registry (List[type]): List of registered processor classes.
+        _registry (dict): Mapping from processor name to registered processor class.
+        _config_registry (dict): Mapping from processor name to its configuration class.
     """
 
     _registry = dict()

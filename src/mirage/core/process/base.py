@@ -71,13 +71,13 @@ class AutoProcessor:
     @classmethod
     def from_name(cls, name: str):
         """
-        Determine and return the appropriate processor for the given file.
+        Retrieve the processor class registered under the given name.
 
         Args:
-            file (FileDescriptor): The file descriptor to process.
+            name (str): The identifier of the processor to retrieve.
 
         Returns:
-            Processor: The appropriate processor for the file, or None if no processor is found.
+            Type[BaseProcessor]: The processor class associated with the given name.
         """
 
         return ProcessorRegistry.get_processor(name)
