@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Sequence, TypeVar
 from types import MappingProxyType
 from jmespath import search
 
+
 @dataclass
 class BaseVar(abc.ABC):
     """Base class for variables in the MIRAGE pipeline.
@@ -15,7 +16,9 @@ class BaseVar(abc.ABC):
     Attributes:
         name: Name of the variable.
     """
+
     name: str = ""
+
 
 @dataclass
 class InputVar(BaseVar):
@@ -28,7 +31,9 @@ class InputVar(BaseVar):
         name: Name of the variable.
         key: JMESPath query to extract the variable from a sample.
     """
+
     key: str = ""
+
 
 @dataclass
 class OutputVar(BaseVar):
@@ -57,9 +62,10 @@ class OutputVar(BaseVar):
         ...
 
 
-
 C = TypeVar("C")
-class VariableEnvironment():
+
+
+class VariableEnvironment:
     """Environment for storing and accessing variables during processing.
 
     Provides an immutable container for variable values, supporting
@@ -87,7 +93,7 @@ class VariableEnvironment():
         Returns:
             A new VariableEnvironment with the added variable.
         """
-        return VariableEnvironment(self._vars_env | {key : value})
+        return VariableEnvironment(self._vars_env | {key: value})
 
     def to_dict(self) -> MappingProxyType:
         """Get an immutable view of the variable dictionary.
@@ -97,11 +103,9 @@ class VariableEnvironment():
         """
         return MappingProxyType(self._vars_env)
 
-
     @staticmethod
     def from_input_variables(
-        sample: Dict[str, Any],
-        input_vars: List[InputVar]
+        sample: Dict[str, Any], input_vars: List[InputVar]
     ) -> VariableEnvironment:
         """Extract input variables from a dataset sample using JMESPath queries.
 
@@ -129,9 +133,8 @@ class VariableEnvironment():
 
     @staticmethod
     def from_batch_input_variables(
-            batch: Dict[str, List[Any]],
-            input_vars: List[InputVar]
-        ) -> List[VariableEnvironment]:
+        batch: Dict[str, List[Any]], input_vars: List[InputVar]
+    ) -> List[VariableEnvironment]:
         """Extract input variables from a batch of samples.
 
         Args:
@@ -152,6 +155,4 @@ class VariableEnvironment():
             current_vars = VariableEnvironment.from_input_variables(sample, input_vars)
             vars_samples.append(current_vars)
 
-
         return vars_samples
-

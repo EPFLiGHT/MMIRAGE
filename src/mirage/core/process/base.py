@@ -2,9 +2,10 @@
 
 import abc
 from dataclasses import dataclass
-from typing import  Callable, Generic, List, Type, TypeVar
+from typing import Callable, Generic, List, Type, TypeVar
 
 from mirage.core.process.variables import VariableEnvironment, OutputVar
+
 
 @dataclass
 class BaseProcessorConfig:
@@ -15,10 +16,12 @@ class BaseProcessorConfig:
     Attributes:
         type: String identifier for the processor type (e.g., "llm").
     """
+
     type: str = ""
 
 
 C = TypeVar("C", bound=OutputVar)
+
 
 class BaseProcessor(abc.ABC, Generic[C]):
     """Abstract base class for data processors.
@@ -43,7 +46,9 @@ class BaseProcessor(abc.ABC, Generic[C]):
         self.config = config
 
     @abc.abstractmethod
-    def batch_process_sample(self, batch: List[VariableEnvironment], output_var: C) -> List[VariableEnvironment]:
+    def batch_process_sample(
+        self, batch: List[VariableEnvironment], output_var: C
+    ) -> List[VariableEnvironment]:
         """Process a batch of variable environments.
 
         Args:
@@ -57,6 +62,7 @@ class BaseProcessor(abc.ABC, Generic[C]):
             NotImplementedError: If not implemented by subclass.
         """
         ...
+
 
 class ProcessorRegistry:
     """Registry for managing and accessing available processors.
@@ -75,7 +81,12 @@ class ProcessorRegistry:
     _output_var_registry = dict()
 
     @classmethod
-    def register(cls, name: str, config_cls: Type[BaseProcessorConfig], output_var_cls: Type[OutputVar]) -> Callable:
+    def register(
+        cls,
+        name: str,
+        config_cls: Type[BaseProcessorConfig],
+        output_var_cls: Type[OutputVar],
+    ) -> Callable:
         """Register a processor class with its associated classes.
 
         Args:
@@ -86,13 +97,13 @@ class ProcessorRegistry:
         Returns:
             Decorator function to register the processor class.
         """
+
         def inner_register(clazz):
             cls._registry[name] = clazz
             cls._config_registry[name] = config_cls
             cls._output_var_registry[name] = output_var_cls
 
         return inner_register
-
 
     @classmethod
     def get_processor(cls, name: str) -> Type[BaseProcessor]:
@@ -108,7 +119,9 @@ class ProcessorRegistry:
             ValueError: If no processor is registered under the given name.
         """
         if name not in cls._registry:
-            raise ValueError(f"Processor {name} not registered. Available processors are {list(cls._registry.keys())}")
+            raise ValueError(
+                f"Processor {name} not registered. Available processors are {list(cls._registry.keys())}"
+            )
 
         return cls._registry[name]
 
@@ -126,7 +139,9 @@ class ProcessorRegistry:
             ValueError: If no processor is registered under the given name.
         """
         if name not in cls._config_registry:
-            raise ValueError(f"Processor {name} not registered. Available processors are {list(cls._config_registry.keys())}")
+            raise ValueError(
+                f"Processor {name} not registered. Available processors are {list(cls._config_registry.keys())}"
+            )
 
         return cls._config_registry[name]
 
@@ -144,7 +159,9 @@ class ProcessorRegistry:
             ValueError: If no processor is registered under the given name.
         """
         if name not in cls._output_var_registry:
-            raise ValueError(f"Processor {name} not registered. Available processors are {list(cls._output_var_registry.keys())}")
+            raise ValueError(
+                f"Processor {name} not registered. Available processors are {list(cls._output_var_registry.keys())}"
+            )
 
         return cls._output_var_cls[name]
 
@@ -166,5 +183,3 @@ class AutoProcessor:
             ValueError: If no processor is registered under the given name.
         """
         return ProcessorRegistry.get_processor(name)
-
-

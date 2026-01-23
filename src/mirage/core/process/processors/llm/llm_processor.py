@@ -35,14 +35,14 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         """
         super().__init__(engine_args, **kwargs)
         self.llm = sgl.Engine(**asdict(engine_args.server_args))
-        self.tokenizer = AutoTokenizer.from_pretrained(engine_args.server_args.model_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            engine_args.server_args.model_path
+        )
         self.sampling_params = engine_args.default_sampling_params
 
     def build_prompt(
-            self,
-            prompt_template: str,
-            vars_samples: List[VariableEnvironment]
-        ) -> List[str]:
+        self, prompt_template: str, vars_samples: List[VariableEnvironment]
+    ) -> List[str]:
         """Build formatted prompts from a Jinja2 template and variable environments.
 
         Args:
@@ -57,18 +57,20 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         jinja_template = jinja2.Template(prompt_template)
 
         for var in vars_samples:
-            user_prompt = [{
-                "role" : "user",
-                "content" : jinja_template.render(**var.to_dict())
-            }]
-            formatted_conv = self.tokenizer.apply_chat_template(user_prompt, tokenize=False, add_generation_prompt=True)
+            user_prompt = [
+                {"role": "user", "content": jinja_template.render(**var.to_dict())}
+            ]
+            formatted_conv = self.tokenizer.apply_chat_template(
+                user_prompt, tokenize=False, add_generation_prompt=True
+            )
             prompts_for_output.append(formatted_conv)
 
         return prompts_for_output
 
-
     @override
-    def batch_process_sample(self, batch: List[VariableEnvironment], output_var: LLMOutputVar) -> List[VariableEnvironment]:
+    def batch_process_sample(
+        self, batch: List[VariableEnvironment], output_var: LLMOutputVar
+    ) -> List[VariableEnvironment]:
         """Process a batch of variable environments to generate LLM outputs.
 
         Args:
@@ -83,8 +85,8 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             RuntimeError: If output batch size doesn't match input batch size.
         """
         prompts_for_output = self.build_prompt(
-                prompt_template=output_var.prompt,
-                vars_samples=batch,
+            prompt_template=output_var.prompt,
+            vars_samples=batch,
         )
 
         sampling_params_output = self.sampling_params.copy()
@@ -97,7 +99,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                     "but no output_schema defined."
                 )
 
-            sampling_params_output["json_schema"] = json.dumps(json_schema.model_json_schema())
+            sampling_params_output["json_schema"] = json.dumps(
+                json_schema.model_json_schema()
+            )
 
         outputs_for_output = self.llm.generate(
             prompts_for_output, sampling_params_output
@@ -117,7 +121,3 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             mapped_batch.append(batch[i].with_variable(output_var.name, value))
 
         return mapped_batch
-
-
-
-

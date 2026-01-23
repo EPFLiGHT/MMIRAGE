@@ -8,6 +8,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def load_datasets_from_configs(configs: List[BaseDataLoaderConfig]) -> Dataset:
     """Load and concatenate multiple datasets from configurations.
 
@@ -41,5 +42,3 @@ def load_datasets_from_configs(configs: List[BaseDataLoaderConfig]) -> Dataset:
         return valid_ds[0]
     else:
         return concatenate_datasets(valid_ds)
-
-

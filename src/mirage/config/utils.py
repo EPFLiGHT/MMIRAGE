@@ -15,7 +15,7 @@ def load_mirage_config(config_path: str) -> MirageConfig:
     Load SGLang engine, sampling params, and batch size from YAML config.
 
     Example config:
-    
+
     processors:
       - type: llm
         server_args:
@@ -27,7 +27,7 @@ def load_mirage_config(config_path: str) -> MirageConfig:
           top_p: 0.9
           max_new_tokens: 1024
           custom_params:
-            chat_template_kwargs: 
+            chat_template_kwargs:
               enable_thinking: false
 
     loading_params:
@@ -57,7 +57,7 @@ def load_mirage_config(config_path: str) -> MirageConfig:
             ```
             {{ text }}
             ```
-      
+
       remove_columns: True
       output_schema:
         conversations:
@@ -93,16 +93,14 @@ def load_mirage_config(config_path: str) -> MirageConfig:
         clz = ProcessorRegistry.get_output_var_cls(data["type"])
         return from_dict(clz, data, config=config)
 
-
     cfg = expand_env_vars(cfg)
-    config = Config(type_hooks={
-        BaseProcessorConfig : processor_config_hook,
-        BaseDataLoaderConfig : loader_config_hook,
-        OutputVar : output_var_hook
-    })
+    config = Config(
+        type_hooks={
+            BaseProcessorConfig: processor_config_hook,
+            BaseDataLoaderConfig: loader_config_hook,
+            OutputVar: output_var_hook,
+        }
+    )
     cfg_obj = from_dict(MirageConfig, cast(dict, cfg), config=config)
 
     return cfg_obj
-
-
-

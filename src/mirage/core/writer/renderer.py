@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 JINJA_ENV = Environment()
 
-class TemplateRenderer():
+
+class TemplateRenderer:
     """Renderer for generating output from variable environments using Jinja2 templates.
 
     Supports nested templates (dicts and lists) and optimized handling of
@@ -43,7 +44,9 @@ class TemplateRenderer():
         rendered_batch = defaultdict(list)
         for env in batch:
             for key, template_obj in self.output_schema.items():
-                rendered_batch[key].append(self._fill_template_recursive(template_obj, env))
+                rendered_batch[key].append(
+                    self._fill_template_recursive(template_obj, env)
+                )
 
         return rendered_batch
 
@@ -73,7 +76,9 @@ class TemplateRenderer():
 
         return None
 
-    def _fill_template_recursive(self, template_obj: Any, context: VariableEnvironment) -> Any:
+    def _fill_template_recursive(
+        self, template_obj: Any, context: VariableEnvironment
+    ) -> Any:
         """Recursively fill a template object with values from a variable environment.
 
         Args:
@@ -103,6 +108,3 @@ class TemplateRenderer():
 
         else:
             return template_obj
-
-
-

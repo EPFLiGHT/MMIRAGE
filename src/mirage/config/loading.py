@@ -23,8 +23,9 @@ class LoadingParams:
     Raises:
         ValueError: If num_shards, shard_id, or batch_size cannot be converted to int.
     """
+
     datasets: List[BaseDataLoaderConfig] = field(default_factory=list)
-    output_dir: str  = ""
+    output_dir: str = ""
     num_shards: Union[int, str] = 1
     shard_id: Union[int, str] = 0
     batch_size: Union[int, str] = 1
@@ -70,5 +71,3 @@ class LoadingParams:
             int: Batch size (minimum 1).
         """
         return cast(int, self.batch_size)
-
-

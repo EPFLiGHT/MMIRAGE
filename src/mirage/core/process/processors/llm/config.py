@@ -15,6 +15,7 @@ from jinja2 import Environment, meta
 logger = logging.getLogger(__name__)
 env = Environment()
 
+
 @dataclass
 class SGLangLLMConfig(BaseProcessorConfig):
     """Configuration for LLM processor using SGLang.
@@ -24,8 +25,12 @@ class SGLangLLMConfig(BaseProcessorConfig):
         server_args: SGLang server arguments including model path and TP size.
         default_sampling_params: Default sampling parameters for generation.
     """
-    server_args: ServerArgs = field(default_factory=lambda: ServerArgs(model_path="none"))
+
+    server_args: ServerArgs = field(
+        default_factory=lambda: ServerArgs(model_path="none")
+    )
     default_sampling_params: Dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class LLMOutputVar(OutputVar):
@@ -43,9 +48,7 @@ class LLMOutputVar(OutputVar):
     """
 
     prompt: str = ""
-    output_schema: List[str] = field(
-        default_factory=list
-    )
+    output_schema: List[str] = field(default_factory=list)
     output_type: str = ""
 
     def get_output_schema(self) -> Optional[Type[BaseModel]]:
@@ -56,9 +59,7 @@ class LLMOutputVar(OutputVar):
             output_schema is non-empty, otherwise None.
         """
         if self.output_type == "JSON" and self.output_schema:
-            fields: Dict[str, Any] = {
-                var: (str, ...) for var in self.output_schema
-            }
+            fields: Dict[str, Any] = {var: (str, ...) for var in self.output_schema}
             return create_model(f"OutputSchema", **fields)
         return None
 
@@ -74,13 +75,13 @@ class LLMOutputVar(OutputVar):
         parsed_content = env.parse(self.prompt)
         template_vars = meta.find_undeclared_variables(parsed_content)
 
-        var_names = set(map(lambda v : v.name, vars))
+        var_names = set(map(lambda v: v.name, vars))
         undeclared_vars = template_vars - var_names
 
         if len(undeclared_vars) > 0:
-            logger.info(f"⚠️ Undeclared variables found for {self.name}: {undeclared_vars}")
+            logger.info(
+                f"⚠️ Undeclared variables found for {self.name}: {undeclared_vars}"
+            )
             return False
 
         return True
-
-

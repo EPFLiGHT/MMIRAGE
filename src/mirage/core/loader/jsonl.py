@@ -14,7 +14,11 @@ from datasets import (
 )
 
 
-from mirage.core.loader.base import BaseDataLoader, DataLoaderRegistry, BaseDataLoaderConfig
+from mirage.core.loader.base import (
+    BaseDataLoader,
+    DataLoaderRegistry,
+    BaseDataLoaderConfig,
+)
 
 
 @dataclass
@@ -25,6 +29,7 @@ class JSONLDataConfig(BaseDataLoaderConfig):
         type: Type identifier (must be "JSONL").
         path: File path to the JSONL file.
     """
+
     path: str = ""
 
 
@@ -60,12 +65,9 @@ class JSONLDataLoader(BaseDataLoader[JSONLDataConfig]):
         ds = load_dataset("json", data_files=path, streaming=False)
 
         if isinstance(ds, (IterableDatasetDict, IterableDataset)):
-            raise RuntimeError(
-                f"Iterable datasets are not supported for path: {path}"
-            )
+            raise RuntimeError(f"Iterable datasets are not supported for path: {path}")
 
         if isinstance(ds, DatasetDict):
             ds = concatenate_datasets([ds[split] for split in ds.keys()])
 
         return ds
-

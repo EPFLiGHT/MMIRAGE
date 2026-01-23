@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from datasets import Dataset
 
+
 @dataclass
 class BaseDataLoaderConfig:
     """Base configuration class for data loaders.
@@ -18,10 +19,12 @@ class BaseDataLoaderConfig:
     Attributes:
         type: String identifier for the loader type (e.g., "JSONL", "loadable").
     """
+
     type: str
 
 
 C = TypeVar("C", bound=BaseDataLoaderConfig)
+
 
 class BaseDataLoader(abc.ABC, Generic[C]):
     """Abstract base class for data loaders.
@@ -52,6 +55,7 @@ class BaseDataLoader(abc.ABC, Generic[C]):
         """
         ...
 
+
 class DataLoaderRegistry:
     """Registry for managing and accessing available data loaders.
 
@@ -78,12 +82,12 @@ class DataLoaderRegistry:
         Returns:
             Decorator function to register the loader class.
         """
+
         def inner_register(clazz: Any):
             cls._registry[name] = clazz
             cls._config_registry[name] = config_cls
 
         return inner_register
-
 
     @classmethod
     def get_processor(cls, name: str) -> Type[BaseDataLoader]:
@@ -99,7 +103,9 @@ class DataLoaderRegistry:
             ValueError: If no loader is registered under the given name.
         """
         if name not in cls._registry:
-            raise ValueError(f"Loader {name} not registered. Available loaders are {list(cls._registry.keys())}")
+            raise ValueError(
+                f"Loader {name} not registered. Available loaders are {list(cls._registry.keys())}"
+            )
 
         return cls._registry[name]
 
@@ -117,7 +123,9 @@ class DataLoaderRegistry:
             ValueError: If no loader is registered under the given name.
         """
         if name not in cls._config_registry:
-            raise ValueError(f"Loader {name} not registered. Available loaders are {list(cls._config_registry.keys())}")
+            raise ValueError(
+                f"Loader {name} not registered. Available loaders are {list(cls._config_registry.keys())}"
+            )
 
         return cls._config_registry[name]
 
@@ -139,4 +147,3 @@ class AutoDataLoader:
             ValueError: If no data loader is registered under the given name.
         """
         return DataLoaderRegistry.get_processor(name)
-

@@ -7,6 +7,7 @@ from mirage.config.loading import LoadingParams
 from mirage.core.process.base import BaseProcessorConfig
 from mirage.core.process.variables import InputVar, OutputVar
 
+
 @dataclass
 class ProcessingParams:
     """Parameters for processing dataset samples.
@@ -20,6 +21,7 @@ class ProcessingParams:
         output_schema: Dictionary defining the structure of output samples.
         remove_columns: If True, removes all columns from original dataset.
     """
+
     inputs: List[InputVar]
     outputs: List[OutputVar]
     output_schema: Dict[str, Any]
@@ -39,8 +41,7 @@ class MirageConfig:
         loading_params: Parameters for loading input datasets.
         processing_params: Parameters for processing dataset samples.
     """
+
     processors: List[BaseProcessorConfig]
     loading_params: LoadingParams
     processing_params: ProcessingParams
-
-

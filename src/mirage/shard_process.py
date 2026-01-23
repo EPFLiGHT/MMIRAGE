@@ -16,11 +16,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def rewrite_batch(
-        batch: Dict[str, List[Any]],
-        mapper: MIRAGEMapper,
-        renderer: TemplateRenderer,
-    ) -> Dict[str, List[Any]]:
+    batch: Dict[str, List[Any]],
+    mapper: MIRAGEMapper,
+    renderer: TemplateRenderer,
+) -> Dict[str, List[Any]]:
     """Rewrite a batch of samples by applying transformations.
 
     Args:
@@ -35,7 +36,9 @@ def rewrite_batch(
         ValueError: If variables are not computable given the configuration.
     """
     if not mapper.validate_vars():
-        raise ValueError("Uncomputable variables detected. Verify your configuration and make sure that there is no undefined variables")
+        raise ValueError(
+            "Uncomputable variables detected. Verify your configuration and make sure that there is no undefined variables"
+        )
 
     batch_environment = mapper.rewrite_batch(batch)
     rendered_list = renderer.batch_render(batch_environment)
@@ -63,9 +66,7 @@ def main():
     processing_params = cfg.processing_params
     datasets = loading_params.datasets
     if not datasets:
-        raise ValueError(
-            "No datasets provided in config.loading_params.datasets"
-        )
+        raise ValueError("No datasets provided in config.loading_params.datasets")
 
     shard_id = loading_params.get_shard_id()
     num_shards = loading_params.get_num_shards()
@@ -88,7 +89,9 @@ def main():
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
 
-    mapper = MIRAGEMapper(cfg.processors, processing_params.inputs, processing_params.outputs)
+    mapper = MIRAGEMapper(
+        cfg.processors, processing_params.inputs, processing_params.outputs
+    )
     renderer = TemplateRenderer(processing_params.output_schema)
     ds_processed = ds_shard.map(
         rewrite_batch,
@@ -96,11 +99,10 @@ def main():
         batch_size=loading_params.get_batch_size(),
         load_from_cache_file=False,
         desc=f"Shard {shard_id}/{num_shards - 1}",
-        fn_kwargs={
-            "mapper" : mapper,
-            "renderer": renderer
-        },
-        remove_columns=ds_shard.column_names if processing_params.remove_columns else []
+        fn_kwargs={"mapper": mapper, "renderer": renderer},
+        remove_columns=ds_shard.column_names
+        if processing_params.remove_columns
+        else [],
     )
 
     ds_processed.save_to_disk(shard_out_dir)

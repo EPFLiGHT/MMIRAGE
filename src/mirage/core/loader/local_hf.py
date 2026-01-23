@@ -3,8 +3,20 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from datasets import Dataset, load_from_disk, IterableDatasetDict, IterableDataset, DatasetDict, concatenate_datasets
-from mirage.core.loader.base import BaseDataLoader, BaseDataLoaderConfig, DataLoaderRegistry
+from datasets import (
+    Dataset,
+    load_from_disk,
+    IterableDatasetDict,
+    IterableDataset,
+    DatasetDict,
+    concatenate_datasets,
+)
+from mirage.core.loader.base import (
+    BaseDataLoader,
+    BaseDataLoaderConfig,
+    DataLoaderRegistry,
+)
+
 
 @dataclass
 class LocalHFConfig(BaseDataLoaderConfig):
@@ -14,6 +26,7 @@ class LocalHFConfig(BaseDataLoaderConfig):
         type: Type identifier (must be "loadable").
         path: Directory path to the saved Hugging Face dataset.
     """
+
     path: str = ""
 
 
