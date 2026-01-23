@@ -1,3 +1,5 @@
+"""LLM processor implementation using SGLang."""
+
 from typing import List, override
 
 import jinja2
@@ -13,7 +15,24 @@ from mirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMCon
 
 @ProcessorRegistry.register("llm", SGLangLLMConfig, LLMOutputVar)
 class LLMProcessor(BaseProcessor[LLMOutputVar]):
+    """LLM processor for generating text using SGLang.
+
+    Supports both plain text and JSON output formats, with automatic
+    chat template formatting and structured output validation.
+
+    Attributes:
+        llm: SGLang engine for text generation.
+        tokenizer: Hugging Face tokenizer for chat template formatting.
+        sampling_params: Default sampling parameters for generation.
+    """
+
     def __init__(self, engine_args: SGLangLLMConfig, **kwargs) -> None:
+        """Initialize the LLM processor.
+
+        Args:
+            engine_args: Configuration for SGLang server and sampling parameters.
+            **kwargs: Additional arguments passed to base class.
+        """
         super().__init__(engine_args, **kwargs)
         self.llm = sgl.Engine(**asdict(engine_args.server_args))
         self.tokenizer = AutoTokenizer.from_pretrained(engine_args.server_args.model_path)
@@ -24,13 +43,22 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             prompt_template: str,
             vars_samples: List[VariableEnvironment]
         ) -> List[str]:
+        """Build formatted prompts from a Jinja2 template and variable environments.
+
+        Args:
+            prompt_template: Jinja2 template string for the prompt.
+            vars_samples: List of variable environments containing values.
+
+        Returns:
+            List of formatted prompts with chat template applied.
+        """
         prompts_for_output = []
 
         jinja_template = jinja2.Template(prompt_template)
 
         for var in vars_samples:
             user_prompt = [{
-                "role" : "user", 
+                "role" : "user",
                 "content" : jinja_template.render(**var.to_dict())
             }]
             formatted_conv = self.tokenizer.apply_chat_template(user_prompt, tokenize=False, add_generation_prompt=True)
@@ -38,9 +66,22 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
 
         return prompts_for_output
 
-    
+
     @override
     def batch_process_sample(self, batch: List[VariableEnvironment], output_var: LLMOutputVar) -> List[VariableEnvironment]:
+        """Process a batch of variable environments to generate LLM outputs.
+
+        Args:
+            batch: List of variable environments to process.
+            output_var: Output variable defining prompt and output format.
+
+        Returns:
+            List of updated variable environments with LLM-generated values.
+
+        Raises:
+            ValueError: If output_type is JSON but no output_schema is defined.
+            RuntimeError: If output batch size doesn't match input batch size.
+        """
         prompts_for_output = self.build_prompt(
                 prompt_template=output_var.prompt,
                 vars_samples=batch,
@@ -67,7 +108,6 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                 f"Mismatch between the number of generated answers ({len(outputs_for_output)}) and the size of the batch ({len(batch)})"
             )
 
-        # Update the variables
         mapped_batch = []
         for i, llm_output in enumerate(outputs_for_output):
             value = llm_output.get("text", "")

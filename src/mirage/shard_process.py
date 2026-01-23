@@ -1,3 +1,5 @@
+"""Main script for processing dataset shards with MIRAGE."""
+
 import argparse
 import os
 from typing import Any, Dict, List
@@ -19,7 +21,19 @@ def rewrite_batch(
         mapper: MIRAGEMapper,
         renderer: TemplateRenderer,
     ) -> Dict[str, List[Any]]:
-    
+    """Rewrite a batch of samples by applying transformations.
+
+    Args:
+        batch: Dictionary mapping column names to lists of values.
+        mapper: MIRAGEMapper for processing transformations.
+        renderer: TemplateRenderer for generating output.
+
+    Returns:
+        Dictionary mapping output keys to lists of rendered values.
+
+    Raises:
+        ValueError: If variables are not computable given the configuration.
+    """
     if not mapper.validate_vars():
         raise ValueError("Uncomputable variables detected. Verify your configuration and make sure that there is no undefined variables")
 
@@ -28,10 +42,12 @@ def rewrite_batch(
     return rendered_list
 
 
-# -------------------------
-# main
-# -------------------------
 def main():
+    """Process a single shard of the dataset.
+
+    Loads configuration, datasets, processes the shard using MIRAGE
+    transformations, and saves the result to disk.
+    """
     ap = argparse.ArgumentParser(
         "Rewrite the assistant turn inside `conversations` into Markdown using SGLang + HF map + sharding."
     )
@@ -42,9 +58,6 @@ def main():
     )
     args = ap.parse_args()
 
-    # -------------------------
-    # Load SGLang engine + sampling + batch size
-    # -------------------------
     cfg = load_mirage_config(args.config)
     loading_params = cfg.loading_params
     processing_params = cfg.processing_params
@@ -64,9 +77,6 @@ def main():
     shard_out_dir = os.path.join(loading_params.output_dir, f"shard_{shard_id}")
     os.makedirs(shard_out_dir, exist_ok=True)
 
-    # -------------------------
-    # Load all input datasets and concatenate
-    # -------------------------
     ds_all = load_datasets_from_configs(datasets)
     total_rows = len(ds_all)
 
@@ -78,10 +88,7 @@ def main():
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
 
-    # -------------------------
-    # Apply map with batching
-    # -------------------------
-    mapper = MIRAGEMapper(cfg.processors, processing_params.inputs, processing_params.outputs) 
+    mapper = MIRAGEMapper(cfg.processors, processing_params.inputs, processing_params.outputs)
     renderer = TemplateRenderer(processing_params.output_schema)
     ds_processed = ds_shard.map(
         rewrite_batch,
@@ -96,9 +103,6 @@ def main():
         remove_columns=ds_shard.column_names if processing_params.remove_columns else []
     )
 
-    # -------------------------
-    # Save shard as its own HF dataset (all columns preserved)
-    # -------------------------
     ds_processed.save_to_disk(shard_out_dir)
 
     logger.info(

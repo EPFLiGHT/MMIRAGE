@@ -1,3 +1,5 @@
+"""Script to merge processed dataset shards."""
+
 import argparse
 import os
 
@@ -5,6 +7,12 @@ from datasets import concatenate_datasets, load_from_disk
 
 
 def main():
+    """Merge processed shard datasets into a single Hugging Face dataset.
+
+    Loads multiple shard datasets from disk, concatenates them, and saves
+    the merged dataset to the specified output directory. Skips invalid
+    or empty shards with warnings.
+    """
     ap = argparse.ArgumentParser("Merge processed shard datasets into one HF dataset.")
     ap.add_argument(
         "--shards_root",
@@ -69,7 +77,6 @@ def main():
             f"zero-row datasets: {skipped_zero_rows}."
         )
 
-    # Concatenate into a single dataset
     ds_merged = concatenate_datasets(shard_dsets)
     n_rows = len(ds_merged)
 
