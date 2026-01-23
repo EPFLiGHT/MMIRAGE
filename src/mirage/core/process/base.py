@@ -163,7 +163,7 @@ class ProcessorRegistry:
                 f"Processor {name} not registered. Available processors are {list(cls._output_var_registry.keys())}"
             )
 
-        return cls._output_var_cls[name]
+        return cls._output_var_registry[name]
 
 
 class AutoProcessor:
