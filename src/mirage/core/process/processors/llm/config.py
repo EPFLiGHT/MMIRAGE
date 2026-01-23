@@ -60,7 +60,7 @@ class LLMOutputVar(OutputVar):
         """
         if self.output_type == "JSON" and self.output_schema:
             fields: Dict[str, Any] = {var: (str, ...) for var in self.output_schema}
-            return create_model(f"OutputSchema", **fields)
+            return create_model("OutputSchema", **fields)
         return None
 
     def is_computable(self, vars: Sequence[BaseVar]) -> bool:
