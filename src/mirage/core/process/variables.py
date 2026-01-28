@@ -59,7 +59,7 @@ class OutputVar(BaseVar):
         Returns:
             True if the variable can be computed, False otherwise.
         """
-        ...
+        raise NotImplementedError()
 
 
 C = TypeVar("C")

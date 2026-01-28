@@ -56,7 +56,7 @@ class BaseDataLoader(abc.ABC, Generic[C]):
         Raises:
             NotImplementedError: If not implemented by subclass.
         """
-        ...
+        raise NotImplementedError()
 
 
 class DataLoaderRegistry:
