@@ -1,4 +1,4 @@
-"""Base classes and registry for data loaders in MIRAGE."""
+"""Base classes and registry for data loaders in MMIRAGE."""
 
 from __future__ import annotations
 

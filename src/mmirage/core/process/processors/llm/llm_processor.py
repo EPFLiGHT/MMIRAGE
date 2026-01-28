@@ -3,14 +3,14 @@
 from typing import List, override
 
 import jinja2
-from mirage.core.process.base import BaseProcessor, ProcessorRegistry
+from mmirage.core.process.base import BaseProcessor, ProcessorRegistry
 from transformers import AutoTokenizer
-from mirage.core.process.variables import VariableEnvironment
+from mmirage.core.process.variables import VariableEnvironment
 import sglang as sgl
 import json
 from dataclasses import asdict
 
-from mirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMConfig
+from mmirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMConfig
 
 
 @ProcessorRegistry.register("llm", SGLangLLMConfig, LLMOutputVar)

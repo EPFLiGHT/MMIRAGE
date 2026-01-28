@@ -3,7 +3,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mirage"
+name = "mmirage"
 version = "0.1.0"
 description = "Advanced platform designed to streamline the processing of datasets using generative models."
 requires-python = ">=3.10"
@@ -46,7 +46,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mirage"]
+packages = ["src/mmirage"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/mirage/**", "pyproject.toml", "README.md"]
+include = ["src/mmirage/**", "pyproject.toml", "README.md"]

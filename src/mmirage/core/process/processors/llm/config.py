@@ -1,4 +1,4 @@
-"""Configuration for LLM processor in MIRAGE."""
+"""Configuration for LLM processor in MMIRAGE."""
 
 from dataclasses import dataclass, field
 
@@ -6,10 +6,10 @@ import logging
 from typing import Dict, Optional, Sequence, Type, Any, List
 from pydantic import BaseModel, create_model
 
-from mirage.core.process.variables import BaseVar, OutputVar
+from mmirage.core.process.variables import BaseVar, OutputVar
 from sglang.srt.server_args import ServerArgs
 
-from mirage.core.process.base import BaseProcessorConfig
+from mmirage.core.process.base import BaseProcessorConfig
 from jinja2 import Environment, meta
 
 logger = logging.getLogger(__name__)

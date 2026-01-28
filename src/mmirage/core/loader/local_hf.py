@@ -11,12 +11,11 @@ from datasets import (
     DatasetDict,
     concatenate_datasets,
 )
-from mirage.core.loader.base import (
+from mmirage.core.loader.base import (
     BaseDataLoader,
     BaseDataLoaderConfig,
     DataLoaderRegistry,
 )
-
 
 @dataclass
 class LocalHFConfig(BaseDataLoaderConfig):
