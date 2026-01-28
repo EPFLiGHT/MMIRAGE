@@ -9,7 +9,6 @@ from mirage.core.loader.base import BaseDataLoaderConfig, DataLoaderRegistry
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 
-
 def load_mirage_config(config_path: str) -> MirageConfig:
     """
     Load SGLang engine, sampling params, and batch size from YAML config.
@@ -66,7 +65,6 @@ def load_mirage_config(config_path: str) -> MirageConfig:
           - role: "assistant"
             content: "{{ formatted_answer.answer }}"
     """
-    from mirage.config.config import MirageConfig
 
     with open(config_path, "r") as f:
         cfg: EnvValue = yaml.safe_load(f) or {}

@@ -6,7 +6,7 @@ import abc
 from typing import Any, Callable, Generic, Optional, Type, TypeVar
 from dataclasses import dataclass
 
-from datasets import Dataset
+from datasets import Dataset, DatasetDict
 
 
 @dataclass
@@ -18,13 +18,16 @@ class BaseDataLoaderConfig:
 
     Attributes:
         type: String identifier for the loader type (e.g., "JSONL", "loadable").
+        output_dir: Directory path for saving processed output shards.
     """
 
     type: str
+    output_dir: str
 
 
 C = TypeVar("C", bound=BaseDataLoaderConfig)
 
+DatasetLike = Dataset | DatasetDict
 
 class BaseDataLoader(abc.ABC, Generic[C]):
     """Abstract base class for data loaders.
@@ -41,14 +44,14 @@ class BaseDataLoader(abc.ABC, Generic[C]):
     """
 
     @abc.abstractmethod
-    def from_config(self, ds_config: C) -> Optional[Dataset]:
+    def from_config(self, ds_config: C) -> Optional[DatasetLike]:
         """Load a dataset from the given configuration.
 
         Args:
             ds_config: Configuration object for loading the dataset.
 
         Returns:
-            A Hugging Face Dataset, or None if loading fails.
+            A Hugging Face Dataset or DatasetDict, or None if loading fails.
 
         Raises:
             NotImplementedError: If not implemented by subclass.

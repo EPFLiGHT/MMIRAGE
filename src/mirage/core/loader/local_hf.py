@@ -4,17 +4,15 @@ from dataclasses import dataclass
 from typing import Optional
 
 from datasets import (
-    Dataset,
     load_from_disk,
     IterableDatasetDict,
     IterableDataset,
-    DatasetDict,
-    concatenate_datasets,
 )
 from mirage.core.loader.base import (
     BaseDataLoader,
     BaseDataLoaderConfig,
     DataLoaderRegistry,
+    DatasetLike,
 )
 
 
@@ -42,7 +40,7 @@ class LocalHFDataLoader(BaseDataLoader[LocalHFConfig]):
         Iterable datasets are not supported by this loader.
     """
 
-    def from_config(self, ds_config: LocalHFConfig) -> Optional[Dataset]:
+    def from_config(self, ds_config: LocalHFConfig) -> Optional[DatasetLike]:
         """Load a dataset from a local Hugging Face dataset directory.
 
         Args:
@@ -60,8 +58,5 @@ class LocalHFDataLoader(BaseDataLoader[LocalHFConfig]):
             raise RuntimeError(
                 f"Iterable datasets are not supported for path: {ds_config.path}"
             )
-
-        if isinstance(ds, DatasetDict):
-            ds = concatenate_datasets([ds[split] for split in ds.keys()])
 
         return ds

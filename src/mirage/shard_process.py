@@ -1,9 +1,13 @@
 """Main script for processing dataset shards with MIRAGE."""
 
 import argparse
+from functools import reduce
 import os
 from typing import Any, Dict, List
 
+from datasets import Dataset, DatasetDict
+
+from mirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
 from mirage.core.process.mapper import MIRAGEMapper
 
 from mirage.config.utils import (
@@ -15,6 +19,38 @@ from mirage.core.loader.utils import load_datasets_from_configs
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _count_rows(ds: DatasetLike) -> int:
+    if isinstance(ds, DatasetDict):
+        return sum(len(split) for split in ds.values())
+    return len(ds)
+
+def _dataset_out_dir(shard_idx: int, ds_config: BaseDataLoaderConfig) -> str:
+    # if total == 1:
+    #     return shard_out_dir
+    # return os.path.join(shard_out_dir, f"dataset_{idx:04d}")
+    return os.path.join(ds_config.output_dir, f"shard_{shard_idx}")
+
+
+def _shard_dataset(ds: DatasetLike, num_shards: int, shard_id: int) -> DatasetLike:
+    if isinstance(ds, DatasetDict):
+        return DatasetDict(
+            {
+                split: split_ds.shard(num_shards=num_shards, index=shard_id)
+                for split, split_ds in ds.items()
+            }
+        )
+    return ds.shard(num_shards=num_shards, index=shard_id)
+
+
+def _remove_columns(ds: DatasetLike, enable: bool) -> List[str]:
+    if not enable:
+        return []
+    if isinstance(ds, DatasetDict):
+        columns_set = [set(split_ds.column_names) for split_ds in ds.values()]
+        return list(reduce(lambda x, y: x | y, columns_set))
+    return ds.column_names
 
 
 def rewrite_batch(
@@ -64,8 +100,8 @@ def main():
     cfg = load_mirage_config(args.config)
     loading_params = cfg.loading_params
     processing_params = cfg.processing_params
-    datasets = loading_params.datasets
-    if not datasets:
+    datasets_config = loading_params.datasets
+    if not datasets_config:
         raise ValueError("No datasets provided in config.loading_params.datasets")
 
     shard_id = loading_params.get_shard_id()
@@ -74,18 +110,14 @@ def main():
     if not (0 <= shard_id < num_shards):
         raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
 
-    os.makedirs(loading_params.output_dir, exist_ok=True)
-    shard_out_dir = os.path.join(loading_params.output_dir, f"shard_{shard_id}")
-    os.makedirs(shard_out_dir, exist_ok=True)
+    ds_all = load_datasets_from_configs(datasets_config)
+    total_rows = sum(_count_rows(ds) for ds in ds_all)
 
-    ds_all = load_datasets_from_configs(datasets)
-    total_rows = len(ds_all)
-
-    ds_shard = ds_all.shard(num_shards=num_shards, index=shard_id)
-    shard_rows = len(ds_shard)
+    ds_all_shard = [_shard_dataset(ds, num_shards, shard_id) for ds in ds_all]
+    shard_rows = sum(_count_rows(ds) for ds in ds_all_shard)
 
     logger.info(
-        f"Loaded {len(datasets)} dataset(s): {datasets} "
+        f"Loaded {len(datasets_config)} dataset(s): {datasets_config} "
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
 
@@ -93,26 +125,28 @@ def main():
         cfg.processors, processing_params.inputs, processing_params.outputs
     )
     renderer = TemplateRenderer(processing_params.output_schema)
-    ds_processed = ds_shard.map(
-        rewrite_batch,
-        batched=True,
-        batch_size=loading_params.get_batch_size(),
-        load_from_cache_file=False,
-        desc=f"Shard {shard_id}/{num_shards - 1}",
-        fn_kwargs={"mapper": mapper, "renderer": renderer},
-        remove_columns=ds_shard.column_names
-        if processing_params.remove_columns
-        else [],
-    )
+    ds_processed_all: List[DatasetLike] = []
+    for ds_idx, ds_shard in enumerate(ds_all_shard):
+        remove_columns = _remove_columns(ds_shard, processing_params.remove_columns)
+        ds_processed = ds_shard.map(
+            rewrite_batch,
+            batched=True,
+            batch_size=loading_params.get_batch_size(),
+            load_from_cache_file=False,
+            desc=f"Shard {shard_id}/{num_shards - 1} dataset {ds_idx}",
+            fn_kwargs={"mapper": mapper, "renderer": renderer},
+            remove_columns=remove_columns,
+        )
+        ds_processed_all.append(ds_processed)
+    
+    for ds_config, ds_processed in zip(datasets_config, ds_processed_all):
+        out_dir = _dataset_out_dir(shard_id, ds_config)
+        os.makedirs(out_dir, exist_ok=True)
+        ds_processed.save_to_disk(out_dir)
 
-    ds_processed.save_to_disk(shard_out_dir)
-
-    logger.info(
-        f"✅ shard_id={shard_id} num_shards={num_shards} "
-        f"total_rows={total_rows} shard_rows={shard_rows} "
-        f"out_dir={shard_out_dir}"
-    )
-
+        logger.info(
+            f"✅ Saved dataset in: {out_dir} "
+        )
 
 if __name__ == "__main__":
     main()

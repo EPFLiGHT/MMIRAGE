@@ -16,7 +16,13 @@ loading_params:
   datasets:
     - path: tests/mock_data/data.jsonl
       type: JSONL
-  output_dir: tests/output
+      output_dir: tests/output/data
+    - path: 
+        train: tests/mock_data/data2/train.jsonl
+        test: tests/mock_data/data2/test.jsonl
+      type: JSONL
+      output_dir: tests/output/data2
+
   num_shards: 4
   shard_id: 0
   conversations_field: "conversations"
