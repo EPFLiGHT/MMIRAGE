@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=mirage-example
-#SBATCH --chdir=/users/$USER/meditron/MIRAGE/src/mirage
+#SBATCH --chdir=$MIRAGE_PATH/src/mirage
 #SBATCH --output=/users/$USER/reports/R-%x.%A_%a.out
 #SBATCH --error=/users/$USER/reports/R-%x.%A_%a.err
 #SBATCH --nodes=1
@@ -15,7 +15,7 @@
 export ROOT=$SCRATCH/mirage_example
 export SHARDS_ROOT="$ROOT/shards"
 export MERGED_DIR="$ROOT/merged"
-export CFG=/users/$USER/meditron/MIRAGE/configs/config_small.yaml
+export CFG=/users/$MIRAGE_PATH/configs/config_mock.yaml
 
 # HF cache/home
 export HF_HOME=$SCRATCH/hf
@@ -23,7 +23,7 @@ export HF_HOME=$SCRATCH/hf
 mkdir -p "$SHARDS_ROOT"
 mkdir -p "$MERGED_DIR"
 
-export CMD="python /users/$USER/meditron/MIRAGE/src/mirage/shard_process.py --config $CFG"
+export CMD="python /users/$MIRAGE_PATH/src/mirage/shard_process.py --config $CFG"
 
 SRUN_ARGS=" \
   --cpus-per-task $SLURM_CPUS_PER_TASK \

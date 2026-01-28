@@ -11,7 +11,7 @@ authors = [{ name = "Meditron team" }]
 
 # Core runtime deps for your scripts
 dependencies = [
-  "sglang[all]>=0.5.2",
+  "sglang[diffusion]>=0.5.2",
   "transformers>=4.46.0",
   "pyzmq",
   "uvloop<0.22; platform_system != 'Windows'",
@@ -34,6 +34,7 @@ dependencies = [
   "fsspec",
   "dacite>=1.6.0",
   "pydantic>=2.12",
+  "jmespath"
 ]
 
 [project.optional-dependencies]
