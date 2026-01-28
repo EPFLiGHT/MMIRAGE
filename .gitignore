@@ -7,6 +7,7 @@ __pycache__/
 *.so
 
 tests/output/**
+tests/merged/**
 
 # Distribution / packaging
 .Python
