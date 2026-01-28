@@ -4,8 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mmirage"
-version = "0.1.0"
+version = "0.1.1"
 description = "Advanced platform designed to streamline the processing of datasets using generative models."
+readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Meditron team" }]
 
