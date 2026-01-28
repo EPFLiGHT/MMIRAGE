@@ -27,9 +27,6 @@ def _count_rows(ds: DatasetLike) -> int:
     return len(ds)
 
 def _dataset_out_dir(shard_idx: int, ds_config: BaseDataLoaderConfig) -> str:
-    # if total == 1:
-    #     return shard_out_dir
-    # return os.path.join(shard_out_dir, f"dataset_{idx:04d}")
     return os.path.join(ds_config.output_dir, f"shard_{shard_idx}")
 
 
