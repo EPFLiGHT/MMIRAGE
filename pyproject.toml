@@ -11,7 +11,7 @@ authors = [{ name = "Meditron team" }]
 
 # Core runtime deps for your scripts
 dependencies = [
-  "sglang[diffusion]>=0.5.2",
+  "sglang>=0.5.2",
   "transformers>=4.46.0",
   "pyzmq",
   "uvloop<0.22; platform_system != 'Windows'",
