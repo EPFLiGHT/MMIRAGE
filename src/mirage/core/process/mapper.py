@@ -38,8 +38,8 @@ class MIRAGEMapper:
             output_vars: List of output variable definitions.
         """
         self.processors: Dict[str, BaseProcessor] = dict()
-        self.output_vars = output_vars
         self.input_vars = input_vars
+        self.output_vars = output_vars
 
         for config in processor_configs:
             processor_cls = AutoProcessor.from_name(config.type)
