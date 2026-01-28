@@ -15,7 +15,7 @@
 export ROOT=$SCRATCH/mirage_example
 export SHARDS_ROOT="$ROOT/shards"
 export MERGED_DIR="$ROOT/merged"
-export CFG=/users/$MIRAGE_PATH/configs/config_mock.yaml
+export CFG=$MIRAGE_PATH/configs/config_mock.yaml
 
 # HF cache/home
 export HF_HOME=$SCRATCH/hf
@@ -23,7 +23,7 @@ export HF_HOME=$SCRATCH/hf
 mkdir -p "$SHARDS_ROOT"
 mkdir -p "$MERGED_DIR"
 
-export CMD="python /users/$MIRAGE_PATH/src/mirage/shard_process.py --config $CFG"
+export CMD="python $MIRAGE_PATH/src/mirage/shard_process.py --config $CFG"
 
 SRUN_ARGS=" \
   --cpus-per-task $SLURM_CPUS_PER_TASK \

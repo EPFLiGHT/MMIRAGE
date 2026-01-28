@@ -70,14 +70,13 @@ image = "docker.io/michelducartier24/mirage-git:latest"
 mounts = ["/capstor", "/iopsstor", "/users"]
 
 writable = true
-workdir = "/users/gboye/meditron-apertus"
+workdir = "/users/$USER"
 
 [annotations]
 com.hooks.aws_ofi_nccl.enabled = "true"
 com.hooks.aws_ofi_nccl.variant = "cuda12"
 
 [env]
-CUDA_CACHE_DISABLE = "1"
 NCCL_NET = "AWS Libfabric"
 NCCL_CROSS_NIC = "1"
 NCCL_NET_GDR_LEVEL = "PHB"
