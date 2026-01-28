@@ -34,6 +34,7 @@ dependencies = [
   "fsspec",
   "dacite>=1.6.0",
   "pydantic>=2.12",
+  "jmespath"
 ]
 
 [project.optional-dependencies]
