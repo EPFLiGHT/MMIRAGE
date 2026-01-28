@@ -2,7 +2,7 @@ processors:
   - type: llm
     server_args:
       model_path: Qwen/Qwen3-4B-Instruct-2507
-      tp_size: 4          # use all 4 GPUs on the node
+      tp_size: 1
       disable_custom_all_reduce: true
     sampling_params:
       temperature: 0.1
