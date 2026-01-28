@@ -2,6 +2,21 @@
 
 MIRAGE, which stands for Multimodal Intelligent Reformatting and Augmentation Generation Engine, is an advanced platform designed to streamline the processing of datasets using generative models. It is engineered to handle large-scale data reformatting and augmentation tasks with efficiency and precision. By leveraging state-of-the-art generative models, MIRAGE enables users to perform complex dataset transformations, ensuring compatibility across various formats and schemas. Its multi-node support and parallel processing capabilities make it an ideal choice for scenarios demanding substantial computational power, such as distributed training and inference workflows. MIRAGE not only simplifies the integration of powerful language models but also provides a customizable framework for diverse use cases, from reformatting conversational datasets to generating Q/A pairs from plain text.
 
+## How to install
+
+To install the library, you can clone it from GitHub and then use pip to install it directly. It is recommended to have already installed `torch` and `sglang` to take advantage of GPU acceleration.
+
+```bash
+git clone git@github.com:EPFLiGHT/MIRAGE.git
+pip install -e ./MIRAGE
+```
+
+For testing and scripts that make use of the library, it is advised to create a .env file. You can do this by running the following command:
+```bash
+curl https://raw.githubusercontent.com/EPFLiGHT/MIRAGE/refs/heads/json-output/scripts/generate_env.sh | sh
+```
+
+
 ## Key features
 
 - Easily configurable with a YAML file which configure the following parameters
