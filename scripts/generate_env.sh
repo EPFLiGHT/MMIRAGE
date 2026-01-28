@@ -61,6 +61,60 @@ fi
 MIRAGE_PATH=$(realpath $MIRAGE_PATH)
 printf "${COLOR_GREEN}Found the path to the MIRAGE repository at $MIRAGE_PATH\n${COLOR_RESET}"
 
+# Generate the .edf toml file if detected on the CSCS
+if [[ $(hostname) =~ "clariden" ]]; then
+    # Check if there is a file at $ENV_EDF_PATH
+    ENV_EDF_PATH="/users/$USER/.edf/mirage.toml"
+    ENV_EDF_CONTENT=$(cat <<EOF
+image = "docker.io/michelducartier24/mirage-git:latest"
+mounts = ["/capstor", "/iopsstor", "/users"]
+
+writable = true
+workdir = "/users/gboye/meditron-apertus"
+
+[annotations]
+com.hooks.aws_ofi_nccl.enabled = "true"
+com.hooks.aws_ofi_nccl.variant = "cuda12"
+
+[env]
+CUDA_CACHE_DISABLE = "1"
+NCCL_NET = "AWS Libfabric"
+NCCL_CROSS_NIC = "1"
+NCCL_NET_GDR_LEVEL = "PHB"
+FI_CXI_DISABLE_HOST_REGISTER = "1"
+FI_MR_CACHE_MONITOR = "userfaultfd"
+FI_CXI_DEFAULT_CQ_SIZE = "131072"
+FI_CXI_DEFAULT_TX_SIZE = "32768"
+FI_CXI_RX_MATCH_MODE = "software"
+FI_CXI_SAFE_DEVMEM_COPY_THRESHOLD = "16777216"
+FI_CXI_COMPAT = "0"\n\n
+EOF
+)
+    
+    # If the file already exists, git diff against the expected value
+    should_generate=1
+    if test -f $ENV_EDF_PATH; then
+        should_generate=0
+
+        # Create a temporary
+        if ! diff $ENV_EDF_PATH - <<< "$ENV_EDF_CONTENT" > /dev/null; then
+            printf "${COLOR_YELLOW}It appears that the $ENV_EDF_PATH already exists.${COLOR_RESET}\n"
+            read -p "Do you want to overwrite it? [Y/n] " should_generate
+            if [ $should_generate == "y" ] || [ $should_generate == "Y" ]; then
+                should_generate=1
+            else
+                should_generate=0
+            fi
+        fi
+    fi
+
+    # In the other case we generate the 
+    if [ $should_generate -eq 1 ]; then 
+        printf "${COLOR_GREEN}Generating file at $ENV_EDF_PATH.${COLOR_RESET}\n"
+        printf "$ENV_EDF_CONTENT" > $ENV_EDF_PATH
+    fi
+fi
+
 # Generate the .env based on the retrieved configuration
 OUTPUT_PATH="$MIRAGE_PATH/.env"
 OUTPUT_TEXT=$(cat <<EOF

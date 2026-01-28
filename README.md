@@ -13,7 +13,7 @@ pip install -e ./MIRAGE
 
 For testing and scripts that make use of the library, it is advised to create a .env file. You can do this by running the following command:
 ```bash
-curl https://raw.githubusercontent.com/EPFLiGHT/MIRAGE/refs/heads/json-output/assets/generate_env.sh | sh
+curl https://raw.githubusercontent.com/EPFLiGHT/MIRAGE/refs/heads/json-output/scripts/generate_env.sh | sh
 ```
 
 
