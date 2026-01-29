@@ -89,8 +89,8 @@ def main():
     )
     ap.add_argument(
         "--config",
-        default="config-sglang.yaml",
         help="YAML config for SGLang engine + sampling + batch_size.",
+        required=True,
     )
     args = ap.parse_args()
 
