@@ -3,9 +3,10 @@
 import argparse
 from functools import reduce
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from datasets import Dataset, DatasetDict
+from pathlib import Path
 
 from mmirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
 from mmirage.core.process.mapper import MMIRAGEMapper
@@ -90,13 +91,15 @@ def main():
     )
     ap.add_argument(
         "--config",
+        type=Path,
         help="YAML config for SGLang engine + sampling + batch_size.",
         required=True,
     )
     ap.add_argument(
         "--profiler-log",
+        type=Path,
+        default=None,
         help="Path of the profiling logs (will be opened in append mode)",
-        required=False,
     )
     args = ap.parse_args()
 
@@ -108,9 +111,9 @@ def main():
     if not datasets_config:
         raise ValueError("No datasets provided in config.loading_params.datasets")
 
-    profiler_log_path = args.profiler_log
-    if profiler_log_path and not os.path.exists(profiler_log_path):
-        raise ValueError("Invalid path for the profiling logs")
+    profiler_log_path: Optional[Path] = args.profiler_log
+    if profiler_log_path:
+        profiler_log_path.parent.mkdir(parents=True, exist_ok=True)
 
     shard_id = loading_params.get_shard_id()
     num_shards = loading_params.get_num_shards()
@@ -156,7 +159,7 @@ def main():
 
     # Save the logs for the time
     if profiler_log_path:
-        with open(profiler_log_path, "a") as f:
+        with profiler_log_path.open("a") as f:
             f.write(f"{cfg_path}: dataset loading {end_load_ds_time - begin_load_ds_time:.2f}s, "
                     f"processor loading {end_load_processors_time - begin_load_processors_time:.2f}s, "
                     f"processing {end_process_time - begin_process_time:.2f}s"
