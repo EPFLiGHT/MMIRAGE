@@ -162,7 +162,7 @@ def main():
         with profiler_log_path.open("a") as f:
             f.write(f"{cfg_path}: dataset loading {end_load_ds_time - begin_load_ds_time:.2f}s, "
                     f"processor loading {end_load_processors_time - begin_load_processors_time:.2f}s, "
-                    f"processing {end_process_time - begin_process_time:.2f}s"
+                    f"processing {end_process_time - begin_process_time:.2f}s\n"
             )
 
     for ds_config, ds_processed in zip(datasets_config, ds_processed_all):
