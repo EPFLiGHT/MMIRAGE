@@ -1,4 +1,4 @@
-"""Main script for processing dataset shards with MIRAGE."""
+"""Main script for processing dataset shards with MMIRAGE."""
 
 import argparse
 from functools import reduce
@@ -7,15 +7,15 @@ from typing import Any, Dict, List
 
 from datasets import Dataset, DatasetDict
 
-from mirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
-from mirage.core.process.mapper import MIRAGEMapper
+from mmirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
+from mmirage.core.process.mapper import MMIRAGEMapper
 
-from mirage.config.utils import (
-    load_mirage_config,
+from mmirage.config.utils import (
+    load_mmirage_config,
 )
 
-from mirage.core.writer.renderer import TemplateRenderer
-from mirage.core.loader.utils import load_datasets_from_configs
+from mmirage.core.writer.renderer import TemplateRenderer
+from mmirage.core.loader.utils import load_datasets_from_configs
 import logging
 
 logger = logging.getLogger(__name__)
@@ -52,14 +52,14 @@ def _remove_columns(ds: DatasetLike, enable: bool) -> List[str]:
 
 def rewrite_batch(
     batch: Dict[str, List[Any]],
-    mapper: MIRAGEMapper,
+    mapper: MMIRAGEMapper,
     renderer: TemplateRenderer,
 ) -> Dict[str, List[Any]]:
     """Rewrite a batch of samples by applying transformations.
 
     Args:
         batch: Dictionary mapping column names to lists of values.
-        mapper: MIRAGEMapper for processing transformations.
+        mapper: MMIRAGEMapper for processing transformations.
         renderer: TemplateRenderer for generating output.
 
     Returns:
@@ -81,7 +81,7 @@ def rewrite_batch(
 def main():
     """Process a single shard of the dataset.
 
-    Loads configuration, datasets, processes the shard using MIRAGE
+    Loads configuration, datasets, processes the shard using MMIRAGE
     transformations, and saves the result to disk.
     """
     ap = argparse.ArgumentParser(
@@ -94,7 +94,7 @@ def main():
     )
     args = ap.parse_args()
 
-    cfg = load_mirage_config(args.config)
+    cfg = load_mmirage_config(args.config)
     loading_params = cfg.loading_params
     processing_params = cfg.processing_params
     datasets_config = loading_params.datasets
@@ -118,7 +118,7 @@ def main():
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
 
-    mapper = MIRAGEMapper(
+    mapper = MMIRAGEMapper(
         cfg.processors, processing_params.inputs, processing_params.outputs
     )
     renderer = TemplateRenderer(processing_params.output_schema)

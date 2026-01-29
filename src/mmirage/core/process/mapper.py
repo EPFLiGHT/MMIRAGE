@@ -2,18 +2,18 @@
 
 from typing import Dict, Any, List, cast
 
-from mirage.core.process.variables import BaseVar, InputVar, OutputVar
-from mirage.core.process.base import AutoProcessor, BaseProcessor, BaseProcessorConfig
+from mmirage.core.process.variables import BaseVar, InputVar, OutputVar
+from mmirage.core.process.base import AutoProcessor, BaseProcessor, BaseProcessorConfig
 
 import logging
 
-from mirage.core.process.variables import VariableEnvironment
+from mmirage.core.process.variables import VariableEnvironment
 
 logger = logging.getLogger(__name__)
 
 
-class MIRAGEMapper:
-    """Mapper for orchestrating variable transformations in the MIRAGE pipeline.
+class MMIRAGEMapper:
+    """Mapper for orchestrating variable transformations in the MMIRAGE pipeline.
 
     Manages processors, validates variable dependencies, and applies
     transformations to batches of data.
@@ -30,7 +30,7 @@ class MIRAGEMapper:
         input_vars: List[InputVar],
         output_vars: List[OutputVar],
     ) -> None:
-        """Initialize the MIRAGE mapper.
+        """Initialize the MMIRAGE mapper.
 
         Args:
             processor_configs: List of processor configurations.

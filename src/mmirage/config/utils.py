@@ -3,13 +3,13 @@ from dacite import Config, from_dict
 import yaml
 import os
 
-from mirage.config.config import MirageConfig
-from mirage.core.process.base import BaseProcessorConfig, ProcessorRegistry, OutputVar
-from mirage.core.loader.base import BaseDataLoaderConfig, DataLoaderRegistry
+from mmirage.config.config import MMirageConfig
+from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry, OutputVar
+from mmirage.core.loader.base import BaseDataLoaderConfig, DataLoaderRegistry
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 
-def load_mirage_config(config_path: str) -> MirageConfig:
+def load_mmirage_config(config_path: str) -> MMirageConfig:
     """
     Load SGLang engine, sampling params, and batch size from YAML config.
 
@@ -99,6 +99,6 @@ def load_mirage_config(config_path: str) -> MirageConfig:
             OutputVar: output_var_hook,
         }
     )
-    cfg_obj = from_dict(MirageConfig, cast(dict, cfg), config=config)
+    cfg_obj = from_dict(MMirageConfig, cast(dict, cfg), config=config)
 
     return cfg_obj
