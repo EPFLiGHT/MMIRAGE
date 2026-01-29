@@ -21,7 +21,7 @@ MMIRAGE_PATH=""
 check_mmirage_folder() {
     if [ -d "$1" ] && [ -d "$1/.git" ]; then
         REMOTE_NAME=$($GIT_EXEC -C $1 remote get-url origin)
-        if [[ "$REMOTE_NAME" =~ "EPFLiGHT/MIRAGE" ]]; then
+        if [[ "$REMOTE_NAME" =~ "EPFLiGHT/MMIRAGE" ]]; then
             return 0
         else
             return 1
