@@ -21,20 +21,24 @@ jobs:
           python-version: '3.12'
       
       - name: Check if version bumped
+        id: check_version
         run: |
           current_version=$(uv version --short)
-          pypi_version=$(pip index version mmirage --disable-pip-version-check | grep "Available versions:" | sed -E 's/.*Available versions: ([^,]+).*/\1/')
+          pypi_version=$(pip index versions mmirage --disable-pip-version-check | grep "Available versions:" | sed -E 's/.*Available versions: ([^,]+).*/\1/')
           if [ "$current_version" = "$pypi_version" ]; then
             echo "Version not bumped. Exiting."
-            exit 1
+            echo "version_changed=0" >> $GITHUB_OUTPUT
           else
             echo "Version bumped from $pypi_version to $current_version."
+            echo "version_changed=1" >> $GITHUB_OUTPUT
           fi
         
       - name: Build package
+        if: {{ steps.check_version.outputs.version_changed == '1'  }}
         run: |
           uv build
       
       - name: Publish to PyPI
+        if: {{ steps.check_version.outputs.version_changed == '1'  }}
         run: |
-          uv publish --token ${{ secrets.PYPI_API_TOKEN }}
+          uv publish --token ${{ secrets.PYPI_TOKEN }}
