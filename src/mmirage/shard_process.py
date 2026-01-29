@@ -17,6 +17,7 @@ from mmirage.config.utils import (
 from mmirage.core.writer.renderer import TemplateRenderer
 from mmirage.core.loader.utils import load_datasets_from_configs
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -107,22 +108,26 @@ def main():
     if not (0 <= shard_id < num_shards):
         raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
 
+    begin_load_ds_time = time.time()
     ds_all = load_datasets_from_configs(datasets_config)
     total_rows = sum(_count_rows(ds) for ds in ds_all)
 
     ds_all_shard = [_shard_dataset(ds, num_shards, shard_id) for ds in ds_all]
     shard_rows = sum(_count_rows(ds) for ds in ds_all_shard)
+    end_load_ds_time = time.time()
 
     logger.info(
         f"Loaded {len(datasets_config)} dataset(s): {datasets_config} "
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
+    logger.info(f"Dataset loading/sharding time: {end_load_ds_time - begin_load_ds_time}")
 
     mapper = MMIRAGEMapper(
         cfg.processors, processing_params.inputs, processing_params.outputs
     )
     renderer = TemplateRenderer(processing_params.output_schema)
     ds_processed_all: List[DatasetLike] = []
+    begin_process_time = time.time()
     for ds_idx, ds_shard in enumerate(ds_all_shard):
         remove_columns = _remove_columns(ds_shard, processing_params.remove_columns)
         ds_processed = ds_shard.map(
@@ -135,7 +140,9 @@ def main():
             remove_columns=remove_columns,
         )
         ds_processed_all.append(ds_processed)
-    
+    end_process_time = time.time()
+    logger.info(f"Processing time: {end_process_time - begin_process_time}")
+
     for ds_config, ds_processed in zip(datasets_config, ds_processed_all):
         out_dir = _dataset_out_dir(shard_id, ds_config)
         os.makedirs(out_dir, exist_ok=True)
