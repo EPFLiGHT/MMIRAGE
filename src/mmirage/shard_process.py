@@ -1,56 +1,115 @@
-"""Main script for processing dataset shards with MMIRAGE."""
-
 import argparse
+import json
 import os
+import sys
 from typing import Any, Dict, List
 
-from mmirage.core.process.mapper import MMIRAGEMapper
+import sglang as sgl
 
-from mmirage.config.utils import (
-    load_mmirage_config,
+from mmirage.config import InputVar, OutputVar
+from mmirage.utils import (
+    extract_input_vars,
+    fill_template_recursive,
+    load_datasets_from_configs,
+    load_engine_from_yaml,
+    validate_processing_params,
 )
-
-from mmirage.core.writer.renderer import TemplateRenderer
-from mmirage.core.loader.utils import load_datasets_from_configs
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 def rewrite_batch(
     batch: Dict[str, List[Any]],
-    mapper: MMIRAGEMapper,
-    renderer: TemplateRenderer,
+    processing_inputs: List[InputVar],
+    processing_outputs: List[OutputVar],
+    sampling_params: Dict[str, Any],
+    output_schema: Dict[str, Any],
+    llm: sgl.Engine,
+    shard_id: int,
 ) -> Dict[str, List[Any]]:
-    """Rewrite a batch of samples by applying transformations.
+    vars_samples: List[Dict[str, Any]] = []  # input vars for each example
 
-    Args:
-        batch: Dictionary mapping column names to lists of values.
-        mapper: MMIRAGEMapper for processing transformations.
-        renderer: TemplateRenderer for generating output.
+    # turn the dictionary of lists into a list of dictionaries
+    batch_size = len(next(iter(batch.values())))
+    batch_list: List[Dict[str, Any]] = [
+        {k: batch[k][i] for k in batch.keys()} for i in range(batch_size)
+    ]
+    nb_samples = len(batch_list)
 
-    Returns:
-        Dictionary mapping output keys to lists of rendered values.
+    for sample in batch_list:
+        current_vars = extract_input_vars(processing_inputs, sample)
+        vars_samples.append(current_vars)
 
-    Raises:
-        ValueError: If variables are not computable given the configuration.
-    """
-    if not mapper.validate_vars():
-        raise ValueError(
-            "Uncomputable variables detected. Verify your configuration and make sure that there is no undefined variables"
+    try:
+        # Non-streaming synchronous batch generation
+        outputs: List[Dict[str, Any]] = []
+        for output in processing_outputs:
+            prompts_for_output = [output.prompt.format(**var) for var in vars_samples]
+
+            sampling_params_output = sampling_params.copy()
+            if output.output_type == "JSON":
+                json_schema = output.get_output_schema()
+                if json_schema is None:
+                    raise ValueError(
+                        f"Output variable {output.name} has output_type=JSON "
+                        "but no output_schema defined."
+                    )
+
+                sampling_params_output["json_schema"] = json_schema.model_json_schema()
+
+            outputs_for_output = llm.generate(
+                prompts_for_output, sampling_params_output
+            )
+            if len(prompts_for_output) != len(outputs_for_output):
+                raise RuntimeError(
+                    f"Mismatch between prompts and outputs: {len(prompts_for_output)} vs {len(outputs_for_output)}"
+                )
+
+            outputs += outputs_for_output
+    except Exception as e:
+        print(
+            f"[shard {shard_id}] Batch generation failed: {e}",
+            file=sys.stderr,
         )
+        # On error, keep original conversations for this batch
+        return batch
 
-    batch_environment = mapper.rewrite_batch(batch)
-    rendered_list = renderer.batch_render(batch_environment)
-    return rendered_list
+    if not isinstance(outputs, list) or len(outputs) != nb_samples * len(
+        processing_outputs
+    ):
+        print(
+            f"[shard {shard_id}] Unexpected outputs length from llm.generate: "
+            f"expected {nb_samples * len(processing_outputs)}, got {len(outputs) if isinstance(outputs, list) else 'non-list'}",
+            file=sys.stderr,
+        )
+        return batch
+
+    # Get the values from outputs and fill into vars_samples
+    for i, output in enumerate(outputs):
+        ex_id = i % nb_samples
+        output_var = processing_outputs[i // nb_samples]
+
+        out_text = output.get("text", "").strip()
+        vars_samples[ex_id][output_var.name] = out_text
+
+    new_results = []
+    for vars_sample in vars_samples:
+        # Rebuild the output according to output_schema template
+        filled_output = fill_template_recursive(output_schema, vars_sample)
+        new_results.append(filled_output)
+
+    # Only return the updated conversations column; HF keeps other columns
+
+    # Build result dict with all columns from output_schema
+    result_batch: Dict[str, List[Any]] = {}
+    for key in output_schema.keys():
+        result_batch[key] = [result.get(key) for result in new_results]
+
+    return result_batch
 
 
+# -------------------------
+# main
+# -------------------------
 def main():
-    """Process a single shard of the dataset.
-
-    Loads configuration, datasets, processes the shard using MMIRAGE
-    transformations, and saves the result to disk.
-    """
     ap = argparse.ArgumentParser(
         "Rewrite the assistant turn inside `conversations` into Markdown using SGLang + HF map + sharding."
     )
@@ -61,53 +120,74 @@ def main():
     )
     args = ap.parse_args()
 
-    cfg = load_mmirage_config(args.config)
-    loading_params = cfg.loading_params
+    # -------------------------
+    # Load SGLang engine + sampling + batch size
+    # -------------------------
+    llm, cfg = load_engine_from_yaml(args.config)
+    validate_processing_params(cfg.processing_params)
+    sampling_params = cfg.sampling_params
+    processing_gen_params = cfg.processing_gen_params
     processing_params = cfg.processing_params
-    datasets = loading_params.datasets
-    if not datasets:
-        raise ValueError("No datasets provided in config.loading_params.datasets")
 
-    shard_id = loading_params.get_shard_id()
-    num_shards = loading_params.get_num_shards()
+    datasets = processing_gen_params.datasets
+    if not datasets:
+        raise ValueError(
+            "No datasets provided in config.processing_gen_params.datasets"
+        )
+    shard_id = processing_gen_params.get_shard_id()
+    num_shards = processing_gen_params.get_num_shards()
 
     if not (0 <= shard_id < num_shards):
         raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
 
-    os.makedirs(loading_params.output_dir, exist_ok=True)
-    shard_out_dir = os.path.join(loading_params.output_dir, f"shard_{shard_id}")
+    os.makedirs(processing_gen_params.output_dir, exist_ok=True)
+    shard_out_dir = os.path.join(processing_gen_params.output_dir, f"shard_{shard_id}")
     os.makedirs(shard_out_dir, exist_ok=True)
 
+    # -------------------------
+    # Load all input datasets and concatenate
+    # -------------------------
     ds_all = load_datasets_from_configs(datasets)
     total_rows = len(ds_all)
 
     ds_shard = ds_all.shard(num_shards=num_shards, index=shard_id)
     shard_rows = len(ds_shard)
 
-    logger.info(
+    print(
         f"Loaded {len(datasets)} dataset(s): {datasets} "
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
 
-    mapper = MMIRAGEMapper(
-        cfg.processors, processing_params.inputs, processing_params.outputs
-    )
-    renderer = TemplateRenderer(processing_params.output_schema)
+    # -------------------------
+    # Apply map with batching
+    # -------------------------
     ds_processed = ds_shard.map(
         rewrite_batch,
         batched=True,
-        batch_size=loading_params.get_batch_size(),
+        batch_size=processing_gen_params.get_batch_size(),
         load_from_cache_file=False,
         desc=f"Shard {shard_id}/{num_shards - 1}",
-        fn_kwargs={"mapper": mapper, "renderer": renderer},
-        remove_columns=ds_shard.column_names
-        if processing_params.remove_columns
-        else [],
+        fn_kwargs={
+            "shard_id": shard_id,
+            "llm": llm,
+            "processing_outputs": processing_params.outputs,
+            "processing_inputs": processing_params.inputs,
+            "sampling_params": sampling_params,
+            "output_schema": processing_params.output_schema,
+        },
     )
 
+    # -------------------------
+    # Save shard as its own HF dataset (all columns preserved)
+    # -------------------------
     ds_processed.save_to_disk(shard_out_dir)
 
-    logger.info(
+    try:
+        llm.shutdown()
+    except Exception:
+        pass
+
+    print(
         f"✅ shard_id={shard_id} num_shards={num_shards} "
         f"total_rows={total_rows} shard_rows={shard_rows} "
         f"out_dir={shard_out_dir}"

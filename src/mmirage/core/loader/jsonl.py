@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, override
+from typing import Dict, List, Optional, Union, override
 from datasets import (
     Dataset,
     DatasetDict,
@@ -18,6 +18,7 @@ from mmirage.core.loader.base import (
     BaseDataLoader,
     DataLoaderRegistry,
     BaseDataLoaderConfig,
+    DatasetLike,
 )
 
 
@@ -30,7 +31,7 @@ class JSONLDataConfig(BaseDataLoaderConfig):
         path: File path to the JSONL file.
     """
 
-    path: str = ""
+    path: Union[str, Dict[str, str]] = ""
 
 
 @DataLoaderRegistry.register("JSONL", JSONLDataConfig)
@@ -49,25 +50,27 @@ class JSONLDataLoader(BaseDataLoader[JSONLDataConfig]):
         super().__init__()
 
     @override
-    def from_config(self, ds_config: JSONLDataConfig) -> Optional[Dataset]:
+    def from_config(self, ds_config: JSONLDataConfig) -> Optional[DatasetLike]:
         """Load a dataset from a JSONL file.
 
         Args:
             ds_config: Configuration containing the path to the JSONL file.
 
         Returns:
-            A Hugging Face Dataset containing the JSONL data.
+            A Hugging Face Dataset or a DatasetDict containing the JSONL data.
 
         Raises:
             RuntimeError: If the loaded dataset is an iterable dataset.
         """
         path = ds_config.path
+
         ds = load_dataset("json", data_files=path, streaming=False)
 
         if isinstance(ds, (IterableDatasetDict, IterableDataset)):
             raise RuntimeError(f"Iterable datasets are not supported for path: {path}")
 
-        if isinstance(ds, DatasetDict):
-            ds = concatenate_datasets([ds[split] for split in ds.keys()])
+        if isinstance(path, str):
+            # If we only have a single split, we load it as a standard Dataset
+            ds = ds["train"]
 
         return ds

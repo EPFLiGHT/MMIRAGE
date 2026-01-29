@@ -9,7 +9,6 @@ from mmirage.core.loader.base import BaseDataLoaderConfig, DataLoaderRegistry
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 
-
 def load_mmirage_config(config_path: str) -> MMirageConfig:
     """
     Load SGLang engine, sampling params, and batch size from YAML config.
@@ -66,6 +65,7 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
           - role: "assistant"
             content: "{{ formatted_answer.answer }}"
     """
+
     with open(config_path, "r") as f:
         cfg: EnvValue = yaml.safe_load(f) or {}
 
