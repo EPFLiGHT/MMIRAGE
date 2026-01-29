@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mmirage"
-version = "0.1.1"
+version = "0.1.2"
 description = "Advanced platform designed to streamline the processing of datasets using generative models."
 readme = "README.md"
 requires-python = ">=3.10"
