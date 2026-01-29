@@ -8,7 +8,7 @@ from datasets import (
     IterableDatasetDict,
     IterableDataset,
 )
-from mmirage.core.loader.base import (
+from mirage.core.loader.base import (
     BaseDataLoader,
     BaseDataLoaderConfig,
     DataLoaderRegistry,

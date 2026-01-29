@@ -1,11 +1,11 @@
-"""Configuration dataclasses for MMIRAGE pipeline."""
+"""Configuration dataclasses for MIRAGE pipeline."""
 
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
-from mmirage.config.loading import LoadingParams
-from mmirage.core.process.base import BaseProcessorConfig
-from mmirage.core.process.variables import InputVar, OutputVar
+from mirage.config.loading import LoadingParams
+from mirage.core.process.base import BaseProcessorConfig
+from mirage.core.process.variables import InputVar, OutputVar
 
 
 @dataclass
@@ -29,10 +29,10 @@ class ProcessingParams:
 
 
 @dataclass
-class MMirageConfig:
-    """Main configuration class for MMIRAGE pipeline.
+class MirageConfig:
+    """Main configuration class for MIRAGE pipeline.
 
-    Contains all configuration needed to run a MMIRAGE processing pipeline,
+    Contains all configuration needed to run a MIRAGE processing pipeline,
     including processor configurations, dataset loading parameters, and
     processing parameters.
 

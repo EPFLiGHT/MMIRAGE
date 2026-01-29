@@ -1,4 +1,4 @@
-"""Data loaders for MMIRAGE pipeline.
+"""Data loaders for MIRAGE pipeline.
 
 This module provides implementations for loading datasets from various sources:
 - JSONL files
@@ -8,8 +8,8 @@ All loaders inherit from BaseDataLoader and are registered with DataLoaderRegist
 for dynamic instantiation based on configuration.
 """
 
-from mmirage.core.loader.jsonl import JSONLDataConfig, JSONLDataLoader
-from mmirage.core.loader.local_hf import LocalHFConfig, LocalHFDataLoader
+from mirage.core.loader.jsonl import JSONLDataConfig, JSONLDataLoader
+from mirage.core.loader.local_hf import LocalHFConfig, LocalHFDataLoader
 
 __all__ = [
     "JSONLDataConfig",

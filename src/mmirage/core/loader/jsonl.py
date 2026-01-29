@@ -14,7 +14,7 @@ from datasets import (
 )
 
 
-from mmirage.core.loader.base import (
+from mirage.core.loader.base import (
     BaseDataLoader,
     DataLoaderRegistry,
     BaseDataLoaderConfig,

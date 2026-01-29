@@ -1,10 +1,10 @@
-"""Base classes and registry for processors in MMIRAGE."""
+"""Base classes and registry for processors in MIRAGE."""
 
 import abc
 from dataclasses import dataclass
 from typing import Callable, Generic, List, Type, TypeVar
 
-from mmirage.core.process.variables import VariableEnvironment, OutputVar
+from mirage.core.process.variables import VariableEnvironment, OutputVar
 
 
 @dataclass
