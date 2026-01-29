@@ -1,0 +1,48 @@
+processors:
+  - type: llm
+    server_args:
+      model_path: "Qwen/Qwen3-32B"
+      tp_size: 4          # use all 4 GPUs on the node
+      trust_remote_code: true
+      disable_custom_all_reduce: true
+
+    sampling_params:
+      temperature: 0.1
+      top_p: 1.0
+      max_new_tokens: 384
+    extra_body:
+      chat_template_kwargs:
+        enable_thinking: false
+
+loading_params:
+  datasets:
+    - path: /users/fabnem/MIRAGE/tests/US_dataset.jsonl
+      type: JSONL
+      output_dir: /users/fabnem/MIRAGE/US_dataset/
+  
+  num_shards: 1
+  shard_id: 0
+  conversations_field: "conversations"
+  batch_size: 64
+
+processing_params:
+  inputs:
+    - name: textual_description
+      key: text
+    - name: modalities
+      key: modalities
+
+  outputs:
+    - name: formatted_answer
+      type: llm
+      output_type: plain
+      prompt: | 
+        This is the textual description of an ultrasound image, it contains a lot of information but I just want thr information about the description of the image. Using only the text write a very concise summary, including only what specifically relates to what is shown in the image in one or two sentances.:
+        don't start by : <<<\/attachment>\nThe ultrasound image showed a>>. Be very very concise in your response do not explain your reasoning, just one or two sentences of 10 words in each max. Do not explain your reasoning steps, just output the summary:
+        {textual_description}
+
+  output_schema:
+    text:
+      - role: assistant
+        content: "{formatted_answer}"
+    modalities: "{modalities}"
