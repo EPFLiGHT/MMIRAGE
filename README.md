@@ -17,6 +17,21 @@ curl https://raw.githubusercontent.com/EPFLiGHT/MMIRAGE/refs/heads/json-output/s
 ```
 
 
+## How to install
+
+To install the library, you can clone it from GitHub and then use pip to install it directly. It is recommended to have already installed `torch` and `sglang` to take advantage of GPU acceleration.
+
+```bash
+git clone git@github.com:EPFLiGHT/MIRAGE.git
+pip install -e ./MIRAGE
+```
+
+For testing and scripts that make use of the library, it is advised to create a .env file. You can do this by running the following command:
+```bash
+curl https://raw.githubusercontent.com/EPFLiGHT/MIRAGE/refs/heads/json-output/scripts/generate_env.sh | sh
+```
+
+
 ## Key features
 
 - Easily configurable with a YAML file which configure the following parameters

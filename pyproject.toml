@@ -51,4 +51,4 @@ dev = [
 packages = ["src/mmirage"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/mmirage/**", "pyproject.toml", "README.md"]
+include = ["src/mirage/**", "pyproject.toml", "README.md"]

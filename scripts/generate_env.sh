@@ -120,7 +120,7 @@ OUTPUT_TEXT=$(cat <<EOF
 # This .env file has been generated programmatically using the 
 # script generate_env.sh
 
-MMIRAGE_PATH="$MIRAGE_PATH"
+MMIRAGE_PATH="$MMIRAGE_PATH"
 \n\n
 EOF
 )

@@ -15,7 +15,7 @@
 export ROOT=$SCRATCH/mmirage_example
 export SHARDS_ROOT="$ROOT/shards"
 export MERGED_DIR="$ROOT/merged"
-export CFG=/users/$USER/meditron/MMIRAGE/configs/config_small.yaml
+export CFG=$MMIRAGE_PATH/configs/config_small.yaml
 
 # HF cache/home
 export HF_HOME=$SCRATCH/hf
@@ -23,7 +23,7 @@ export HF_HOME=$SCRATCH/hf
 mkdir -p "$SHARDS_ROOT"
 mkdir -p "$MERGED_DIR"
 
-export CMD="python /users/$USER/meditron/MMIRAGE/src/mmirage/shard_process.py --config $CFG"
+export CMD="python $MMIRAGE_PATH/src/mmirage/shard_process.py --config $CFG"
 
 SRUN_ARGS=" \
   --cpus-per-task $SLURM_CPUS_PER_TASK \
