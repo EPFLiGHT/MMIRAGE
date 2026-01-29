@@ -34,11 +34,11 @@ jobs:
           fi
         
       - name: Build package
-        if: {{ steps.check_version.outputs.version_changed == '1'  }}
+        if: ${{ steps.check_version.outputs.version_changed == '1'  }}
         run: |
           uv build
       
       - name: Publish to PyPI
-        if: {{ steps.check_version.outputs.version_changed == '1'  }}
+        if: ${{ steps.check_version.outputs.version_changed == '1'  }}
         run: |
           uv publish --token ${{ secrets.PYPI_TOKEN }}
