@@ -93,14 +93,24 @@ def main():
         help="YAML config for SGLang engine + sampling + batch_size.",
         required=True,
     )
+    ap.add_argument(
+        "--profiler-log",
+        help="Path of the profiling logs (will be opened in append mode)",
+        required=False,
+    )
     args = ap.parse_args()
 
-    cfg = load_mmirage_config(args.config)
+    cfg_path = args.config
+    cfg = load_mmirage_config(cfg_path)
     loading_params = cfg.loading_params
     processing_params = cfg.processing_params
     datasets_config = loading_params.datasets
     if not datasets_config:
         raise ValueError("No datasets provided in config.loading_params.datasets")
+
+    profiler_log_path = args.profiler_log
+    if profiler_log_path and not os.path.exists(profiler_log_path):
+        raise ValueError("Invalid path for the profiling logs")
 
     shard_id = loading_params.get_shard_id()
     num_shards = loading_params.get_num_shards()
@@ -120,12 +130,14 @@ def main():
         f"Loaded {len(datasets_config)} dataset(s): {datasets_config} "
         f"→ {total_rows} total rows; this shard has {shard_rows} rows."
     )
-    logger.info(f"Dataset loading/sharding time: {end_load_ds_time - begin_load_ds_time}")
 
+    begin_load_processors_time = time.time()
     mapper = MMIRAGEMapper(
         cfg.processors, processing_params.inputs, processing_params.outputs
     )
     renderer = TemplateRenderer(processing_params.output_schema)
+    end_load_processors_time = time.time()
+    
     ds_processed_all: List[DatasetLike] = []
     begin_process_time = time.time()
     for ds_idx, ds_shard in enumerate(ds_all_shard):
@@ -141,7 +153,14 @@ def main():
         )
         ds_processed_all.append(ds_processed)
     end_process_time = time.time()
-    logger.info(f"Processing time: {end_process_time - begin_process_time}")
+
+    # Save the logs for the time
+    if profiler_log_path:
+        with open(profiler_log_path, "a") as f:
+            f.write(f"{cfg_path}: dataset loading {end_load_ds_time - begin_load_ds_time:.2f}s, "
+                    f"processor loading {end_load_processors_time - begin_load_processors_time:.2f}s, "
+                    f"processing {end_process_time - begin_process_time:.2f}s"
+            )
 
     for ds_config, ds_processed in zip(datasets_config, ds_processed_all):
         out_dir = _dataset_out_dir(shard_id, ds_config)
