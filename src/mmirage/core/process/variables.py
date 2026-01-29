@@ -1,4 +1,4 @@
-"""Variable system for MIRAGE pipeline."""
+"""Variable system for MMIRAGE pipeline."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from jmespath import search
 
 @dataclass
 class BaseVar(abc.ABC):
-    """Base class for variables in the MIRAGE pipeline.
+    """Base class for variables in the MMIRAGE pipeline.
 
     Attributes:
         name: Name of the variable.

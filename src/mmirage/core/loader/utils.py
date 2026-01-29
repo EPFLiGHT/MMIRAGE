@@ -2,7 +2,7 @@
 
 from datasets import Dataset, DatasetDict, concatenate_datasets
 from typing import List, Optional, Union
-from mirage.core.loader.base import AutoDataLoader, BaseDataLoaderConfig, DatasetLike
+from mmirage.core.loader.base import AutoDataLoader, BaseDataLoaderConfig, DatasetLike
 
 import logging
 

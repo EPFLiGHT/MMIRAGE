@@ -3,15 +3,16 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mirage"
-version = "0.1.0"
+name = "mmirage"
+version = "0.1.1"
 description = "Advanced platform designed to streamline the processing of datasets using generative models."
+readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Meditron team" }]
 
 # Core runtime deps for your scripts
 dependencies = [
-  "sglang[diffusion]>=0.5.2",
+  "sglang>=0.5.2",
   "transformers>=4.46.0",
   "pyzmq",
   "uvloop<0.22; platform_system != 'Windows'",
@@ -47,7 +48,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mirage"]
+packages = ["src/mmirage"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/mirage/**", "pyproject.toml", "README.md"]

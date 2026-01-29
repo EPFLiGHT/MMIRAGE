@@ -1,0 +1,40 @@
+name: Push to PyPI on bump version
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build distribution 📦
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.12'
+      
+      - name: Check if version bumped
+        run: |
+          current_version=$(uv version --short)
+          pypi_version=$(pip index version mmirage --disable-pip-version-check | grep "Available versions:" | sed -E 's/.*Available versions: ([^,]+).*/\1/')
+          if [ "$current_version" = "$pypi_version" ]; then
+            echo "Version not bumped. Exiting."
+            exit 1
+          else
+            echo "Version bumped from $pypi_version to $current_version."
+          fi
+        
+      - name: Build package
+        run: |
+          uv build
+      
+      - name: Publish to PyPI
+        run: |
+          uv publish --token ${{ secrets.PYPI_API_TOKEN }}

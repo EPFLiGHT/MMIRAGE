@@ -6,7 +6,7 @@ from typing import Dict, List
 
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_from_disk
 
-from mirage.core.loader.base import DatasetLike
+from mmirage.core.loader.base import DatasetLike
 
 
 def _count_rows(ds: DatasetLike) -> int:
