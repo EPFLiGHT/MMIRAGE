@@ -164,6 +164,9 @@ def main():
                     f"processor loading {end_load_processors_time - begin_load_processors_time:.2f}s, "
                     f"processing {end_process_time - begin_process_time:.2f}s\n"
             )
+        logger.info(
+            f"✅ Saved profiling log in: {profiler_log_path.abspath()}"
+        )
 
     for ds_config, ds_processed in zip(datasets_config, ds_processed_all):
         out_dir = _dataset_out_dir(shard_id, ds_config)
