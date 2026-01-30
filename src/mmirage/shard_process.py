@@ -165,7 +165,7 @@ def main():
                     f"processing {end_process_time - begin_process_time:.2f}s\n"
             )
         logger.info(
-            f"✅ Saved profiling log in: {profiler_log_path.abspath()}"
+            f"✅ Saved profiling log in: {profiler_log_path.resolve()}"
         )
 
     for ds_config, ds_processed in zip(datasets_config, ds_processed_all):
