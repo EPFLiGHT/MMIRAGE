@@ -4,13 +4,12 @@ processors:
       model_path: Qwen/Qwen3-4B-Instruct-2507
       tp_size: 1
       disable_custom_all_reduce: true
-    sampling_params:
+    default_sampling_params:
       temperature: 0.1
       top_p: 0.9
       max_new_tokens: 1024
-      custom_params:
-        chat_template_kwargs: 
-          enable_thinking: false
+    chat_template_kwargs:
+      enable_thinking: false
 
 loading_params:
   datasets:
