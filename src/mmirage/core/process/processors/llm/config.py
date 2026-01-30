@@ -30,6 +30,7 @@ class SGLangLLMConfig(BaseProcessorConfig):
         default_factory=lambda: ServerArgs(model_path="none")
     )
     default_sampling_params: Dict[str, Any] = field(default_factory=dict)
+    chat_template_kwargs: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

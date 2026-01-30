@@ -1,0 +1,59 @@
+processors:
+  - type: llm
+    server_args:
+      model_path: Qwen/Qwen3-8B
+      tp_size: 1
+      disable_custom_all_reduce: true
+    default_sampling_params:
+      temperature: 0.1
+      top_p: 0.9
+      max_new_tokens: 1024
+    chat_template_kwargs:
+      enable_thinking: false
+
+loading_params:
+  datasets:
+    - path: /capstor/store/cscs/swissai/a127/meditron/multimediset/dirty/medtrinity_conversations_1/
+      type: loadable
+      output_dir: $SCRATCH/medtrinity_conversations_1
+    - path: /capstor/store/cscs/swissai/a127/meditron/multimediset/dirty/medtrinity_conversations_2/
+      type: loadable
+      output_dir: $SCRATCH/medtrinity_conversations_2
+  num_shards: "$SLURM_ARRAY_TASK_COUNT"
+  shard_id: "$SLURM_ARRAY_TASK_ID"
+  conversations_field: "conversations"
+  batch_size: 64
+
+processing_params:
+  inputs:
+    - name: assistant_answer
+      key: conversations[1].content
+    - name: user_prompt
+      key: conversations[0].content
+    - name: modalities
+      key: modalities
+
+  outputs:
+    - name: formatted_answer
+      type: llm
+      output_type: plain
+      prompt: |
+        ## Instructions
+        - Reformat the image description with markdown without adding anything else
+        - Add titles and structure your output
+
+        ## Image description
+        {{ assistant_answer }}
+      output_schema:
+        - question
+        - explanation
+        - answer
+        
+  remove_columns: True
+  output_schema:
+    conversations:
+      - role: user
+        content: "{{ user_prompt }}"
+      - role: assistant
+        content: "{{ formatted_answer }}"
+    modalities: "{{ modalities }}"

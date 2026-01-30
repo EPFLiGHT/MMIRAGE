@@ -39,6 +39,7 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             engine_args.server_args.model_path
         )
         self.sampling_params = engine_args.default_sampling_params
+        self.chat_template_kwargs = engine_args.chat_template_kwargs
 
     def build_prompt(
         self, prompt_template: str, vars_samples: List[VariableEnvironment]
@@ -61,7 +62,8 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                 {"role": "user", "content": jinja_template.render(**var.to_dict())}
             ]
             formatted_conv = self.tokenizer.apply_chat_template(
-                user_prompt, tokenize=False, add_generation_prompt=True
+                user_prompt, tokenize=False, add_generation_prompt=True,
+                **self.chat_template_kwargs
             )
             prompts_for_output.append(formatted_conv)
 
