@@ -29,7 +29,7 @@ class ProcessingParams:
 
 
 @dataclass
-class mmirageConfig:
+class MMirageConfig:
     """Main configuration class for MMIRAGE pipeline.
 
     Contains all configuration needed to run a MMIRAGE processing pipeline,

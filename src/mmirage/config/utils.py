@@ -5,14 +5,14 @@ from dacite import Config, from_dict
 import yaml
 import os
 
-from mmirage.config.config import mmirageConfig
+from mmirage.config.config import MMirageConfig
 from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry, OutputVar
 from mmirage.core.loader.base import BaseDataLoaderConfig, DataLoaderRegistry
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 
 
-def load_mmirage_config(config_path: str) -> mmirageConfig:
+def load_mmirage_config(config_path: str) -> MMirageConfig:
     """
     Load MMIRAGE configuration from a YAML file.
 
@@ -74,7 +74,7 @@ def load_mmirage_config(config_path: str) -> mmirageConfig:
         config_path: Path to the YAML configuration file.
 
     Returns:
-        mmirageConfig: Parsed and validated configuration object.
+        MMirageConfig: Parsed and validated configuration object.
     """
 
     with open(config_path, "r") as f:
@@ -110,6 +110,6 @@ def load_mmirage_config(config_path: str) -> mmirageConfig:
             OutputVar: output_var_hook,
         }
     )
-    cfg_obj = from_dict(mmirageConfig, cast(dict, cfg), config=config)
+    cfg_obj = from_dict(MMirageConfig, cast(dict, cfg), config=config)
 
     return cfg_obj
