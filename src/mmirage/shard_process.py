@@ -1,4 +1,4 @@
-"""Main script for processing dataset shards with MIRAGE.
+"""Main script for processing dataset shards with MMIRAGE.
 
 Supports both text-only and multimodal (vision-language) processing.
 """
@@ -10,12 +10,12 @@ from typing import Any, Dict, List
 
 from datasets import Dataset, DatasetDict
 
-from mirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
-from mirage.core.process.mapper import MMIRAGEMapper
+from mmirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
+from mmirage.core.process.mapper import MMIRAGEMapper
 
-from mirage.config.utils import load_mirage_config
-from mirage.core.writer.renderer import TemplateRenderer
-from mirage.core.loader.utils import load_datasets_from_configs
+from mmirage.config.utils import load_mmirage_config
+from mmirage.core.writer.renderer import TemplateRenderer
+from mmirage.core.loader.utils import load_datasets_from_configs
 import logging
 
 logger = logging.getLogger(__name__)
@@ -86,20 +86,20 @@ def rewrite_batch(
 def main():
     """Process a single shard of the dataset.
 
-    Loads configuration, datasets, processes the shard using MIRAGE
+    Loads configuration, datasets, processes the shard using MMIRAGE
     transformations (including multimodal), and saves the result to disk.
     """
     ap = argparse.ArgumentParser(
-        "Process dataset shards using MIRAGE with SGLang."
+        "Process dataset shards using MMIRAGE with SGLang."
     )
     ap.add_argument(
         "--config",
-        help="YAML config for MIRAGE pipeline.",
+        help="YAML config for MMIRAGE pipeline.",
         required=True,
     )
     args = ap.parse_args()
 
-    cfg = load_mirage_config(args.config)
+    cfg = load_mmirage_config(args.config)
     loading_params = cfg.loading_params
     processing_params = cfg.processing_params
     datasets_config = loading_params.datasets

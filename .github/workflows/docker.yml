@@ -9,7 +9,7 @@ on:
       - main
 
 env:
-  IMAGE_NAME: mirage
+  IMAGE_NAME: mmirage
   REGISTRY: docker.io
 
 jobs:

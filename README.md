@@ -1,14 +1,14 @@
-# MIRAGE
+# MMIRAGE
 
-MIRAGE, which stands for **M**ultimodal **I**ntelligent **R**eformatting and **A**ugmentation **G**eneration **E**ngine, is an advanced platform designed to streamline the processing of datasets using generative models, including vision-language models (VLMs). It is engineered to handle large-scale data reformatting and augmentation tasks with efficiency and precision. By leveraging state-of-the-art generative models, MIRAGE enables users to perform complex dataset transformations, ensuring compatibility across various formats and schemas. Its multi-node support and parallel processing capabilities make it an ideal choice for scenarios demanding substantial computational power, such as distributed training and inference workflows. MIRAGE not only simplifies the integration of powerful language models but also provides a customizable framework for diverse use cases, from reformatting conversational datasets to generating Q/A pairs from plain text.
+MMIRAGE, which stands for **M**odular **M**ultimodal **I**ntelligent **R**eformatting and **A**ugmentation **G**eneration **E**ngine, is an advanced platform designed to streamline the processing of datasets using generative models, including vision-language models (VLMs). It is engineered to handle large-scale data reformatting and augmentation tasks with efficiency and precision. By leveraging state-of-the-art generative models, MMIRAGE enables users to perform complex dataset transformations, ensuring compatibility across various formats and schemas. Its multi-node support and parallel processing capabilities make it an ideal choice for scenarios demanding substantial computational power, such as distributed training and inference workflows. MMIRAGE not only simplifies the integration of powerful language models but also provides a customizable framework for diverse use cases, from reformatting conversational datasets to generating Q/A pairs from plain text.
 
 ## How to install
 
 To install the library, you can clone it from GitHub and then use pip to install it directly. It is recommended to have already installed `torch` and `sglang` to take advantage of GPU acceleration.
 
 ```bash
-git clone git@github.com:EPFLiGHT/MIRAGE.git
-pip install -e ./MIRAGE
+git clone git@github.com:EPFLiGHT/MMIRAGE.git
+pip install -e ./MMIRAGE
 ```
 
 For testing and scripts that make use of the library, it is advised to create a .env file:
@@ -43,7 +43,7 @@ Suppose you have a dataset with samples of the following format
 }
 ```
 
-The dataset contains assistant answers that are badly formatted. The goal would be to use a LLM to format our answer in Markdown. With MIRAGE, it would be as simple as defining a YAML configuration file:
+The dataset contains assistant answers that are badly formatted. The goal would be to use a LLM to format our answer in Markdown. With MMIRAGE, it would be as simple as defining a YAML configuration file:
 
 ```yaml
 processors:
@@ -105,7 +105,7 @@ Configuration explanation:
 
 ### Multimodal: Processing images with VLMs
 
-MIRAGE supports multimodal processing with vision-language models:
+MMIRAGE supports multimodal processing with vision-language models:
 
 ```yaml
 processors:
@@ -162,10 +162,10 @@ Key multimodal features:
 
 ## Architecture
 
-MIRAGE uses a modular architecture:
+MMIRAGE uses a modular architecture:
 
 ```
-mirage/
+mmirage/
 ├── config/           # Configuration loading and validation
 ├── core/
 │   ├── loader/       # Dataset loaders (JSONL, HuggingFace)

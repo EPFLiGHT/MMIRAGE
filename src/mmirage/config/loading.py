@@ -1,9 +1,9 @@
-"""Data loading configuration for MIRAGE pipeline."""
+"""Data loading configuration for MMIRAGE pipeline."""
 
 from dataclasses import dataclass, field
 from typing import Union, List, cast
 
-from mirage.core.loader.base import BaseDataLoaderConfig
+from mmirage.core.loader.base import BaseDataLoaderConfig
 
 
 @dataclass

@@ -1,4 +1,4 @@
-"""Variable system for MIRAGE pipeline with multimodal support."""
+"""Variable system for MMIRAGE pipeline with multimodal support."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from PIL import Image
 
 @dataclass
 class BaseVar(abc.ABC):
-    """Base class for variables in the MIRAGE pipeline.
+    """Base class for variables in the MMIRAGE pipeline.
 
     Attributes:
         name: Name of the variable.

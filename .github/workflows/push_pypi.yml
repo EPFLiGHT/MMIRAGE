@@ -25,7 +25,7 @@ jobs:
         id: check_version
         run: |
           current_version=$(uv version --short)
-          pypi_version=$(pip index versions mirage --disable-pip-version-check | grep "Available versions:" | sed -E 's/.*Available versions: ([^,]+).*/\1/')
+          pypi_version=$(pip index versions mmirage --disable-pip-version-check | grep "Available versions:" | sed -E 's/.*Available versions: ([^,]+).*/\1/')
           if [ "$current_version" = "$pypi_version" ]; then
             echo "Version not bumped. Exiting."
             echo "version_changed=0" >> $GITHUB_OUTPUT

@@ -6,7 +6,7 @@ from jinja2 import Template, Environment
 from jinja2.nodes import Output, Name
 from PIL import Image
 
-from mirage.core.process.variables import VariableEnvironment
+from mmirage.core.process.variables import VariableEnvironment
 import logging
 
 logger = logging.getLogger(__name__)

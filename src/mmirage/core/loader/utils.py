@@ -8,7 +8,7 @@ from typing import Any, List, Optional
 from datasets import Dataset, DatasetDict
 from PIL import Image
 
-from mirage.core.loader.base import AutoDataLoader, BaseDataLoaderConfig, DatasetLike
+from mmirage.core.loader.base import AutoDataLoader, BaseDataLoaderConfig, DatasetLike
 
 import logging
 

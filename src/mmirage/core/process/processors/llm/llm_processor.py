@@ -10,9 +10,9 @@ import jinja2
 from transformers import AutoTokenizer
 import sglang as sgl
 
-from mirage.core.process.base import BaseProcessor, ProcessorRegistry
-from mirage.core.process.variables import VariableEnvironment
-from mirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMConfig
+from mmirage.core.process.base import BaseProcessor, ProcessorRegistry
+from mmirage.core.process.variables import VariableEnvironment
+from mmirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMConfig
 
 logger = logging.getLogger(__name__)
 
