@@ -4,8 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mirage"
-version = "0.1.0"
-description = "Advanced platform designed to streamline the processing of datasets using generative models."
+version = "0.2.0"
+description = "Multimodal Intelligent Reformatting and Augmentation Generation Engine - Advanced platform for processing datasets using generative models including vision-language models."
+readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Meditron team" }]
 
@@ -34,6 +35,9 @@ dependencies = [
   "fsspec",
   "dacite>=1.6.0",
   "pydantic>=2.12",
+  "jmespath",
+  "jinja2>=3.0.0",
+  "pillow>=9.0.0",
 ]
 
 [project.optional-dependencies]
