@@ -257,8 +257,8 @@ def main():
         ds_shard.save_to_disk(shard_out_dir)
         try:
             llm.shutdown()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Error shutting down LLM: {e}", file=sys.stderr)
         return
 
     # -------------------------
