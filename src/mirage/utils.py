@@ -259,7 +259,12 @@ def resolve_image_input(value: Any, image_base_path: Optional[str] = None) -> An
     
     # Case 4: Absolute path that exists - pass through
     if os.path.isabs(value) and os.path.exists(value):
-        return value
+        if os.path.isfile(value):
+            return value
+        elif os.path.islink(value):
+            return os.path.realpath(value)
+        else:
+            raise RuntimeError(f"The provided path {value} exists but is not a file")
     
     # Case 5: Relative path - try to resolve with base path
     if image_base_path:
