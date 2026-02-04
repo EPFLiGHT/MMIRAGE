@@ -18,7 +18,7 @@ loading_params:
 
   num_shards: 4
   shard_id: 0
-  batch_size: 8
+  batch_size: 1
 
 processing_params:
   inputs:
