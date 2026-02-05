@@ -119,6 +119,11 @@ def _resolve_image_input(value: Any, image_base_path: Optional[str] = None) -> A
         )
 
     # No base path - return as-is
+    if not os.path.isabs(value):
+        raise FileNotFoundError(
+            f"Relative image path '{value}' cannot be resolved. "
+            f"Set image_base_path or use an absolute path."
+        )
     return value
 
 
