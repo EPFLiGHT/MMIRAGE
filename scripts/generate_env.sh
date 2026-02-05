@@ -21,7 +21,7 @@ MMIRAGE_PATH=""
 check_mmirage_folder() {
     if [ -d "$1" ] && [ -d "$1/.git" ]; then
         REMOTE_NAME=$($GIT_EXEC -C $1 remote get-url origin)
-        if [[ "$REMOTE_NAME" =~ "EPFLiGHT/MMIRAGE" ]] || [[ "$REMOTE_NAME" =~ "mmirage" ]]; then
+        if [[ "$REMOTE_NAME" =~ "EPFLiGHT/MMIRAGE" ]]; then
             return 0
         else
             return 1
@@ -66,7 +66,7 @@ if [[ $(hostname) =~ "clariden" ]] || [[ $(hostname) =~ "nid" ]]; then
     # Check if there is a file at $ENV_EDF_PATH
     ENV_EDF_PATH="/users/$USER/.edf/mmirage.toml"
     ENV_EDF_CONTENT=$(cat <<EOF
-image = "docker.io/lmsysorg/sglang:latest"
+image = "docker.io/michelducartier24/mirage-git:latest"
 mounts = ["/capstor", "/iopsstor", "/users"]
 
 writable = true
@@ -86,8 +86,7 @@ FI_CXI_DEFAULT_CQ_SIZE = "131072"
 FI_CXI_DEFAULT_TX_SIZE = "32768"
 FI_CXI_RX_MATCH_MODE = "software"
 FI_CXI_SAFE_DEVMEM_COPY_THRESHOLD = "16777216"
-FI_CXI_COMPAT = "0"
-
+FI_CXI_COMPAT = "0"\n\n
 EOF
 )
     
@@ -99,45 +98,34 @@ EOF
         # Create a temporary
         if ! diff $ENV_EDF_PATH - <<< "$ENV_EDF_CONTENT" > /dev/null; then
             printf "${COLOR_YELLOW}It appears that the $ENV_EDF_PATH already exists.${COLOR_RESET}\n"
-            printf "${COLOR_YELLOW}Do you want to overwrite it? (y/n)${COLOR_RESET} "
-            read -r response
-            if [[ "$response" =~ ^[Yy]$ ]]; then
+            read -p "Do you want to overwrite it? [Y/n] " should_generate
+            if [ $should_generate == "y" ] || [ $should_generate == "Y" ]; then
                 should_generate=1
+            else
+                should_generate=0
             fi
         fi
     fi
 
-    if [ $should_generate -eq 1 ]; then
-        mkdir -p $(dirname $ENV_EDF_PATH)
-        echo "$ENV_EDF_CONTENT" > $ENV_EDF_PATH
-        printf "${COLOR_GREEN}Successfully generated the .edf file at $ENV_EDF_PATH${COLOR_RESET}\n"
+    # In the other case we generate the 
+    if [ $should_generate -eq 1 ]; then 
+        printf "${COLOR_GREEN}Generating file at $ENV_EDF_PATH.${COLOR_RESET}\n"
+        printf "$ENV_EDF_CONTENT" > $ENV_EDF_PATH
     fi
 fi
 
-# Generate the .env file
-ENV_FILE_PATH="$MMIRAGE_PATH/.env"
-ENV_FILE_CONTENT=$(cat <<EOF
-# Auto-generated environment file for MMIRAGE
-MMIRAGE_PATH=$MMIRAGE_PATH
+# Generate the .env based on the retrieved configuration
+OUTPUT_PATH="$MMIRAGE_PATH/.env"
+OUTPUT_TEXT=$(cat <<EOF
+# This .env file has been generated programmatically using the 
+# script generate_env.sh
+
+MMIRAGE_PATH="$MMIRAGE_PATH"
+\n\n
 EOF
 )
 
-should_generate=1
-if test -f $ENV_FILE_PATH; then
-    should_generate=0
-    if ! diff $ENV_FILE_PATH - <<< "$ENV_FILE_CONTENT" > /dev/null; then
-        printf "${COLOR_YELLOW}It appears that the $ENV_FILE_PATH already exists.${COLOR_RESET}\n"
-        printf "${COLOR_YELLOW}Do you want to overwrite it? (y/n)${COLOR_RESET} "
-        read -r response
-        if [[ "$response" =~ ^[Yy]$ ]]; then
-            should_generate=1
-        fi
-    fi
-fi
+printf "${COLOR_GREEN}The .env file has been generated successfully at $OUTPUT_PATH\n${COLOR_RESET}"
+printf "$OUTPUT_TEXT" > $OUTPUT_PATH
 
-if [ $should_generate -eq 1 ]; then
-    echo "$ENV_FILE_CONTENT" > $ENV_FILE_PATH
-    printf "${COLOR_GREEN}Successfully generated the .env file at $ENV_FILE_PATH${COLOR_RESET}\n"
-fi
 
-printf "${COLOR_GREEN}Setup complete!${COLOR_RESET}\n"
