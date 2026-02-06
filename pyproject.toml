@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mmirage"
-version = "0.2.0"
+version = "0.1.3"
 description = "Modular Multimodal Intelligent Reformatting and Augmentation Generation Engine - Advanced platform for processing datasets using generative models including vision-language models."
 readme = "README.md"
 requires-python = ">=3.10"
