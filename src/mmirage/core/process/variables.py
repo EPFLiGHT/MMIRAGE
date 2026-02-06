@@ -48,30 +48,31 @@ class OutputVar(BaseVar):
         raise NotImplementedError()
 
 
-def _to_file_uri(path: str) -> str:
-    """Convert a local filesystem path to a file:// URI."""
-    return "file://" + os.path.abspath(path)
+def _to_abs_path(path: str) -> str:
+    """Normalize a local filesystem path to an absolute path."""
+    return os.path.abspath(path)
 
 
 def _resolve_image_input(value: Any, image_base_path: Optional[str] = None) -> Any:
     """Resolve image input to a format SGLang can use.
 
-    SGLang typically accepts:
-      - PIL.Image.Image
-      - http(s) URL strings
-      - file:// URIs for local files (recommended)
-      - (sometimes) raw absolute paths; we normalize to file://
+    In your SGLang setup, local images should be passed as plain filesystem paths
+    (NOT file:// URIs). This function:
+      - passes through PIL images and http(s) URLs
+      - normalizes local paths to absolute paths
+      - resolves relative paths against image_base_path (preferred) or CWD (fallback)
+      - strips a leading file:// if it is present (for backward compatibility)
 
     Args:
         value: The image value to resolve (string path/URL, PIL image, etc.).
-        image_base_path: Optional base directory for resolving relative paths.
+        image_base_path: Optional base directory for resolving relative image paths.
 
     Returns:
-        A resolved image spec (PIL image, URL, or file:// URI).
+        A resolved image spec: PIL.Image.Image, http(s) URL string, or absolute path string.
 
     Raises:
-        FileNotFoundError: If a relative path cannot be resolved or file does not exist.
-        RuntimeError: If a provided path exists but is not a file.
+        FileNotFoundError: If the resolved file does not exist.
+        RuntimeError: If the resolved path exists but is not a file.
     """
     # Already a PIL Image - pass through
     if isinstance(value, Image.Image):
@@ -85,28 +86,23 @@ def _resolve_image_input(value: Any, image_base_path: Optional[str] = None) -> A
     if value.startswith(("http://", "https://")):
         return value
 
-    # file:// URI - validate and pass through
+    # If value is a file:// URI, strip it to a local path
     if value.startswith("file://"):
-        local_path = value[len("file://") :]
-        if not os.path.exists(local_path):
-            raise FileNotFoundError(f"Image file referenced by URI does not exist: {value}")
-        if not os.path.isfile(local_path):
-            raise RuntimeError(f"Image URI points to a non-file path: {value}")
-        return value
+        value = value[len("file://") :]
 
     # Absolute local path
     if os.path.isabs(value):
-        if not os.path.exists(value):
-            raise FileNotFoundError(f"Absolute image path does not exist: {value}")
-        if os.path.islink(value):
-            value = os.path.realpath(value)
-        if not os.path.isfile(value):
-            raise RuntimeError(f"The provided path exists but is not a file: {value}")
-        return _to_file_uri(value)
+        path = os.path.realpath(value) if os.path.islink(value) else value
+        path = _to_abs_path(path)
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Absolute image path does not exist: {path}")
+        if not os.path.isfile(path):
+            raise RuntimeError(f"The provided path exists but is not a file: {path}")
+        return path
 
     # Relative path: resolve against base path if provided
     if image_base_path:
-        resolved_path = os.path.join(image_base_path, value)
+        resolved_path = _to_abs_path(os.path.join(image_base_path, value))
         if not os.path.exists(resolved_path):
             raise FileNotFoundError(
                 f"Resolved image path '{resolved_path}' does not exist "
@@ -114,16 +110,15 @@ def _resolve_image_input(value: Any, image_base_path: Optional[str] = None) -> A
             )
         if not os.path.isfile(resolved_path):
             raise RuntimeError(f"Resolved image path is not a file: {resolved_path}")
-        return _to_file_uri(resolved_path)
+        return resolved_path
 
-    # As a last resort, try resolving against current working directory.
-    # This keeps backward compatibility for setups that relied on CWD.
-    if os.path.exists(value):
-        if not os.path.isfile(value):
-            raise RuntimeError(f"Relative image path exists but is not a file: {value}")
-        return _to_file_uri(value)
+    # Fallback: resolve against current working directory
+    cwd_path = _to_abs_path(value)
+    if os.path.exists(cwd_path):
+        if not os.path.isfile(cwd_path):
+            raise RuntimeError(f"Relative image path exists but is not a file: {cwd_path}")
+        return cwd_path
 
-    # No base path and not found relative to CWD: fail loudly.
     raise FileNotFoundError(
         f"Relative image path '{value}' cannot be resolved. "
         "Set InputVar.image_base_path or use an absolute path."
