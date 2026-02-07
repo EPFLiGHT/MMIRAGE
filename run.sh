@@ -1,21 +1,21 @@
 #!/bin/bash
 #SBATCH --job-name=mmirage-example
-#SBATCH --chdir=/users/$USER/meditron/MMIRAGE/src/mmirage
-#SBATCH --output=/users/$USER/reports/R-%x.%A_%a.out
-#SBATCH --error=/users/$USER/reports/R-%x.%A_%a.err
+#SBATCH --chdir=/users/fabnem/MIRAGE/src/mmirage
+#SBATCH --output=/users/fabnem/reports/R-%x.%A_%a.out
+#SBATCH --error=/users/fabnem/reports/R-%x.%A_%a.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=288
 #SBATCH --time=11:59:59
 #SBATCH -A a127
-#SBATCH --array=0-3
+#SBATCH --array=0-15
 
 # --- outputs & config ---
 export ROOT=$SCRATCH/mmirage_example
 export SHARDS_ROOT="$ROOT/shards"
 export MERGED_DIR="$ROOT/merged"
-export CFG=$MMIRAGE_PATH/configs/config_small.yaml
+export CFG=/users/fabnem/MIRAGE/configs/config_medtrinity_2.yaml
 
 # HF cache/home
 export HF_HOME=$SCRATCH/hf
@@ -23,7 +23,7 @@ export HF_HOME=$SCRATCH/hf
 mkdir -p "$SHARDS_ROOT"
 mkdir -p "$MERGED_DIR"
 
-export CMD="python $MMIRAGE_PATH/src/mmirage/shard_process.py --config $CFG"
+export CMD="pip install /users/fabnem/MIRAGE --break-system-packages && python /users/fabnem/MIRAGE/src/mmirage/shard_process.py --config $CFG --profiler-log /users/fabnem/MIRAGE/prof.log"
 
 SRUN_ARGS=" \
   --cpus-per-task $SLURM_CPUS_PER_TASK \
