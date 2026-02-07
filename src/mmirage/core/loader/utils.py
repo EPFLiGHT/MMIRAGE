@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 
 from datasets import Dataset, DatasetDict
 from PIL import Image
@@ -55,7 +55,7 @@ def load_datasets_from_configs(configs: List[BaseDataLoaderConfig]) -> List[Data
     return valid_ds
 
 
-def resolve_image_input(value: Any, image_base_path: Optional[str] = None) -> Any:
+def resolve_image_input(value: Union[Image.Image, str], image_base_path: Optional[str] = None) -> Union[Image.Image, str]:
     """Resolve image input to a format SGLang can use.
 
     Handles multiple image input formats:

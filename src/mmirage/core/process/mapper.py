@@ -73,11 +73,13 @@ class MMIRAGEMapper:
     def rewrite_batch(
         self,
         batch: Dict[str, List[Any]],
+        image_base_path: str = None,
     ) -> List[VariableEnvironment]:
         """Transform a batch of samples by computing output variables.
 
         Args:
             batch: Dictionary mapping column names to lists of values.
+            image_base_path: Optional base directory for resolving relative image paths.
 
         Returns:
             List of VariableEnvironments with all output variables computed.
@@ -86,7 +88,7 @@ class MMIRAGEMapper:
             RuntimeError: If an output variable type has no registered processor.
         """
         batch_environment = VariableEnvironment.from_batch_input_variables(
-            batch, self.input_vars
+            batch, self.input_vars, image_base_path
         )
 
         for output_var in self.output_vars:

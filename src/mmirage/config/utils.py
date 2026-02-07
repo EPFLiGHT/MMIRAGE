@@ -28,7 +28,7 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
           tp_size: 4
           trust_remote_code: true
         chat_template: qwen2-vl
-        sampling_params:
+        default_sampling_params:
           temperature: 0.1
           top_p: 0.9
           max_new_tokens: 1024

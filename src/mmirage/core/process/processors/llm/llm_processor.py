@@ -23,6 +23,14 @@ except ImportError:  # pragma: no cover
 
 logger = logging.getLogger(__name__)
 
+# Common image tokens for known templates
+IMAGE_TOKENS = {
+    "qwen2-vl": "<|vision_start|><|image_pad|><|vision_end|>",
+    "llava": "<image>",
+    "internvl": "<image>",
+    "phi3_v": "<|image_1|>",
+}
+
 
 @ProcessorRegistry.register("llm", SGLangLLMConfig, LLMOutputVar)
 class LLMProcessor(BaseProcessor[LLMOutputVar]):
@@ -35,6 +43,11 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
     is expected to be *aligned with prompts*: a list where each element is
     either None (text-only), a single image (path/URL/PIL), or (optionally)
     a list of images for that prompt.
+
+    Attributes:
+        llm: SGLang engine for text generation.
+        tokenizer: Hugging Face tokenizer for chat template formatting.
+        sampling_params: Default sampling parameters for generation.
     """
 
     def __init__(self, engine_args: SGLangLLMConfig, **kwargs) -> None:
@@ -56,7 +69,15 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
     def build_prompt(
         self, prompt_template: str, vars_samples: List[VariableEnvironment]
     ) -> List[str]:
-        """Build formatted prompts from a Jinja2 template and variable environments."""
+        """Build formatted prompts from a Jinja2 template and variable environments.
+
+        Args:
+            prompt_template: Jinja2 template string for the prompt.
+            vars_samples: List of variable environments containing values.
+
+        Returns:
+            List of formatted prompts with chat template applied.
+        """
         prompts_for_output: List[str] = []
         jinja_template = jinja2.Template(prompt_template)
 
@@ -106,20 +127,25 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         except Exception:
             pass
 
-        # Common image tokens for known templates
-        image_tokens = {
-            "qwen2-vl": "<|vision_start|><|image_pad|><|vision_end|>",
-            "llava": "<image>",
-            "internvl": "<image>",
-            "phi3_v": "<|image_1|>",
-        }
-        return image_tokens.get(self.chat_template, "<image>")
+        return IMAGE_TOKENS.get(self.chat_template, "<image>")
 
     @override
     def batch_process_sample(
         self, batch: List[VariableEnvironment], output_var: LLMOutputVar
     ) -> List[VariableEnvironment]:
-        """Process a batch of variable environments to generate LLM outputs."""
+        """Process a batch of variable environments to generate LLM outputs.
+
+        Args:
+            batch: List of variable environments to process.
+            output_var: Output variable defining prompt and output format.
+
+        Returns:
+            List of updated variable environments with LLM-generated values.
+
+        Raises:
+            ValueError: If output_type is JSON but no output_schema is defined.
+            RuntimeError: If output batch size doesn't match input batch size.
+        """
         nb_samples = len(batch)
 
         # Prepare sampling params
@@ -144,7 +170,7 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             else:
                 text_only_indices.append(i)
 
-        results: List[VariableEnvironment] = [None] * nb_samples  # type: ignore
+        results: dict[int, VariableEnvironment] = {}
 
         # Text-only batch
         if text_only_indices:
@@ -243,7 +269,7 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                     empty_val = {} if output_var.output_type == "JSON" else ""
                     results[global_i] = batch[global_i].with_variable(output_var.name, empty_val)
 
-        return results
+        return [results[i] for i in range(nb_samples)]
 
     def shutdown(self) -> None:
         """Shutdown the LLM engine."""

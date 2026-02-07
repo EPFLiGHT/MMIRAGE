@@ -59,6 +59,7 @@ def rewrite_batch(
     batch: Dict[str, List[Any]],
     mapper: MMIRAGEMapper,
     renderer: TemplateRenderer,
+    image_base_path: str = None,
 ) -> Dict[str, List[Any]]:
     """Rewrite a batch of samples by applying transformations.
 
@@ -66,6 +67,7 @@ def rewrite_batch(
         batch: Dictionary mapping column names to lists of values.
         mapper: MMIRAGEMapper for processing transformations.
         renderer: TemplateRenderer for generating output.
+        image_base_path: Optional base directory for resolving relative image paths.
 
     Returns:
         Dictionary mapping output keys to lists of rendered values.
@@ -78,7 +80,7 @@ def rewrite_batch(
             "Uncomputable variables detected. Verify your configuration and make sure that there is no undefined variables"
         )
 
-    batch_environment = mapper.rewrite_batch(batch)
+    batch_environment = mapper.rewrite_batch(batch, image_base_path)
     rendered_list = renderer.batch_render(batch_environment)
     return rendered_list
 
@@ -129,6 +131,7 @@ def main():
     renderer = TemplateRenderer(processing_params.output_schema)
     ds_processed_all: List[DatasetLike] = []
     for ds_idx, ds_shard in enumerate(ds_all_shard):
+        ds_config = datasets_config[ds_idx]
         remove_columns = _remove_columns(ds_shard, processing_params.remove_columns)
         ds_processed = ds_shard.map(
             rewrite_batch,
@@ -136,7 +139,7 @@ def main():
             batch_size=loading_params.get_batch_size(),
             load_from_cache_file=False,
             desc=f"Shard {shard_id}/{num_shards - 1} dataset {ds_idx}",
-            fn_kwargs={"mapper": mapper, "renderer": renderer},
+            fn_kwargs={"mapper": mapper, "renderer": renderer, "image_base_path": ds_config.image_base_path},
             remove_columns=remove_columns,
         )
         ds_processed_all.append(ds_processed)

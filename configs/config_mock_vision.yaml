@@ -15,6 +15,7 @@ loading_params:
     - path: tests/mock_data_vision/data.jsonl
       type: JSONL
       output_dir: tests/output/data_vision
+      image_base_path: tests/mock_data_vision  # Base directory where images are stored
 
   num_shards: 4
   shard_id: 0
@@ -25,7 +26,6 @@ processing_params:
     - name: image_input
       key: image
       type: image
-      image_base_path: tests/mock_data_vision  # Base directory where images are stored
 
   outputs:
     - name: caption
