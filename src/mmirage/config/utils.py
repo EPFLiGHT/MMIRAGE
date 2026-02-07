@@ -38,6 +38,7 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
         - path: /path/to/dataset.jsonl
           type: JSONL
           output_dir: /path/to/output
+          image_base_path: /path/to/images
       num_shards: 4
       shard_id: 0
       batch_size: 64
@@ -49,7 +50,6 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
         - name: image
           key: image_path
           type: image
-          image_base_path: /path/to/images
 
       outputs:
         - name: formatted_answer
