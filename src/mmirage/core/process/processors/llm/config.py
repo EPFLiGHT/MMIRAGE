@@ -34,7 +34,7 @@ def _parse_tp_size_from_env() -> int:
     
     try:
         tp_size = int(env_value.strip())
-        # Validate tp_size is positive (>= 1)
+        # Ensure tp_size is positive (must be >= 1)
         if tp_size <= 0:
             logger.warning(
                 f"Invalid SLURM_GPUS_ON_NODE value '{env_value}' (must be > 0), defaulting tp_size to 1"
