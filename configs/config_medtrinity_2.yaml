@@ -1,8 +1,8 @@
 processors:
   - type: llm
     server_args:
-      model_path: Qwen/Qwen3-8B
-      tp_size: 1
+      model_path: Qwen/Qwen3-32B
+      tp_size: 4
       disable_custom_all_reduce: true
     default_sampling_params:
       temperature: 0.1
