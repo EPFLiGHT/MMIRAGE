@@ -34,7 +34,12 @@ def _parse_tp_size_from_env() -> int:
     try:
         tp_size = int(env_value.strip())
         # Clamp to >= 1 to ensure valid tensor parallelism size
-        return max(1, tp_size)
+        if tp_size <= 0:
+            logger.warning(
+                f"Invalid SLURM_GPUS_ON_NODE value '{env_value}' (must be > 0), defaulting tp_size to 1"
+            )
+            return 1
+        return tp_size
     except (ValueError, AttributeError):
         # ValueError: invalid integer format
         # AttributeError: env_value doesn't have strip method (shouldn't happen but defensive)
