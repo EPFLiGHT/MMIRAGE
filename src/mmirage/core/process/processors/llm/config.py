@@ -28,7 +28,7 @@ class SGLangServerArgs:
     """
 
     model_path: str = "none"
-    tp_size: int = field(default_factory=lambda: os.environ.get("SLURM_GPUS_ON_NODE") or 1)
+    tp_size: int = field(default_factory=lambda: int(os.environ.get("SLURM_GPUS_ON_NODE") or 1))
     trust_remote_code: bool = True
     disable_custom_all_reduce: bool = False
 
