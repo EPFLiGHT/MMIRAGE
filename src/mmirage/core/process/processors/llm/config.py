@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 
 import logging
+import os
 from typing import Dict, Optional, Sequence, Type, Any, List
 from pydantic import BaseModel, create_model
 
@@ -27,7 +28,7 @@ class SGLangServerArgs:
     """
 
     model_path: str = "none"
-    tp_size: int = 1
+    tp_size: int = field(default_factory=lambda: os.environ.get("SLURM_GPUS_ON_NODE") or 1)
     trust_remote_code: bool = True
     disable_custom_all_reduce: bool = False
 
