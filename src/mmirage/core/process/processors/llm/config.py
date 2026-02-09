@@ -20,7 +20,8 @@ def _parse_tp_size_from_env() -> int:
     """Parse tensor parallelism size from SLURM_GPUS_ON_NODE environment variable.
     
     Defensively parses the environment variable, handling invalid values:
-    - Strips whitespace
+    - Returns 1 if the variable is None or empty
+    - Strips whitespace before parsing
     - Returns 1 for non-integer values
     - Returns 1 for values <= 0
     
@@ -33,7 +34,7 @@ def _parse_tp_size_from_env() -> int:
     
     try:
         tp_size = int(env_value.strip())
-        # Clamp to >= 1 to ensure valid tensor parallelism size
+        # Validate tp_size is positive (>= 1)
         if tp_size <= 0:
             logger.warning(
                 f"Invalid SLURM_GPUS_ON_NODE value '{env_value}' (must be > 0), defaulting tp_size to 1"
