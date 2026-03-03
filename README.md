@@ -34,20 +34,20 @@ For testing and scripts that make use of the library, it is advised to create a 
 
 ### Running with Automatic Retry
 
-The simplest way to run MMIRAGE with automatic failure detection and retry:
+Your job scripts now automatically track success/failure with marker files. After your job completes, just run a simple retry script:
 
 ```bash
-# 1. Edit configuration in run_with_retry.sh (set your paths, num shards, etc.)
+# 1. Submit your job normally
+sbatch run_with_retry.sh  # or run_medtrinity.sh
 
-# 2. Submit - everything else is automatic
-sbatch run_with_retry.sh
+# 2. After job completes, check for failures and retry
+./retry_failed.sh
 
-# That's it! The system will:
-# - Process all shards
-# - Detect failures automatically  
-# - Retry only failed shards
-# - Repeat until all succeed or max retries
+# It will show you which shards failed and ask if you want to relaunch them
+# Keep running retry_failed.sh until all shards succeed
 ```
+
+See [docs/SIMPLE_RETRY.md](docs/SIMPLE_RETRY.md) for details.
 
 ### Text-only: Reformatting dataset
 
