@@ -32,6 +32,23 @@ For testing and scripts that make use of the library, it is advised to create a 
 
 ## Example usage
 
+### Running with Automatic Retry
+
+The simplest way to run MMIRAGE with automatic failure detection and retry:
+
+```bash
+# 1. Edit configuration in run_with_retry.sh (set your paths, num shards, etc.)
+
+# 2. Submit - everything else is automatic
+sbatch run_with_retry.sh
+
+# That's it! The system will:
+# - Process all shards
+# - Detect failures automatically  
+# - Retry only failed shards
+# - Repeat until all succeed or max retries
+```
+
 ### Text-only: Reformatting dataset
 
 Suppose you have a dataset with samples of the following format
