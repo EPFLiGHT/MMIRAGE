@@ -16,7 +16,7 @@ loading_params:
     - path: /capstor/store/cscs/swissai/a127/meditron/multimediset/dirty/medtrinity_conversations_sampled 
       type: loadable
       output_dir: /capstor/store/cscs/swissai/a127/homes/qchapp/datasets/medtrinity//medtrinity_conversations_sampled
-  num_shards: "${TOTAL_SHARDS:-$SLURM_ARRAY_TASK_COUNT}"
+  num_shards: "$SLURM_ARRAY_TASK_COUNT"
   shard_id: "$SLURM_ARRAY_TASK_ID"
   conversations_field: "conversations"
   batch_size: 128
