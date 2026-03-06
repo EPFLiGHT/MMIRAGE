@@ -1,7 +1,7 @@
 #!/bin/bash
 # Check for failed shards and relaunch them
 #
-# Usage: ./retry_failed.sh
+# Usage: bash retry_failed.sh
 
 # Configuration
 SHARDS_ROOT="/capstor/store/cscs/swissai/a127/homes/qchapp/datasets/medtrinity/medtrinity_conversations_sampled"
@@ -80,10 +80,10 @@ read -p "Submit retry job for these shards? (y/N) " -n 1 -r
 echo
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    JOB_ID=$(sbatch --array=$ARRAY_SPEC "$SCRIPT_PATH" | grep -oE '[0-9]+')
+    JOB_ID=$(sbatch --export=ALL,TOTAL_SHARDS=$NUM_SHARDS --array=$ARRAY_SPEC "$SCRIPT_PATH" | grep -oE '[0-9]+')
     echo "✅ Job submitted: $JOB_ID"
     echo ""
-    echo "Monitor with: squeue -j $JOB_ID"
+    echo "Monitor with: squeue -j ${JOB_ID}_"
 else
     echo "Cancelled."
 fi
