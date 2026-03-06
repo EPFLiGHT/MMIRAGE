@@ -6,6 +6,7 @@ Supports both text-only and multimodal (vision-language) processing.
 import argparse
 from datetime import datetime
 from functools import reduce
+import glob
 import os
 import sys
 import traceback
@@ -78,6 +79,35 @@ def _increment_retry_count(shard_dir: str) -> int:
     with open(retry_file, "w") as f:
         f.write(str(count))
     return count
+
+
+def _cleanup_old_shard_data(shard_dir: str):
+    """Remove old data files from a shard directory before retry.
+    
+    Keeps marker files (.SUCCESS, .FAILED, .retry_count) but removes
+    arrow files and dataset metadata to prevent duplicates.
+    """
+    if not os.path.exists(shard_dir):
+        return
+    
+    # Patterns for files to remove
+    patterns_to_remove = [
+        "*.arrow",
+        "dataset_info.json",
+        "state.json",
+    ]
+    
+    removed_count = 0
+    for pattern in patterns_to_remove:
+        for file_path in glob.glob(os.path.join(shard_dir, pattern)):
+            try:
+                os.remove(file_path)
+                removed_count += 1
+            except OSError as e:
+                logger.warning(f"Failed to remove {file_path}: {e}")
+    
+    if removed_count > 0:
+        logger.info(f"Cleaned up {removed_count} old data files from {shard_dir}")
 
 
 def _write_success_marker(shard_dir: str):
@@ -178,6 +208,8 @@ def main():
             shard_dirs.append(shard_dir)
             if retry_count > 1:
                 logger.info(f"Retry attempt #{retry_count} for shard {shard_id}")
+                # Clean up old data files to prevent duplicates
+                _cleanup_old_shard_data(shard_dir)
 
         mapper = MMIRAGEMapper(
             cfg.processors, processing_params.inputs, processing_params.outputs
