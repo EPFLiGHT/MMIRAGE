@@ -183,8 +183,8 @@ def main():
     shard_id = loading_params.get_shard_id()
     num_shards = loading_params.get_num_shards()
 
-    if not (0 <= shard_id < num_shards):
-        raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
+    # if not (0 <= shard_id < num_shards):
+    #     raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
 
     # Track shard directories for marker files
     shard_dirs = []
