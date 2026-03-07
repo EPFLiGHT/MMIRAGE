@@ -38,10 +38,10 @@ Your job scripts now automatically track success/failure with marker files. Afte
 
 ```bash
 # 1. Submit your job normally
-sbatch run_with_retry.sh  # or run_medtrinity.sh
+sbatch run.sh
 
 # 2. After job completes, check for failures and retry
-./retry_failed.sh
+bash retry_failed.sh
 
 # It will show you which shards failed and ask if you want to relaunch them
 # Keep running retry_failed.sh until all shards succeed
