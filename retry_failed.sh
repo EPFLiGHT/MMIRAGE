@@ -80,8 +80,7 @@ read -p "Submit retry job for these shards? (y/N) " -n 1 -r
 echo
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    # Override SLURM_ARRAY_TASK_COUNT to total shards count for retries
-    JOB_ID=$(sbatch --export=ALL,SLURM_ARRAY_TASK_COUNT=$NUM_SHARDS --array=$ARRAY_SPEC "$SCRIPT_PATH" | grep -oE '[0-9]+')
+    JOB_ID=$(sbatch --array=$ARRAY_SPEC "$SCRIPT_PATH" | grep -oE '[0-9]+')
     echo "✅ Job submitted: $JOB_ID"
     echo ""
     echo "Monitor with: squeue -j $JOB_ID"
