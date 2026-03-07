@@ -47,8 +47,6 @@ bash retry_failed.sh
 # Keep running retry_failed.sh until all shards succeed
 ```
 
-See [docs/SIMPLE_RETRY.md](docs/SIMPLE_RETRY.md) for details.
-
 ### Text-only: Reformatting dataset
 
 Suppose you have a dataset with samples of the following format
