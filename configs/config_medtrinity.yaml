@@ -13,9 +13,12 @@ processors:
 
 loading_params:
   datasets:
-    - path: /capstor/store/cscs/swissai/a127/meditron/multimediset/dirty/medtrinity_conversations_sampled 
+    - path: /capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_1/
       type: loadable
-      output_dir: /capstor/store/cscs/swissai/a127/homes/qchapp/datasets/medtrinity//medtrinity_conversations_sampled
+      output_dir: /capstor/store/cscs/swissai/a127/homes/qchapp/datasets/medtrinity//medtrinity_conversations_sampled2
+    - path: /capstor/store/cscs/swissai/a127/meditron/multimediset/arrow/medtrinity_conversations_2/
+      type: loadable
+      output_dir: /capstor/store/cscs/swissai/a127/homes/qchapp/datasets/medtrinity//medtrinity_conversations_sampled2
   num_shards: 32
   shard_id: "$SLURM_ARRAY_TASK_ID"
   conversations_field: "conversations"

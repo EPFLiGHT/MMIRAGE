@@ -4,7 +4,7 @@
 # Usage: bash retry_failed.sh
 
 # Configuration
-SHARDS_ROOT="/capstor/store/cscs/swissai/a127/homes/qchapp/datasets/medtrinity/medtrinity_conversations_sampled"
+SHARDS_ROOT="/capstor/store/cscs/swissai/a127/homes/qchapp/datasets/medtrinity/medtrinity_conversations_sampled2"
 NUM_SHARDS=32
 MAX_RETRIES=3
 SCRIPT_PATH="/users/qchapp/meditron/MIRAGE/run_with_retry.sh"
