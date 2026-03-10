@@ -1,7 +1,7 @@
 """Data loading configuration for MMIRAGE pipeline."""
 
 from dataclasses import dataclass, field
-from typing import Union, List, cast
+from typing import Union, List, cast, Optional
 
 from mmirage.core.loader.base import BaseDataLoaderConfig
 
@@ -15,7 +15,8 @@ class LoadingParams:
 
     Attributes:
         datasets: List of dataset configurations to load.
-        output_dir: Directory path for saving processed output shards.
+        state_dir: Shared directory for logical shard state/markers/retry tracking.
+        output_dir: Legacy top-level output directory. Prefer per-dataset output_dir.
         num_shards: Total number of shards to split the dataset into.
         shard_id: ID of this shard (0-indexed).
         batch_size: Batch size for processing samples.
@@ -25,6 +26,7 @@ class LoadingParams:
     """
 
     datasets: List[BaseDataLoaderConfig] = field(default_factory=list)
+    state_dir: Optional[str] = None
     output_dir: str = ""
     num_shards: Union[int, str] = 1
     shard_id: Union[int, str] = 0
@@ -38,17 +40,23 @@ class LoadingParams:
                     raise ValueError()
             except (ValueError, TypeError):
                 raise ValueError(f"Invalid value for num_shards: {self.num_shards!r}")
+
         if isinstance(self.shard_id, str):
             try:
                 self.shard_id = int(self.shard_id)
             except (ValueError, TypeError):
                 raise ValueError(f"Invalid value for shard_id: {self.shard_id!r}")
+
         if isinstance(self.batch_size, str):
             try:
                 self.batch_size = int(self.batch_size)
             except (ValueError, TypeError):
                 raise ValueError(f"Invalid value for batch_size: {self.batch_size!r}")
+
         self.batch_size = max(self.batch_size, 1)
+
+        if self.state_dir is not None:
+            self.state_dir = str(self.state_dir).strip() or None
 
     def get_num_shards(self) -> int:
         """Get the total number of shards.
