@@ -6,21 +6,22 @@ Supports both text-only and multimodal (vision-language) processing.
 import argparse
 from datetime import datetime
 from functools import reduce
-import glob
+import json
+import logging
 import os
+import shutil
+import socket
 import sys
 import traceback
 from typing import Any, Dict, List
 
-from datasets import Dataset, DatasetDict
-
-from mmirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
-from mmirage.core.process.mapper import MMIRAGEMapper
+from datasets import DatasetDict
 
 from mmirage.config.utils import load_mmirage_config
-from mmirage.core.writer.renderer import TemplateRenderer
+from mmirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
 from mmirage.core.loader.utils import load_datasets_from_configs
-import logging
+from mmirage.core.process.mapper import MMIRAGEMapper
+from mmirage.core.writer.renderer import TemplateRenderer
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,13 @@ def _count_rows(ds: DatasetLike) -> int:
 
 
 def _dataset_out_dir(shard_idx: int, ds_config: BaseDataLoaderConfig) -> str:
-    """Get output directory for a shard of a dataset."""
+    """Get dataset-specific output directory for a shard."""
     return os.path.join(ds_config.output_dir, f"shard_{shard_idx}")
+
+
+def _shard_state_dir(shard_idx: int, state_root: str) -> str:
+    """Get central state directory for a logical shard."""
+    return os.path.join(state_root, f"shard_{shard_idx}")
 
 
 def _shard_dataset(ds: DatasetLike, num_shards: int, shard_id: int) -> DatasetLike:
@@ -59,72 +65,131 @@ def _remove_columns(ds: DatasetLike, enable: bool) -> List[str]:
     return ds.column_names
 
 
-def _get_retry_count(shard_dir: str) -> int:
-    """Get retry count for a shard from retry marker file."""
-    retry_file = os.path.join(shard_dir, ".retry_count")
-    if not os.path.exists(retry_file):
-        return 0
+def _status_file(state_dir: str) -> str:
+    """Canonical status file path."""
+    return os.path.join(state_dir, "status.json")
+
+
+def _read_status(state_dir: str) -> dict:
+    """Read status.json if present."""
+    path = _status_file(state_dir)
+    if not os.path.exists(path):
+        return {}
     try:
-        with open(retry_file, "r") as f:
-            return int(f.read().strip())
-    except (ValueError, IOError):
-        return 0
+        with open(path, "r") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning(f"Failed to read status file {path}: {e}")
+        return {}
 
 
-def _increment_retry_count(shard_dir: str) -> int:
-    """Increment and write retry count for a shard."""
-    count = _get_retry_count(shard_dir) + 1
-    retry_file = os.path.join(shard_dir, ".retry_count")
-    os.makedirs(shard_dir, exist_ok=True)
-    with open(retry_file, "w") as f:
-        f.write(str(count))
-    return count
+def _write_status(state_dir: str, payload: dict):
+    """Atomically write status.json."""
+    os.makedirs(state_dir, exist_ok=True)
+    tmp_path = _status_file(state_dir) + ".tmp"
+    with open(tmp_path, "w") as f:
+        json.dump(payload, f, indent=2, sort_keys=True)
+    os.replace(tmp_path, _status_file(state_dir))
 
 
-def _cleanup_old_shard_data(shard_dir: str):
-    """Remove old data files from a shard directory before retry.
-    
-    Keeps marker files (.SUCCESS, .FAILED, .retry_count) but removes
-    arrow files and dataset metadata to prevent duplicates.
-    """
-    if not os.path.exists(shard_dir):
-        return
-    
-    # Patterns for files to remove
-    patterns_to_remove = [
-        "*.arrow",
-        "dataset_info.json",
-        "state.json",
-    ]
-    
-    removed_count = 0
-    for pattern in patterns_to_remove:
-        for file_path in glob.glob(os.path.join(shard_dir, pattern)):
+def _clear_markers(state_dir: str):
+    """Remove status marker files."""
+    for name in (".RUNNING", ".SUCCESS", ".FAILED"):
+        path = os.path.join(state_dir, name)
+        if os.path.exists(path):
             try:
-                os.remove(file_path)
-                removed_count += 1
+                os.remove(path)
             except OSError as e:
-                logger.warning(f"Failed to remove {file_path}: {e}")
-    
-    if removed_count > 0:
-        logger.info(f"Cleaned up {removed_count} old data files from {shard_dir}")
+                logger.warning(f"Failed to remove marker {path}: {e}")
 
 
-def _write_success_marker(shard_dir: str):
-    """Write success marker file for a completed shard."""
-    marker_file = os.path.join(shard_dir, ".SUCCESS")
-    os.makedirs(shard_dir, exist_ok=True)
-    with open(marker_file, "w") as f:
-        f.write(f"completed_at: {datetime.now().isoformat()}\n")
+def _touch_marker(state_dir: str, name: str):
+    """Create a marker file."""
+    os.makedirs(state_dir, exist_ok=True)
+    path = os.path.join(state_dir, name)
+    with open(path, "w") as f:
+        f.write(f"{datetime.now().isoformat()}\n")
 
 
-def _write_failure_marker(shard_dir: str, error_msg: str):
-    """Write failure marker file with error information."""
-    marker_file = os.path.join(shard_dir, ".FAILED")
-    os.makedirs(shard_dir, exist_ok=True)
-    with open(marker_file, "w") as f:
-        f.write(f"failed_at: {datetime.now().isoformat()}\n")
-        f.write(f"error: {error_msg}\n")
+def _mark_running(
+    state_dir: str,
+    shard_id: int,
+    datasets_config: List[BaseDataLoaderConfig],
+) -> int:
+    """Mark shard as running and increment retry count."""
+    prev = _read_status(state_dir)
+    retry_count = int(prev.get("retry_count", 0)) + 1
+
+    payload = {
+        "status": "running",
+        "retry_count": retry_count,
+        "shard_id": shard_id,
+        "started_at": datetime.now().isoformat(),
+        "finished_at": None,
+        "error": None,
+        "hostname": socket.gethostname(),
+        "pid": os.getpid(),
+        "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
+        "slurm_array_task_id": os.environ.get("SLURM_ARRAY_TASK_ID"),
+        "datasets": [
+            {
+                "path": ds_config.path,
+                "output_dir": ds_config.output_dir,
+            }
+            for ds_config in datasets_config
+        ],
+    }
+
+    _write_status(state_dir, payload)
+    _clear_markers(state_dir)
+    _touch_marker(state_dir, ".RUNNING")
+    return retry_count
+
+
+def _mark_success(state_dir: str):
+    """Mark shard as successful."""
+    prev = _read_status(state_dir)
+    prev["status"] = "success"
+    prev["finished_at"] = datetime.now().isoformat()
+    prev["error"] = None
+    _write_status(state_dir, prev)
+    _clear_markers(state_dir)
+    _touch_marker(state_dir, ".SUCCESS")
+
+
+def _mark_failure(state_dir: str, error_msg: str):
+    """Mark shard as failed."""
+    prev = _read_status(state_dir)
+    prev["status"] = "failed"
+    prev["finished_at"] = datetime.now().isoformat()
+    prev["error"] = error_msg
+    _write_status(state_dir, prev)
+    _clear_markers(state_dir)
+    _touch_marker(state_dir, ".FAILED")
+
+
+def _cleanup_old_shard_data(out_dir: str):
+    """Remove old dataset shard output before retry."""
+    if os.path.exists(out_dir):
+        shutil.rmtree(out_dir)
+        logger.info(f"Removed old shard output: {out_dir}")
+
+
+def _save_dataset_atomic(ds_processed: DatasetLike, out_dir: str):
+    """Save dataset atomically via temporary directory + rename."""
+    parent_dir = os.path.dirname(out_dir)
+    os.makedirs(parent_dir, exist_ok=True)
+
+    tmp_dir = f"{out_dir}.tmp.{os.getpid()}"
+    if os.path.exists(tmp_dir):
+        shutil.rmtree(tmp_dir)
+
+    ds_processed.save_to_disk(tmp_dir)
+
+    if os.path.exists(out_dir):
+        shutil.rmtree(out_dir)
+
+    os.replace(tmp_dir, out_dir)
 
 
 def rewrite_batch(
@@ -133,20 +198,7 @@ def rewrite_batch(
     renderer: TemplateRenderer,
     image_base_path: str = None,
 ) -> Dict[str, List[Any]]:
-    """Rewrite a batch of samples by applying transformations.
-
-    Args:
-        batch: Dictionary mapping column names to lists of values.
-        mapper: MMIRAGEMapper for processing transformations.
-        renderer: TemplateRenderer for generating output.
-        image_base_path: Optional base directory for resolving relative image paths.
-
-    Returns:
-        Dictionary mapping output keys to lists of rendered values.
-
-    Raises:
-        ValueError: If variables are not computable given the configuration.
-    """
+    """Rewrite a batch of samples by applying transformations."""
     if not mapper.validate_vars():
         raise ValueError(
             "Uncomputable variables detected. Verify your configuration and make sure that there is no undefined variables"
@@ -157,15 +209,19 @@ def rewrite_batch(
     return rendered_list
 
 
-def main():
-    """Process a single shard of the dataset.
+def _get_state_root(cfg) -> str:
+    """Get the shared pipeline state root from config."""
+    state_dir = getattr(cfg.loading_params, "state_dir", None)
+    if not state_dir:
+        raise ValueError(
+            "loading_params.state_dir must be set when using multiple datasets with independent output_dir values"
+        )
+    return state_dir
 
-    Loads configuration, datasets, processes the shard using MMIRAGE
-    transformations (including multimodal), and saves the result to disk.
-    """
-    ap = argparse.ArgumentParser(
-        "Process dataset shards using MMIRAGE with SGLang."
-    )
+
+def main():
+    """Process a single logical shard across all configured datasets."""
+    ap = argparse.ArgumentParser("Process dataset shards using MMIRAGE with SGLang.")
     ap.add_argument(
         "--config",
         help="YAML config for MMIRAGE pipeline.",
@@ -177,6 +233,7 @@ def main():
     loading_params = cfg.loading_params
     processing_params = cfg.processing_params
     datasets_config = loading_params.datasets
+
     if not datasets_config:
         raise ValueError("No datasets provided in config.loading_params.datasets")
 
@@ -186,10 +243,18 @@ def main():
     if not (0 <= shard_id < num_shards):
         raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
 
-    # Track shard directories for marker files
-    shard_dirs = []
+    state_root = _get_state_root(cfg)
+    state_dir = _shard_state_dir(shard_id, state_root)
 
     try:
+        retry_count = _mark_running(state_dir, shard_id, datasets_config)
+        logger.info(f"Starting shard {shard_id}/{num_shards - 1} (attempt #{retry_count})")
+
+        if retry_count > 1:
+            for ds_config in datasets_config:
+                out_dir = _dataset_out_dir(shard_id, ds_config)
+                _cleanup_old_shard_data(out_dir)
+
         ds_all = load_datasets_from_configs(datasets_config)
         total_rows = sum(_count_rows(ds) for ds in ds_all)
 
@@ -198,59 +263,54 @@ def main():
 
         logger.info(
             f"Loaded {len(datasets_config)} dataset(s): {datasets_config} "
-            f"→ {total_rows} total rows; this shard has {shard_rows} rows."
+            f"→ {total_rows} total rows; this logical shard has {shard_rows} rows."
         )
-
-        # Increment retry count for each shard directory
-        for ds_config in datasets_config:
-            shard_dir = _dataset_out_dir(shard_id, ds_config)
-            retry_count = _increment_retry_count(shard_dir)
-            shard_dirs.append(shard_dir)
-            if retry_count > 1:
-                logger.info(f"Retry attempt #{retry_count} for shard {shard_id}")
-                # Clean up old data files to prevent duplicates
-                _cleanup_old_shard_data(shard_dir)
 
         mapper = MMIRAGEMapper(
-            cfg.processors, processing_params.inputs, processing_params.outputs
+            cfg.processors,
+            processing_params.inputs,
+            processing_params.outputs,
         )
         renderer = TemplateRenderer(processing_params.output_schema)
+
         ds_processed_all: List[DatasetLike] = []
         for ds_idx, ds_shard in enumerate(ds_all_shard):
             ds_config = datasets_config[ds_idx]
             remove_columns = _remove_columns(ds_shard, processing_params.remove_columns)
+
+            logger.info(
+                f"Processing dataset {ds_idx} for shard {shard_id}: "
+                f"path={ds_config.path}, output_dir={ds_config.output_dir}"
+            )
+
             ds_processed = ds_shard.map(
                 rewrite_batch,
                 batched=True,
                 batch_size=loading_params.get_batch_size(),
                 load_from_cache_file=False,
                 desc=f"Shard {shard_id}/{num_shards - 1} dataset {ds_idx}",
-                fn_kwargs={"mapper": mapper, "renderer": renderer, "image_base_path": ds_config.image_base_path},
+                fn_kwargs={
+                    "mapper": mapper,
+                    "renderer": renderer,
+                    "image_base_path": ds_config.image_base_path,
+                },
                 remove_columns=remove_columns,
             )
             ds_processed_all.append(ds_processed)
 
-        for ds_config, ds_processed in zip(datasets_config, ds_processed_all):
+        for ds_idx, (ds_config, ds_processed) in enumerate(zip(datasets_config, ds_processed_all)):
             out_dir = _dataset_out_dir(shard_id, ds_config)
-            os.makedirs(out_dir, exist_ok=True)
-            ds_processed.save_to_disk(out_dir)
-            logger.info(f"✅ Saved dataset in: {out_dir}")
+            _save_dataset_atomic(ds_processed, out_dir)
+            logger.info(f"✅ Saved dataset {ds_idx} shard in: {out_dir}")
 
-        # Write success markers for all shards
-        for shard_dir in shard_dirs:
-            _write_success_marker(shard_dir)
-            logger.info(f"✅ Shard {shard_id} completed successfully")
+        _mark_success(state_dir)
+        logger.info(f"✅ Logical shard {shard_id} completed successfully")
 
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.error(f"❌ Shard {shard_id} failed: {error_msg}")
         logger.error(traceback.format_exc())
-        
-        # Write failure markers for all shards
-        for shard_dir in shard_dirs:
-            _write_failure_marker(shard_dir, error_msg)
-        
-        # Re-raise to ensure non-zero exit code
+        _mark_failure(state_dir, error_msg)
         sys.exit(1)
 
 

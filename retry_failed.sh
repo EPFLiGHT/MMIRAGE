@@ -1,58 +1,55 @@
 #!/bin/bash
-# Check for failed shards and relaunch them
+# Check for failed logical shards and relaunch them
 #
 # Usage: bash retry_failed.sh
 
-# Configuration
-SHARDS_ROOT="/capstor/store/cscs/swissai/a127/homes/qchapp/datasets/medtrinity/medtrinity_conversations_sampled2"
+set -euo pipefail
+
+STATE_ROOT="/capstor/store/cscs/swissai/a127/homes/qchapp/datasets/medtrinity/_pipeline_state"
 NUM_SHARDS=32
 MAX_RETRIES=3
 SCRIPT_PATH="/users/qchapp/meditron/MIRAGE/run_with_retry.sh"
 
-echo "Checking for failed shards in: $SHARDS_ROOT"
+echo "Checking shard states in: $STATE_ROOT"
 echo ""
 
 failed_shards=()
 success_count=0
 
-for i in $(seq 0 $((NUM_SHARDS-1))); do
-    # Find shard directories (may be nested under dataset dirs)
-    shard_dirs=$(find "$SHARDS_ROOT" -type d -name "shard_$i" 2>/dev/null)
-    
-    if [ -z "$shard_dirs" ]; then
-        echo "❌ Shard $i: MISSING"
-        failed_shards+=($i)
+for i in $(seq 0 $((NUM_SHARDS - 1))); do
+    state_dir="$STATE_ROOT/shard_$i"
+    status_file="$state_dir/status.json"
+
+    if [ ! -f "$status_file" ]; then
+        echo "❌ Shard $i: MISSING STATUS"
+        failed_shards+=("$i")
         continue
     fi
-    
-    # Check each shard directory for success marker
-    shard_success=false
-    for shard_dir in $shard_dirs; do
-        if [ -f "$shard_dir/.SUCCESS" ]; then
-            shard_success=true
-            break
-        fi
-    done
-    
-    if [ "$shard_success" = true ]; then
+
+    status=$(python - <<PY
+import json
+with open("$status_file", "r") as f:
+    data = json.load(f)
+print(data.get("status", "unknown"))
+PY
+)
+
+    retry_count=$(python - <<PY
+import json
+with open("$status_file", "r") as f:
+    data = json.load(f)
+print(int(data.get("retry_count", 0)))
+PY
+)
+
+    if [ "$status" = "success" ]; then
         echo "✅ Shard $i: SUCCESS"
-        ((success_count++))
+        success_count=$((success_count + 1))
+    elif [ "$retry_count" -ge "$MAX_RETRIES" ]; then
+        echo "🛑 Shard $i: MAX RETRIES EXCEEDED ($retry_count/$MAX_RETRIES)"
     else
-        # Check retry count
-        retry_count=0
-        for shard_dir in $shard_dirs; do
-            if [ -f "$shard_dir/.retry_count" ]; then
-                retry_count=$(cat "$shard_dir/.retry_count")
-                break
-            fi
-        done
-        
-        if [ $retry_count -ge $MAX_RETRIES ]; then
-            echo "🛑 Shard $i: MAX RETRIES EXCEEDED ($retry_count/$MAX_RETRIES)"
-        else
-            echo "❌ Shard $i: FAILED (retries: $retry_count/$MAX_RETRIES)"
-            failed_shards+=($i)
-        fi
+        echo "❌ Shard $i: $status (retries: $retry_count/$MAX_RETRIES)"
+        failed_shards+=("$i")
     fi
 done
 
@@ -69,10 +66,7 @@ if [ ${#failed_shards[@]} -eq 0 ]; then
     exit 0
 fi
 
-# Build array spec
-IFS=','
-ARRAY_SPEC="${failed_shards[*]}"
-unset IFS
+ARRAY_SPEC=$(IFS=,; echo "${failed_shards[*]}")
 
 echo "Failed shards: $ARRAY_SPEC"
 echo ""
@@ -80,7 +74,7 @@ read -p "Submit retry job for these shards? (y/N) " -n 1 -r
 echo
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    JOB_ID=$(sbatch --array=$ARRAY_SPEC "$SCRIPT_PATH" | grep -oE '[0-9]+')
+    JOB_ID=$(sbatch --array="$ARRAY_SPEC" "$SCRIPT_PATH" | grep -oE '[0-9]+')
     echo "✅ Job submitted: $JOB_ID"
     echo ""
     echo "Monitor with: squeue -j $JOB_ID"

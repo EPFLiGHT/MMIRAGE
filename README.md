@@ -34,17 +34,20 @@ For testing and scripts that make use of the library, it is advised to create a 
 
 ### Running with Automatic Retry
 
-Your job scripts now automatically track success/failure with marker files. After your job completes, just run a simple retry script:
+Your job scripts now automatically track success/failure with marker files. Run your job as follows:
 
 ```bash
-# 1. Submit your job normally
+bash run_with_retry.sh
+```
+
+If you want you can still do it separately:
+
+```bash
+# 1. Launch the job
 sbatch run.sh
 
-# 2. After job completes, check for failures and retry
+# 2. Look for retries
 bash retry_failed.sh
-
-# It will show you which shards failed and ask if you want to relaunch them
-# Keep running retry_failed.sh until all shards succeed
 ```
 
 ### Text-only: Reformatting dataset
