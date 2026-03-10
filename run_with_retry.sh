@@ -21,7 +21,7 @@ MMIRAGE_CHDIR="/users/qchapp/meditron/MIRAGE/src/mmirage"
 REPORT_DIR="/users/qchapp/reports"
 EDF_ENV="/users/qchapp/.edf/mmirage.toml"
 
-CFG="${MMIRAGE_PATH}/configs/config_medtrinity.yaml"
+CFG="/users/qchapp/meditron/MIRAGE/configs/config_medtrinity.yaml"
 # HF_HOME="${SCRATCH}/hf"
 HF_HOME="/capstor/store/cscs/swissai/a127/homes/qchapp/hf"
 
@@ -117,7 +117,7 @@ submit_array_job() {
                 echo 'SLURM_JOB_ID: ' \$SLURM_JOB_ID
                 echo 'SLURM_ARRAY_TASK_ID: ' \$SLURM_ARRAY_TASK_ID
 
-                CMD=\"python \$MMIRAGE_PATH/src/mmirage/shard_process.py --config \$CFG\"
+                CMD=\"python /users/qchapp/meditron/MIRAGE/src/mmirage/shard_process.py --config \$CFG\"
 
                 SRUN_ARGS=\" \
                   --cpus-per-task $CPUS_PER_TASK \
