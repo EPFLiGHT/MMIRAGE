@@ -34,19 +34,21 @@ For testing and scripts that make use of the library, it is advised to create a 
 
 ### Running with Automatic Retry
 
-Your job scripts now automatically track success/failure with marker files. Run your job as follows:
+Your job scripts now automatically track success and failure using marker files.
+
+Run your job with automatic retry:
 
 ```bash
 bash run_with_retry.sh
 ```
 
-If you want you can still do it separately:
+Alternatively, you can run the steps separately:
 
 ```bash
 # 1. Launch the job
 sbatch run.sh
 
-# 2. Look for retries
+# 2. Retry failed jobs
 bash retry_failed.sh
 ```
 

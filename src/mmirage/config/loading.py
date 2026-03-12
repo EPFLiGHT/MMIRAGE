@@ -58,6 +58,14 @@ class LoadingParams:
         if self.state_dir is not None:
             self.state_dir = str(self.state_dir).strip() or None
 
+    def get_state_root(self) -> str:
+        """Get the state root path.
+
+        Returns:
+            str: State root path
+        """
+        return self.state_dir
+
     def get_num_shards(self) -> int:
         """Get the total number of shards.
 
