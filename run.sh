@@ -12,16 +12,11 @@
 #SBATCH --array=0-3
 
 # --- outputs & config ---
-export ROOT=$SCRATCH/mmirage_output
-export SHARDS_ROOT="$ROOT/shards"
-export MERGED_DIR="$ROOT/merged"
 export CFG=$MMIRAGE_PATH/configs/config_small.yaml
+export TOTAL_SHARDS=32  # Total number of shards (used for retries)
 
 # HF cache/home
 export HF_HOME=$SCRATCH/hf
-
-mkdir -p "$SHARDS_ROOT"
-mkdir -p "$MERGED_DIR"
 
 export CMD="python $MMIRAGE_PATH/src/mmirage/shard_process.py --config $CFG"
 
@@ -36,4 +31,3 @@ SRUN_ARGS=" \
 # bash -c is needed for the delayed interpolation of env vars to work
 srun $SRUN_ARGS bash -c "$CMD"
 echo "END TIME: $(date)"
-

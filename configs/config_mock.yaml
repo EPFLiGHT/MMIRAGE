@@ -13,6 +13,7 @@ processors:
           enable_thinking: false
 
 loading_params:
+  state_dir: tests/output/data/_pipeline_state
   datasets:
     - path: tests/mock_data/data.jsonl
       type: JSONL

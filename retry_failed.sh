@@ -5,10 +5,10 @@
 
 set -euo pipefail
 
-STATE_ROOT="/capstor/store/cscs/swissai/a127/homes/qchapp/datasets/medtrinity/_pipeline_state"
+STATE_ROOT="/users/$USER/meditron/MMIRAGE/tests/output/data/_pipeline_state"
 NUM_SHARDS=32
 MAX_RETRIES=3
-SCRIPT_PATH="/users/qchapp/meditron/MIRAGE/run_with_retry.sh"
+SCRIPT_PATH="/users/$USER/meditron/MMIRAGE/run.sh"
 
 echo "Checking shard states in: $STATE_ROOT"
 echo ""
