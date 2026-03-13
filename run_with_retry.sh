@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 
 JOB_NAME="mmirage-sharded"
 ACCOUNT="a127"
@@ -45,11 +45,14 @@ submit_array_job() {
     local array_spec="$1"
     local extra=()
 
-    [[ -n "$RESERVATION" ]] && extra+=(--reservation="$RESERVATION")
+    if [[ -n "$RESERVATION" ]]; then
+        extra+=(--reservation="$RESERVATION")
+    fi
 
     echo "[INFO] Submitting job array: $array_spec"
 
-    SUBMITTED_JOB_ID=$(
+    local submitted
+    submitted=$(
         sbatch --parsable \
             "${extra[@]}" \
             --job-name="$JOB_NAME" \
@@ -65,7 +68,7 @@ submit_array_job() {
             --array="$array_spec" \
             --export=ALL,CFG="$CFG",TOTAL_SHARDS="$NUM_SHARDS",HF_HOME="$HF_HOME" \
             --wrap="
-                set -euo pipefail
+                set -uo pipefail
                 echo START: \$(date)
                 echo HOST: \$(hostname)
                 echo TASK: \$SLURM_ARRAY_TASK_ID
@@ -76,11 +79,19 @@ submit_array_job() {
                   --environment=$EDF_ENV \
                   python \"$MMIRAGE_CHDIR/shard_process.py\" --config \$CFG
 
+                rc=\$?
+                echo PYTHON_EXIT: \$rc
                 echo END: \$(date)
+                exit \$rc
             "
     )
 
-    SUBMITTED_JOB_ID="${SUBMITTED_JOB_ID%%;*}"
+    if [[ -z "$submitted" ]]; then
+        echo "[ERROR] sbatch submission failed"
+        exit 1
+    fi
+
+    SUBMITTED_JOB_ID="${submitted%%;*}"
     echo "[INFO] Job ID: $SUBMITTED_JOB_ID"
 }
 
@@ -90,9 +101,13 @@ wait_for_job() {
     echo "[INFO] Waiting for job array $job_id"
 
     while true; do
-        if [[ -z "$(squeue -j "$job_id" -h 2>/dev/null || true)" ]]; then
+        local n
+        n=$(squeue -j "$job_id" -h 2>/dev/null | wc -l)
+
+        if [[ "$n" -eq 0 ]]; then
             break
         fi
+
         squeue -j "$job_id" -o "%.18i %.10T %.10M %.20R"
         sleep "$POLL_SECONDS"
     done
@@ -109,11 +124,14 @@ get_status() {
         return
     fi
 
-    python - <<PY 2>/dev/null || echo "unknown"
+    python - <<PY 2>/dev/null
 import json
 with open("$status_file") as f:
     print(json.load(f).get("status", "unknown"))
 PY
+    if [[ $? -ne 0 ]]; then
+        echo "unknown"
+    fi
 }
 
 get_retry_count() {
@@ -125,11 +143,14 @@ get_retry_count() {
         return
     fi
 
-    python - <<PY 2>/dev/null || echo 0
+    python - <<PY 2>/dev/null
 import json
 with open("$status_file") as f:
     print(int(json.load(f).get("retry_count", 0)))
 PY
+    if [[ $? -ne 0 ]]; then
+        echo 0
+    fi
 }
 
 wait_for_settle() {
@@ -137,21 +158,23 @@ wait_for_settle() {
 
     echo "[INFO] Waiting up to ${SETTLE_SECONDS}s for shard states to settle"
 
-    while (( waited < SETTLE_SECONDS )); do
+    while [[ "$waited" -lt "$SETTLE_SECONDS" ]]; do
         local running=0
 
         for i in $(seq 0 $((NUM_SHARDS - 1))); do
-            [[ "$(get_status "$i")" == "running" ]] && ((running+=1))
+            if [[ "$(get_status "$i")" == "running" ]]; then
+                running=$((running + 1))
+            fi
         done
 
-        if (( running == 0 )); then
+        if [[ "$running" -eq 0 ]]; then
             echo "[INFO] State files settled"
             return
         fi
 
         echo "[INFO] $running shard(s) still marked running"
         sleep "$SETTLE_POLL"
-        ((waited+=SETTLE_POLL))
+        waited=$((waited + SETTLE_POLL))
     done
 
     echo "[INFO] Continuing after settle timeout"
@@ -176,13 +199,13 @@ check_failed_shards() {
 
         if [[ "$status" == "success" ]]; then
             echo "✅ shard $i: success"
-            ((success+=1))
+            success=$((success + 1))
         elif [[ "$status" == "running" ]]; then
             echo "⏳ shard $i: still running in state file (retry=$retry)"
-            ((running+=1))
+            running=$((running + 1))
         elif [[ "$retry" -ge "$MAX_RETRIES" ]]; then
             echo "🛑 shard $i: retries exhausted ($retry)"
-            ((exhausted+=1))
+            exhausted=$((exhausted + 1))
         else
             echo "❌ shard $i: $status (retry=$retry)"
             failed_ref+=("$i")
