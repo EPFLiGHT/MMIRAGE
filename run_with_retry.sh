@@ -3,17 +3,18 @@ set -uo pipefail
 
 JOB_NAME="mmirage-sharded"
 ACCOUNT="a127"
-RESERVATION="" # e.g. "sai-a127" if needed
+RESERVATION=""   # leave empty unless a real reservation exists
 
-MMIRAGE_CHDIR="/users/$USER/meditron/MMIRAGE/src/mmirage"
+PROJECT_ROOT="/users/$USER/meditron/MIRAGE"
+MMIRAGE_CHDIR="$PROJECT_ROOT/src/mmirage"
 REPORT_DIR="/users/$USER/reports"
-EDF_ENV="/users/$USER/.edf/mmirage.toml"
+EDF_ENV="/users/$USER/.edf/sglang.toml"
 
-CFG="/users/$USER/meditron/MMIRAGE/configs/config_mock.yaml"
+CFG="$PROJECT_ROOT/configs/config_mock.yaml"
 HF_HOME="/capstor/store/cscs/swissai/a127/homes/$USER/hf"
-STATE_ROOT="/users/$USER/meditron/MMIRAGE/tests/output/data/_pipeline_state"
+STATE_ROOT="$PROJECT_ROOT/tests/output/data/_pipeline_state"
 
-NUM_SHARDS=32
+NUM_SHARDS=4
 MAX_RETRIES=3
 
 NODES=1
@@ -39,15 +40,14 @@ echo "User       : $USER"
 echo "Host       : $(hostname)"
 echo "Start Time : $(date)"
 echo "Log File   : $LOG_FILE"
+echo "State Root : $STATE_ROOT"
 echo "=================================================="
 
 submit_array_job() {
     local array_spec="$1"
     local extra=()
 
-    if [[ -n "$RESERVATION" ]]; then
-        extra+=(--reservation="$RESERVATION")
-    fi
+    [[ -n "$RESERVATION" ]] && extra+=(--reservation="$RESERVATION")
 
     echo "[INFO] Submitting job array: $array_spec"
 
@@ -80,7 +80,7 @@ submit_array_job() {
                   python \"$MMIRAGE_CHDIR/shard_process.py\" --config \$CFG
 
                 rc=\$?
-                echo PYTHON_EXIT: \$rc
+                echo EXIT_CODE: \$rc
                 echo END: \$(date)
                 exit \$rc
             "
@@ -101,14 +101,16 @@ wait_for_job() {
     echo "[INFO] Waiting for job array $job_id"
 
     while true; do
-        local n
-        n=$(squeue -j "$job_id" -h 2>/dev/null | wc -l)
+        local active
+        active=$(squeue -j "$job_id" -h 2>/dev/null | wc -l)
 
-        if [[ "$n" -eq 0 ]]; then
+        echo "[INFO] Poll $(date): active entries = $active"
+
+        if [[ "$active" -eq 0 ]]; then
             break
         fi
 
-        squeue -j "$job_id" -o "%.18i %.10T %.10M %.20R"
+        squeue -j "$job_id" -o "%.18i %.10T %.10M %.20R" || true
         sleep "$POLL_SECONDS"
     done
 
@@ -153,6 +155,15 @@ PY
     fi
 }
 
+count_state_files() {
+    if [[ ! -d "$STATE_ROOT" ]]; then
+        echo 0
+        return
+    fi
+
+    find "$STATE_ROOT" -maxdepth 2 -name status.json 2>/dev/null | wc -l
+}
+
 wait_for_settle() {
     local waited=0
 
@@ -160,6 +171,9 @@ wait_for_settle() {
 
     while [[ "$waited" -lt "$SETTLE_SECONDS" ]]; do
         local running=0
+        local present=0
+
+        present=$(count_state_files)
 
         for i in $(seq 0 $((NUM_SHARDS - 1))); do
             if [[ "$(get_status "$i")" == "running" ]]; then
@@ -167,17 +181,17 @@ wait_for_settle() {
             fi
         done
 
+        echo "[INFO] Settle $(date): status files=$present running_states=$running"
+
         if [[ "$running" -eq 0 ]]; then
-            echo "[INFO] State files settled"
-            return
+            break
         fi
 
-        echo "[INFO] $running shard(s) still marked running"
         sleep "$SETTLE_POLL"
         waited=$((waited + SETTLE_POLL))
     done
 
-    echo "[INFO] Continuing after settle timeout"
+    echo "[INFO] Settle phase finished"
 }
 
 check_failed_shards() {
@@ -187,6 +201,7 @@ check_failed_shards() {
     local success=0
     local exhausted=0
     local running=0
+    local missing=0
 
     echo
     echo "[INFO] Inspecting shard states"
@@ -200,12 +215,19 @@ check_failed_shards() {
         if [[ "$status" == "success" ]]; then
             echo "✅ shard $i: success"
             success=$((success + 1))
+
         elif [[ "$status" == "running" ]]; then
             echo "⏳ shard $i: still running in state file (retry=$retry)"
             running=$((running + 1))
+
+        elif [[ "$status" == "missing" ]]; then
+            echo "⚠️ shard $i: missing state file"
+            missing=$((missing + 1))
+
         elif [[ "$retry" -ge "$MAX_RETRIES" ]]; then
             echo "🛑 shard $i: retries exhausted ($retry)"
             exhausted=$((exhausted + 1))
+
         else
             echo "❌ shard $i: $status (retry=$retry)"
             failed_ref+=("$i")
@@ -217,8 +239,20 @@ check_failed_shards() {
     echo "  success: $success / $NUM_SHARDS"
     echo "  retry: ${#failed_ref[@]}"
     echo "  still running: $running"
+    echo "  missing: $missing"
     echo "  exhausted: $exhausted"
     echo
+
+    local present
+    present=$(count_state_files)
+
+    if [[ "$present" -eq 0 ]]; then
+        echo "[ERROR] No shard state files were created in: $STATE_ROOT"
+        echo "[ERROR] The job finished, but no status.json files were found."
+        echo "[ERROR] This usually means STATE_ROOT is wrong, or shard_process.py wrote elsewhere."
+        echo "[ERROR] Refusing to auto-retry all shards."
+        exit 2
+    fi
 }
 
 main() {
