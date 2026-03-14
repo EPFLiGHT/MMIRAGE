@@ -78,6 +78,7 @@ processors:
       max_new_tokens: 384
 
 loading_params:
+  state_dir: /path/to/state/dir
   datasets:
     - path: /path/to/dataset
       type: loadable
@@ -141,6 +142,7 @@ processors:
       max_new_tokens: 768
 
 loading_params:
+  state_dir: path/to/state/dir
   datasets:
     - path: /path/to/image/dataset
       type: loadable
