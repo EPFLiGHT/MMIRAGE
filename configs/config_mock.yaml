@@ -20,7 +20,7 @@ loading_params:
       output_dir: tests/output/data
 
   num_shards: 4
-  shard_id: 0
+  shard_id: "$SLURM_ARRAY_TASK_ID"
   batch_size: 64
 
 processing_params:
