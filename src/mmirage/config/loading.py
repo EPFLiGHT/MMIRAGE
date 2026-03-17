@@ -1,5 +1,6 @@
 """Data loading configuration for MMIRAGE pipeline."""
 
+import re
 from dataclasses import dataclass, field
 from typing import Union, List, cast, Optional
 
@@ -39,13 +40,19 @@ class LoadingParams:
                 if self.num_shards < 1:
                     raise ValueError()
             except (ValueError, TypeError):
-                raise ValueError(f"Invalid value for num_shards: {self.num_shards!r}")
+                if _is_unresolved_env_var(self.num_shards):
+                    self.num_shards = 1
+                else:
+                    raise ValueError(f"Invalid value for num_shards: {self.num_shards!r}")
 
         if isinstance(self.shard_id, str):
             try:
                 self.shard_id = int(self.shard_id)
             except (ValueError, TypeError):
-                raise ValueError(f"Invalid value for shard_id: {self.shard_id!r}")
+                if _is_unresolved_env_var(self.shard_id):
+                    self.shard_id = 0
+                else:
+                    raise ValueError(f"Invalid value for shard_id: {self.shard_id!r}")
 
         if isinstance(self.batch_size, str):
             try:
@@ -89,3 +96,11 @@ class LoadingParams:
             int: Batch size (minimum 1).
         """
         return cast(int, self.batch_size)
+
+
+_UNRESOLVED_ENV_VAR_PATTERN = re.compile(r"^\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)$")
+
+
+def _is_unresolved_env_var(value: str) -> bool:
+    """Check whether a string still looks like an unresolved shell env var."""
+    return bool(_UNRESOLVED_ENV_VAR_PATTERN.fullmatch(value.strip()))

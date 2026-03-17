@@ -48,3 +48,13 @@ processing_params:
         content: "{{ formatted_answer.question }}"
       - role: "assistant"
         content: "{{ formatted_answer.answer }}"
+
+# Execution configuration (local or SLURM cluster)
+# For local testing, use mode: local
+# For SLURM cluster, use mode: slurm and specify account
+execution_params:
+  mode: local
+  retry: false
+  max_retries: 3
+  report_dir: ~/reports
+  hf_home: ~/hf

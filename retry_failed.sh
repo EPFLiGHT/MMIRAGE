@@ -1,83 +1,52 @@
 #!/bin/bash
-# Check for failed logical shards and relaunch them
+# MMIRAGE retry failed shards script
 #
-# Usage: bash retry_failed.sh
+# Check for failed logical shards and relaunch them interactively.
+#
+# Usage:
+#   bash retry_failed.sh [--config path/to/config.yaml]
+#
+# Configuration:
+#   Set the CFG environment variable to point to your config file, or
+#   use the --config argument. Defaults to configs/config_mock.yaml.
+#
 
 set -euo pipefail
+IFS=$'\n\t'
 
-STATE_ROOT="/users/$USER/meditron/MMIRAGE/tests/output/data/_pipeline_state"
-NUM_SHARDS=32
-MAX_RETRIES=3
-SCRIPT_PATH="/users/$USER/meditron/MMIRAGE/run.sh"
-
-echo "Checking shard states in: $STATE_ROOT"
-echo ""
-
-failed_shards=()
-success_count=0
-
-for i in $(seq 0 $((NUM_SHARDS - 1))); do
-    state_dir="$STATE_ROOT/shard_$i"
-    status_file="$state_dir/status.json"
-
-    if [ ! -f "$status_file" ]; then
-        echo "❌ Shard $i: MISSING STATUS"
-        failed_shards+=("$i")
-        continue
-    fi
-
-    status=$(python - <<PY
-import json
-with open("$status_file", "r") as f:
-    data = json.load(f)
-print(data.get("status", "unknown"))
-PY
-)
-
-    retry_count=$(python - <<PY
-import json
-with open("$status_file", "r") as f:
-    data = json.load(f)
-print(int(data.get("retry_count", 0)))
-PY
-)
-
-    if [ "$status" = "success" ]; then
-        echo "✅ Shard $i: SUCCESS"
-        success_count=$((success_count + 1))
-    elif [ "$retry_count" -ge "$MAX_RETRIES" ]; then
-        echo "🛑 Shard $i: MAX RETRIES EXCEEDED ($retry_count/$MAX_RETRIES)"
-    else
-        echo "❌ Shard $i: $status (retries: $retry_count/$MAX_RETRIES)"
-        failed_shards+=("$i")
-    fi
+# Parse command line arguments
+CFG="${CFG:-configs/config_mock.yaml}"
+while (( $# > 0 )); do
+    case "$1" in
+        --config)
+            CFG="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+    esac
 done
 
-echo ""
-echo "=========================================="
-echo "Summary:"
-echo "  ✅ Successful: $success_count / $NUM_SHARDS"
-echo "  ❌ To retry: ${#failed_shards[@]}"
-echo "=========================================="
-echo ""
-
-if [ ${#failed_shards[@]} -eq 0 ]; then
-    echo "🎉 All shards completed successfully!"
-    exit 0
+if [[ ! -f "$CFG" ]]; then
+    echo "❌ Config file not found: $CFG" >&2
+    exit 1
 fi
 
-ARRAY_SPEC=$(IFS=,; echo "${failed_shards[*]}")
-
-echo "Failed shards: $ARRAY_SPEC"
+echo "Checking shard states from config: $CFG"
 echo ""
-read -p "Submit retry job for these shards? (y/N) " -n 1 -r
+
+# Use MMIRAGE CLI to check failed shards (summary only; no retry submission)
+python -m mmirage.cli check --config "$CFG" --summary-only || true
+
+echo ""
+read -p "Submit retry job for failed shards? (y/N) " -n 1 -r
 echo
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    JOB_ID=$(sbatch --array="$ARRAY_SPEC" "$SCRIPT_PATH" | grep -oE '[0-9]+')
-    echo "✅ Job submitted: $JOB_ID"
-    echo ""
-    echo "Monitor with: squeue -j $JOB_ID"
+    python -m mmirage.cli retry --config "$CFG" --no-interactive
 else
     echo "Cancelled."
+    exit 1
 fi

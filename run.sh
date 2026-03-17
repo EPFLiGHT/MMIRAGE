@@ -1,33 +1,23 @@
 #!/bin/bash
-#SBATCH --job-name=mmirage-sharded
-#SBATCH --chdir=/users/$USER/meditron/MMIRAGE/src/mmirage
-#SBATCH --output=/users/$USER/reports/R-%x.%A_%a.out
-#SBATCH --error=/users/$USER/reports/R-%x.%A_%a.err
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --gres=gpu:4
-#SBATCH --cpus-per-task=288
-#SBATCH --time=11:59:59
-#SBATCH -A a127
-#SBATCH --array=0-3
+# MMIRAGE launch script.
+#
+# Launch behavior is driven by the config file:
+# - execution_params.retry=false: submit one SLURM array job, or run locally
+# - execution_params.retry=true: submit and automatically retry failed shards
+#
+# Usage:
+#   bash run.sh
+#   CFG=configs/config_mock.yaml bash run.sh
 
-# --- outputs & config ---
-export CFG=$MMIRAGE_PATH/configs/config_small.yaml
-export TOTAL_SHARDS=32  # Total number of shards (used for retries)
+set -euo pipefail
 
-# HF cache/home
-export HF_HOME=$SCRATCH/hf
+CFG="${CFG:-configs/config_mock.yaml}"
 
-export CMD="python $MMIRAGE_PATH/src/mmirage/shard_process.py --config $CFG"
+if [[ ! -f "$CFG" ]]; then
+    echo "Config file not found: $CFG" >&2
+    exit 1
+fi
 
-SRUN_ARGS=" \
-  --cpus-per-task $SLURM_CPUS_PER_TASK \
-  --jobid $SLURM_JOB_ID \
-  --wait 60 \
-  -A a127 \
-  --reservation sai-a127 \
-  --environment /users/$USER/.edf/mmirage.toml
-  "
-# bash -c is needed for the delayed interpolation of env vars to work
-srun $SRUN_ARGS bash -c "$CMD"
+python -m mmirage.cli run --config "$CFG"
+
 echo "END TIME: $(date)"

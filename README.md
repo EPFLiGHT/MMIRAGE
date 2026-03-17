@@ -32,24 +32,27 @@ For testing and scripts that make use of the library, it is advised to create a 
 
 ## Example usage
 
-### Running with Automatic Retry
+### Running (single command)
 
-Your job scripts now automatically track success and failure using marker files.
+Run the pipeline via the Python CLI. Retry behavior is driven by your YAML config:
 
-Run your job with automatic retry:
+- `execution_params.retry: true` → automatically retries failed shards until completion or `max_retries`
+- `execution_params.retry: false` → submits/runs once; you can later trigger retries via `check`
 
 ```bash
-bash run_with_retry.sh
+python -m mmirage.cli run --config configs/config_mock.yaml
 ```
 
-Alternatively, you can run the steps separately:
+To check status and (optionally) submit retries for failed shards:
 
 ```bash
-# 1. Launch the job
-sbatch run.sh
+python -m mmirage.cli check --config configs/config_mock.yaml
+```
 
-# 2. Retry failed jobs
-bash retry_failed.sh
+If you only want the status summary (no retry submission):
+
+```bash
+python -m mmirage.cli check --config configs/config_mock.yaml --summary-only
 ```
 
 ### Text-only: Reformatting dataset

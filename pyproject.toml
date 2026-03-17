@@ -49,6 +49,9 @@ dev = [
   "pytest",
 ]
 
+[project.scripts]
+mmirage = "mmirage.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/mmirage"]
 

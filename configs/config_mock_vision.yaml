@@ -39,3 +39,11 @@ processing_params:
   output_schema:
     image: "{{ image_input }}"
     caption: "{{ caption }}"
+
+# Execution configuration (local or SLURM cluster)
+execution_params:
+  mode: local
+  retry: false
+  max_retries: 3
+  report_dir: ~/reports
+  hf_home: ~/hf

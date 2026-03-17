@@ -1,15 +1,7 @@
 """Processing module for MMIRAGE pipeline.
 
-This module provides the core processing infrastructure:
-- Base classes for processors and variables
-- MMIRAGEMapper for orchestrating transformations
-- LLM processor implementation for generative tasks (including multimodal)
+Important: keep this package import lightweight.
 
-Processors are responsible for generating new output variables from
-existing variables, enabling flexible data transformations.
+The LLM processor implementation depends on heavy libraries (e.g. torch).
+We intentionally do not import processor implementations from here.
 """
-
-from mmirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMConfig
-from mmirage.core.process.processors.llm.llm_processor import LLMProcessor
-
-__all__ = ["LLMOutputVar", "SGLangLLMConfig", "LLMProcessor"]
