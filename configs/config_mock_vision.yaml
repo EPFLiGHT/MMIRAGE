@@ -18,8 +18,8 @@ loading_params:
       output_dir: tests/output/data_vision
       image_base_path: tests/mock_data_vision  # Base directory where images are stored
 
-  num_shards: 4
-  shard_id: "$SLURM_ARRAY_TASK_ID"
+  num_shards: 1
+  shard_id: 0
   batch_size: 1
 
 processing_params:

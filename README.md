@@ -86,7 +86,7 @@ loading_params:
     - path: /path/to/dataset
       type: loadable
       output_dir: /path/to/output/shards
-  num_shards: "$SLURM_ARRAY_TASK_COUNT"
+  num_shards: 4
   shard_id: "$SLURM_ARRAY_TASK_ID"
   batch_size: 64
 
@@ -150,7 +150,7 @@ loading_params:
     - path: /path/to/image/dataset
       type: loadable
       output_dir: /path/to/output/shards
-  num_shards: "$SLURM_ARRAY_TASK_COUNT"
+  num_shards: 4
   shard_id: "$SLURM_ARRAY_TASK_ID"
   batch_size: 32
 
