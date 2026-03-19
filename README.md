@@ -115,6 +115,10 @@ processing_params:
       - role: assistant
         content: "{{ formatted_answer }}"
     modalities: "{{ modalities }}"
+
+execution_params:
+  mode: local
+  retry: false
 ```
 
 Configuration explanation:
@@ -177,6 +181,10 @@ processing_params:
     image: "{{ medical_image }}"
     caption: "{{ enhanced_caption }}"
     original_caption: "{{ original_caption }}"
+
+execution_params:
+  mode: local
+  retry: false
 ```
 
 Key multimodal features:
