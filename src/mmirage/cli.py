@@ -39,10 +39,36 @@ def run_local(config_path: str, shard_id: Optional[int] = None) -> int:
 
 def launch_pipeline(cfg: MMirageConfig, config_path: str, force_retry: bool = False) -> int:
     """Launch the pipeline according to execution mode and retry settings."""
-    if not cfg.execution_params.is_slurm():
-        return run_local(config_path, cfg.loading_params.get_shard_id())
-
     auto_retry = force_retry or cfg.execution_params.retry
+
+    if not cfg.execution_params.is_slurm():
+        initial_shard_id = cfg.loading_params.get_shard_id()
+        if not auto_retry:
+            return run_local(config_path, initial_shard_id)
+
+        if not cfg.loading_params.get_state_root():
+            logger.warning(
+                "Local retry requires loading_params.state_dir; running once without orchestration"
+            )
+            return run_local(config_path, initial_shard_id)
+
+        shard_ids: List[int] = [initial_shard_id]
+        while True:
+            for shard_id in shard_ids:
+                run_local(config_path, shard_id)
+
+            failed_shards, summary = check_failed_shards(cfg)
+            if status_exit_code(failed_shards, summary) == 0:
+                logger.info("All shards completed successfully")
+                return 0
+
+            if not failed_shards:
+                logger.error("Pipeline ended with shards that exceeded max retries")
+                return 1
+
+            logger.warning("Retrying failed shards locally: %s", ",".join(map(str, failed_shards)))
+            shard_ids = failed_shards
+
     shard_ids: List[int] = []
 
     while True:
