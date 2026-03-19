@@ -165,8 +165,8 @@ execution_params:
   # HuggingFace cache directory (default: ~/hf)
   hf_home: "/capstor/store/cscs/swissai/a127/homes/${USER}/hf"
 
-  # Optional EDF environment file path for cluster-specific setup
-  # edf_env: "/path/to/.edf/mmirage.toml"
+  # EDF environment file path for cluster-specific setup
+  edf_env: "/users/${USER}/.edf/mmirage.toml"
 
   # ==========================================================================
   # JOB MONITORING (for "submit" and retry orchestration)
@@ -197,7 +197,7 @@ execution_params:
 #    JOB_ID=$(python -m mmirage.cli submit --config config.yaml)
 #
 # 4. Run a single shard locally:
-#    python -m mmirage.cli process --config config.yaml --shard-id 0
+#    python -m mmirage.cli run --config config.yaml --shard-id 0
 #
 # 5. Check status of all shards (and optionally submit retries):
 #    python -m mmirage.cli check --config config.yaml

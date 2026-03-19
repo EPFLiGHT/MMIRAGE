@@ -44,6 +44,5 @@ processing_params:
 execution_params:
   mode: local
   retry: false
-  max_retries: 3
   report_dir: ~/reports
   hf_home: ~/hf
