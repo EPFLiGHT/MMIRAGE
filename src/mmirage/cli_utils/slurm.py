@@ -21,7 +21,17 @@ def _bash_double_quote(value: str) -> str:
 
     We intentionally do NOT escape '$' so that $VARS from config can expand on
     compute nodes (e.g. $SCRATCH). This matches typical SLURM job scripts.
+
+    To avoid command injection, we reject values containing shell command
+    substitution syntax such as ``$(...)`` or backticks. Variable expansion
+    using ``$VAR`` or ``${VAR}`` is still allowed.
     """
+    # Disallow command substitution while still allowing $VAR expansion.
+    if "`" in value or "$(" in value:
+        raise ValueError(
+            "Config value contains unsupported shell command substitution "
+            "(` or '$('). Command substitution is not allowed in SLURM-generated scripts."
+        )
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
 
