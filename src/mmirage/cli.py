@@ -15,6 +15,8 @@ from mmirage.cli_utils.runtime import setup_runtime, validate_paths
 from mmirage.cli_utils.slurm import require_slurm, submit_slurm_job, wait_for_slurm_job
 from mmirage.cli_utils.status import (
     check_failed_shards,
+    get_shard_state_dir,
+    get_shard_status,
     status_exit_code,
     submit_failed_shards,
 )
@@ -54,6 +56,10 @@ def launch_pipeline(cfg: MMirageConfig, config_path: str, force_retry: bool = Fa
 
         shard_ids: List[int] = [initial_shard_id]
         attempts_by_shard = {initial_shard_id: 0}
+        state_root = cfg.loading_params.get_state_root()
+        if state_root is None:
+            logger.error("loading_params.state_dir is required for local retry orchestration")
+            return 1
         while True:
             run_exit_codes = {}
             for shard_id in shard_ids:
@@ -67,11 +73,14 @@ def launch_pipeline(cfg: MMirageConfig, config_path: str, force_retry: bool = Fa
 
             runtime_failed = [shard_id for shard_id, rc in run_exit_codes.items() if rc != 0]
             candidates = sorted(set(failed_shards) | set(runtime_failed))
-            retryable_shards = [
-                shard_id
-                for shard_id in candidates
-                if attempts_by_shard.get(shard_id, 0) < cfg.execution_params.max_retries
-            ]
+            retryable_shards: List[int] = []
+            for shard_id in candidates:
+                _, retry_count = get_shard_status(get_shard_state_dir(state_root, shard_id))
+                retries_from_state = max(retry_count - 1, 0)
+                retries_from_memory = max(attempts_by_shard.get(shard_id, 0) - 1, 0)
+                retries_used = max(retries_from_state, retries_from_memory)
+                if retries_used < cfg.execution_params.max_retries:
+                    retryable_shards.append(shard_id)
 
             if not retryable_shards:
                 logger.error("Pipeline ended with shards that exceeded max retries")

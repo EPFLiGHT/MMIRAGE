@@ -20,7 +20,6 @@ class ExecutionParams:
         max_retries: Maximum number of retries for failed shards. Defaults to 3.
         poll_interval_seconds: Seconds to wait between polling job status. Defaults to 30.
         settle_time_seconds: Seconds to wait after job completes before checking results. Defaults to 60.
-        settle_poll_interval: Seconds between polls during settle time. Defaults to 10.
 
         # SLURM-specific parameters
         account: HPC account/partition to charge. Required for SLURM mode.
@@ -44,7 +43,6 @@ class ExecutionParams:
     max_retries: int = 3
     poll_interval_seconds: int = 30
     settle_time_seconds: int = 60
-    settle_poll_interval: int = 10
 
     # SLURM parameters
     account: Optional[str] = None

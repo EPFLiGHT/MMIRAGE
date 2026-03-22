@@ -179,9 +179,6 @@ execution_params:
   # This allows filesystem to settle on distributed systems
   settle_time_seconds: 60
 
-  # Seconds to wait between checks during settle time (default: 10)
-  settle_poll_interval: 10
-
 
 # ============================================================================
 # USAGE EXAMPLES
