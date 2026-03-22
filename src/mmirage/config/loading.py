@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass, field
-from typing import Union, List, cast, Optional
+from typing import Union, List, cast
 
 from mmirage.core.loader.base import BaseDataLoaderConfig
 
@@ -27,7 +27,7 @@ class LoadingParams:
     """
 
     datasets: List[BaseDataLoaderConfig] = field(default_factory=list)
-    state_dir: Optional[str] = None
+    state_dir: str = ""
     output_dir: str = ""
     num_shards: Union[int, str] = 1
     shard_id: Union[int, str] = 0
@@ -62,14 +62,17 @@ class LoadingParams:
 
         self.batch_size = max(self.batch_size, 1)
 
-        if self.state_dir is not None:
-            self.state_dir = str(self.state_dir).strip() or None
+        self.state_dir = str(self.state_dir).strip()
+        if not self.state_dir:
+            raise ValueError(
+                "loading_params.state_dir is required to enable shard state tracking"
+            )
 
-    def get_state_root(self) -> Optional[str]:
+    def get_state_root(self) -> str:
         """Get the state root path.
 
         Returns:
-            Optional[str]: State root path, or None if no state directory is configured.
+            str: State root path.
         """
         return self.state_dir
 

@@ -22,6 +22,7 @@ class ShardSummary:
 
     total: int
     successful: int
+    running: int
     failed: int
     max_retries_exceeded: int
 
@@ -57,12 +58,17 @@ def check_failed_shards(cfg: MMirageConfig) -> Tuple[List[int], ShardSummary]:
     max_retries = cfg.execution_params.max_retries
     failed_shards: List[int] = []
     success_count = 0
+    running_count = 0
     exhausted_count = 0
 
     for shard_id in range(num_shards):
         status, retry_count = get_shard_status(get_shard_state_dir(state_root, shard_id))
         if status == "success":
             success_count += 1
+            continue
+
+        if status == "running":
+            running_count += 1
             continue
         
         retries_used = max(retry_count - 1, 0)
@@ -81,6 +87,7 @@ def check_failed_shards(cfg: MMirageConfig) -> Tuple[List[int], ShardSummary]:
     summary = ShardSummary(
         total=num_shards,
         successful=success_count,
+        running=running_count,
         failed=len(failed_shards),
         max_retries_exceeded=exhausted_count,
     )
@@ -100,7 +107,14 @@ def confirm_retry(count: int, interactive: bool) -> bool:
 
 def status_exit_code(failed_shards: Sequence[int], summary: ShardSummary) -> int:
     """Map shard status to an exit code."""
-    return 0 if not failed_shards and summary.max_retries_exceeded == 0 else 1
+    return (
+        0
+        if not failed_shards
+        and summary.max_retries_exceeded == 0
+        and summary.running == 0
+        and summary.successful == summary.total
+        else 1
+    )
 
 
 def submit_failed_shards(

@@ -17,6 +17,7 @@ class ExecutionParams:
 
     Attributes:
         mode: Execution mode: "local" or "slurm". Defaults to "local".
+        retry: Whether automatic retry orchestration is enabled. Defaults to False.
         max_retries: Maximum number of retries for failed shards. Defaults to 3.
         poll_interval_seconds: Seconds to wait between polling job status. Defaults to 30.
         settle_time_seconds: Seconds to wait after job completes before checking results. Defaults to 60.
