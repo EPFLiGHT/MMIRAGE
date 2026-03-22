@@ -65,12 +65,16 @@ def check_failed_shards(cfg: MMirageConfig) -> Tuple[List[int], ShardSummary]:
             success_count += 1
             continue
 
-        if retry_count >= max_retries:
+        # `retry_count` includes the initial attempt (starts at 1 on first run),
+        # while `max_retries` is configured as "number of retries after the first run".
+        # Compute the number of retries already used so the budget is applied correctly.
+        retries_used = max(retry_count - 1, 0)
+        if retries_used >= max_retries:
             exhausted_count += 1
             logger.warning(
                 "Shard %s exceeded retry budget (%s/%s)",
                 shard_id,
-                retry_count,
+                retries_used,
                 max_retries,
             )
             continue
