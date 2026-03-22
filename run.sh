@@ -1,5 +1,5 @@
 #!/bin/bash
-# MMIRAGE launch script.
+# MMIRAGE launch script. MMIRAGE should now be ran with a single command, and the behavior is driven by the config file.
 #
 # Launch behavior is driven by the config file:
 # - execution_params.retry=false: submit one SLURM array job, or run locally

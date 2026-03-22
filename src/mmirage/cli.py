@@ -53,21 +53,32 @@ def launch_pipeline(cfg: MMirageConfig, config_path: str, force_retry: bool = Fa
             return run_local(config_path, initial_shard_id)
 
         shard_ids: List[int] = [initial_shard_id]
+        attempts_by_shard = {initial_shard_id: 0}
         while True:
+            run_exit_codes = {}
             for shard_id in shard_ids:
-                run_local(config_path, shard_id)
+                attempts_by_shard[shard_id] = attempts_by_shard.get(shard_id, 0) + 1
+                run_exit_codes[shard_id] = run_local(config_path, shard_id)
 
             failed_shards, summary = check_failed_shards(cfg)
             if status_exit_code(failed_shards, summary) == 0:
                 logger.info("All shards completed successfully")
                 return 0
 
-            if not failed_shards:
+            runtime_failed = [shard_id for shard_id, rc in run_exit_codes.items() if rc != 0]
+            candidates = sorted(set(failed_shards) | set(runtime_failed))
+            retryable_shards = [
+                shard_id
+                for shard_id in candidates
+                if attempts_by_shard.get(shard_id, 0) < cfg.execution_params.max_retries
+            ]
+
+            if not retryable_shards:
                 logger.error("Pipeline ended with shards that exceeded max retries")
                 return 1
 
-            logger.warning("Retrying failed shards locally: %s", ",".join(map(str, failed_shards)))
-            shard_ids = failed_shards
+            logger.warning("Retrying failed shards locally: %s", ",".join(map(str, retryable_shards)))
+            shard_ids = retryable_shards
 
     shard_ids: List[int] = []
 
