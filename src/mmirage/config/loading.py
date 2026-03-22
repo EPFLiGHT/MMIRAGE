@@ -65,11 +65,11 @@ class LoadingParams:
         if self.state_dir is not None:
             self.state_dir = str(self.state_dir).strip() or None
 
-    def get_state_root(self) -> str:
+    def get_state_root(self) -> Optional[str]:
         """Get the state root path.
 
         Returns:
-            str: State root path
+            Optional[str]: State root path, or None if no state directory is configured.
         """
         return self.state_dir
 
