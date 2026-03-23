@@ -51,8 +51,6 @@ def get_shard_status(state_dir: str) -> Tuple[str, int]:
 def check_failed_shards(cfg: MMirageConfig) -> Tuple[List[int], ShardSummary]:
     """Return retryable failed shards and a compact summary."""
     state_root = cfg.loading_params.get_state_root()
-    if not state_root:
-        raise ValueError("loading_params.state_dir is required to check shard status")
 
     num_shards = cfg.loading_params.get_num_shards()
     max_retries = cfg.execution_params.max_retries

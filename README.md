@@ -125,6 +125,7 @@ Configuration explanation:
 
 - `processors`: List of processor configurations. Currently supports `llm` type for LLM-based generation.
 - `loading_params`: Parameters for loading and sharding datasets.
+  - `state_dir`: Optional shared directory for shard status/retry state. Defaults to `~/state_dir`.
   - `datasets`: List of dataset configurations with path, type, and output directory.
 - `processing_params`:
   - `inputs`: Variables extracted from the input dataset using JMESPath queries.

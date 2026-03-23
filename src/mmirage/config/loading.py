@@ -1,11 +1,13 @@
 """Data loading configuration for MMIRAGE pipeline."""
 
+import os
 import re
 from dataclasses import dataclass, field
 from typing import Union, List, cast
 
 from mmirage.core.loader.base import BaseDataLoaderConfig
 
+DEFAULT_STATE_DIR = "~/.cache/MMIRAGE/state_dir"
 
 @dataclass
 class LoadingParams:
@@ -27,7 +29,7 @@ class LoadingParams:
     """
 
     datasets: List[BaseDataLoaderConfig] = field(default_factory=list)
-    state_dir: str = ""
+    state_dir: str = DEFAULT_STATE_DIR
     output_dir: str = ""
     num_shards: Union[int, str] = 1
     shard_id: Union[int, str] = 0
@@ -62,11 +64,12 @@ class LoadingParams:
 
         self.batch_size = max(self.batch_size, 1)
 
-        self.state_dir = str(self.state_dir).strip()
+        raw_state_dir = "" if self.state_dir is None else str(self.state_dir)
+        self.state_dir = raw_state_dir.strip()
         if not self.state_dir:
-            raise ValueError(
-                "loading_params.state_dir is required to enable shard state tracking"
-            )
+            self.state_dir = DEFAULT_STATE_DIR
+
+        self.state_dir = os.path.expanduser(self.state_dir)
 
     def get_state_root(self) -> str:
         """Get the state root path.

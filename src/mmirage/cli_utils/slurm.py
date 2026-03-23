@@ -58,10 +58,7 @@ def build_sbatch_script(cfg: MMirageConfig, config_path: str) -> str:
     """Build the sbatch payload executed for each array task."""
     project_root = get_project_root(cfg)
     hf_home = _shell_path(cfg.execution_params.hf_home, project_root)
-    state_root_cfg = cfg.loading_params.get_state_root()
-    if not state_root_cfg:
-        raise ValueError("loading_params.state_dir must be set in slurm mode")
-    state_root = _shell_path(state_root_cfg, project_root)
+    state_root = _shell_path(cfg.loading_params.get_state_root(), project_root)
     src_root = os.path.join(project_root, "src")
     shard_process_path = os.path.join(src_root, "mmirage", "shard_process.py")
 

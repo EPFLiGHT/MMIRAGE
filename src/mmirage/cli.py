@@ -48,18 +48,9 @@ def launch_pipeline(cfg: MMirageConfig, config_path: str, force_retry: bool = Fa
         if not auto_retry:
             return run_local(config_path, initial_shard_id)
 
-        if not cfg.loading_params.get_state_root():
-            logger.warning(
-                "Local retry requires loading_params.state_dir; running once without orchestration"
-            )
-            return run_local(config_path, initial_shard_id)
-
         shard_ids: List[int] = [initial_shard_id]
         attempts_by_shard = {initial_shard_id: 0}
         state_root = cfg.loading_params.get_state_root()
-        if state_root is None:
-            logger.error("loading_params.state_dir is required for local retry orchestration")
-            return 1
         while True:
             run_exit_codes = {}
             for shard_id in shard_ids:

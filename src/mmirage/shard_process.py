@@ -85,13 +85,7 @@ def main():
     if not (0 <= shard_id < num_shards):
         raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
 
-    state_root = loading_params.get_state_root()
-    if state_root is None:
-        raise ValueError(
-            "loading_params.state_dir is not set. Please configure "
-            "`config.loading_params.state_dir` to enable shard state tracking."
-        )
-    state_dir = _shard_state_dir(shard_id, state_root)
+    state_dir = _shard_state_dir(shard_id, loading_params.get_state_root())
 
     try:
         retry_count = _mark_running(state_dir, shard_id, datasets_config)
