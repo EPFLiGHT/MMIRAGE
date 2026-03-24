@@ -111,7 +111,7 @@ def launch_pipeline(cfg: MMirageConfig, config_path: str, force_retry: bool = Fa
         if job_id is None:
             return 1
 
-        print(job_id)
+        logger.info(f"Submitted SLURM job {job_id} for shard ids: {shard_ids}")
 
         if not auto_retry:
             return 0
@@ -293,7 +293,8 @@ def handle_submit(args: argparse.Namespace, cfg: MMirageConfig, config_path: str
     if job_id is None:
         return 1
 
-    print(job_id)
+    logger.info(f"Submitted SLURM job {job_id} for shard ids: {shard_ids}")
+    
     if not args.wait:
         return 0
 
