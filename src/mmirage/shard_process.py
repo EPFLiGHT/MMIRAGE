@@ -120,7 +120,8 @@ def main():
             ds_config = datasets_config[ds_idx]
             if processing_params.remove_columns:
                 remove_columns = _remove_columns(ds_shard)
-            else: remove_columns = []
+            else:
+                remove_columns = []
 
             logger.info(
                 f"Processing dataset {ds_idx} for shard {shard_id}: "
