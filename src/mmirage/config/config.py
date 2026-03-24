@@ -45,6 +45,12 @@ class ExecutionParams:
     poll_interval_seconds: int = 30
     settle_time_seconds: int = 60
 
+    # Paths (can contain environment variables like ${VAR} or $VAR)
+    project_root: Optional[str] = None
+    report_dir: str = "~/reports"
+    hf_home: str = "~/hf"
+    edf_env: Optional[str] = None
+
     # SLURM parameters
     account: Optional[str] = None
     job_name: str = "mmirage-sharded"
@@ -54,12 +60,6 @@ class ExecutionParams:
     gpus: int = 4
     cpus_per_task: int = 288
     time_limit: str = "11:59:59"
-
-    # Paths (can contain environment variables like ${VAR} or $VAR)
-    project_root: Optional[str] = None
-    report_dir: str = "~/reports"
-    hf_home: str = "~/hf"
-    edf_env: Optional[str] = None
 
     def __post_init__(self):
         """Validate execution parameters."""

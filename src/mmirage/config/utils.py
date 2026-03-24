@@ -4,6 +4,7 @@ from typing import Any, Dict, List, TypeAlias, Union, cast
 from dacite import Config, from_dict
 import yaml
 import os
+import re
 
 from mmirage.config.config import MMirageConfig
 from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry, OutputVar
@@ -122,3 +123,9 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
     cfg_obj = from_dict(MMirageConfig, cast(dict, cfg), config=config)
 
     return cfg_obj
+
+def _is_unresolved_env_var(value: str) -> bool:
+    """Check whether a string still looks like an unresolved shell env var."""
+    _UNRESOLVED_ENV_VAR_PATTERN = re.compile(r"^\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)$")
+    
+    return bool(_UNRESOLVED_ENV_VAR_PATTERN.fullmatch(value.strip()))

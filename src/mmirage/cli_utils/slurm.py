@@ -42,7 +42,7 @@ def _shell_path(value: str, project_root: str) -> str:
     If the path starts with '$' we assume it will expand on the compute node and
     therefore do not attempt to join it with project_root.
     """
-    raw = (value or "").strip()
+    raw = value.strip()
     if not raw:
         return raw
 
@@ -128,7 +128,8 @@ def submit_slurm_job(
         command.append(f"--array={','.join(str(shard_id) for shard_id in requested_shards)}")
     else:
         num_shards = cfg.loading_params.get_num_shards()
-        command.append(f"--array=0-{num_shards - 1}")
+        last_shard_id = num_shards - 1
+        command.append(f"--array=0-{last_shard_id}")
 
     logger.info("Submitting SLURM job: %s", " ".join(command))
     result = subprocess.run(

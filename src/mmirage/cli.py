@@ -11,11 +11,12 @@ import sys
 from dataclasses import asdict
 from typing import List, Optional
 
-from mmirage.cli_utils.runtime import setup_runtime, validate_paths
+from mmirage.cli_utils.runtime import setup_runtime, validate_edf_env_path
 from mmirage.cli_utils.slurm import require_slurm, submit_slurm_job, wait_for_slurm_job
 from mmirage.cli_utils.status import (
     check_failed_shards,
-    get_shard_state_dir,
+    is_retry_budget_exceeded,
+    shard_state_dir,
     get_shard_status,
     status_exit_code,
     submit_failed_shards,
@@ -28,7 +29,15 @@ logger = logging.getLogger(__name__)
 
 
 def run_local(config_path: str, shard_id: Optional[int] = None) -> int:
-    """Run one shard in the current Python environment."""
+    """Run one shard in the current Python environment.
+
+    Args:
+        config_path: Absolute path to the MMIRAGE YAML config file.
+        shard_id: Optional shard id to inject via SLURM_ARRAY_TASK_ID.
+
+    Returns:
+        Process return code from shard execution.
+    """
     command = [sys.executable, "-m", "mmirage.shard_process", "--config", config_path]
     env = os.environ.copy()
     if shard_id is not None:
@@ -40,7 +49,16 @@ def run_local(config_path: str, shard_id: Optional[int] = None) -> int:
 
 
 def launch_pipeline(cfg: MMirageConfig, config_path: str, force_retry: bool = False) -> int:
-    """Launch the pipeline according to execution mode and retry settings."""
+    """Launch the pipeline according to execution mode and retry settings.
+
+    Args:
+        cfg: Parsed MMIRAGE configuration object.
+        config_path: Absolute path to the MMIRAGE YAML config file.
+        force_retry: If True, enable retry orchestration regardless of config flag.
+
+    Returns:
+        Exit code: 0 on success, 1 on failure.
+    """
     auto_retry = force_retry or cfg.execution_params.retry
 
     if not cfg.execution_params.is_slurm():
@@ -66,11 +84,14 @@ def launch_pipeline(cfg: MMirageConfig, config_path: str, force_retry: bool = Fa
             candidates = sorted(set(failed_shards) | set(runtime_failed))
             retryable_shards: List[int] = []
             for shard_id in candidates:
-                _, retry_count = get_shard_status(get_shard_state_dir(state_root, shard_id))
-                retries_from_state = max(retry_count - 1, 0)
-                retries_from_memory = max(attempts_by_shard.get(shard_id, 0) - 1, 0)
-                retries_used = max(retries_from_state, retries_from_memory)
-                if retries_used < cfg.execution_params.max_retries:
+                _, state_attempt_count = get_shard_status(shard_state_dir(state_root, shard_id))
+                memory_attempt_count = attempts_by_shard.get(shard_id, 0)
+                effective_attempt_count = max(state_attempt_count, memory_attempt_count)
+
+                if not is_retry_budget_exceeded(
+                    effective_attempt_count,
+                    cfg.execution_params.max_retries,
+                ):
                     retryable_shards.append(shard_id)
 
             if not retryable_shards:
@@ -108,7 +129,11 @@ def launch_pipeline(cfg: MMirageConfig, config_path: str, force_retry: bool = Fa
 
 
 def configure_logging(level: str) -> None:
-    """Configure root logging."""
+    """Configure root logging.
+
+    Args:
+        level: Root log level name.
+    """
     logging.basicConfig(
         level=getattr(logging, level, logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -116,7 +141,11 @@ def configure_logging(level: str) -> None:
 
 
 def add_shared_arguments(parser: argparse.ArgumentParser) -> None:
-    """Attach common CLI arguments to a subcommand parser."""
+    """Attach common CLI arguments to a subcommand parser.
+
+    Args:
+        parser: Subcommand parser receiving shared arguments.
+    """
     parser.add_argument("--config", required=True, help="Path to a MMIRAGE YAML config file")
     parser.add_argument(
         "--log-level",
@@ -127,7 +156,11 @@ def add_shared_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def build_argparser() -> argparse.ArgumentParser:
-    """Build the CLI parser."""
+    """Build the CLI parser.
+
+    Returns:
+        Configured top-level argparse parser.
+    """
     parser = argparse.ArgumentParser(description="MMIRAGE command-line interface")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -142,45 +175,33 @@ def build_argparser() -> argparse.ArgumentParser:
     check_parser = subparsers.add_parser("check", help="Inspect shard status")
     add_shared_arguments(check_parser)
     check_parser.add_argument(
-        "--summary-only",
-        action="store_true",
-        help="Only print status summary; do not submit retries.",
-    )
-    check_retry_group = check_parser.add_mutually_exclusive_group()
-    check_retry_group.add_argument(
         "--retry",
         dest="retry",
         action="store_true",
-        help="Submit a retry job for failed shards (default unless --summary-only).",
+        help="Submit a retry job for failed shards.",
     )
-    check_retry_group.add_argument(
-        "--no-retry",
-        dest="retry",
-        action="store_false",
-        help="Do not submit retries (same as --summary-only).",
+    check_parser.set_defaults(retry=False)
+    check_parser.add_argument(
+        "-y",
+        "--yes",
+        dest="confirm_mode",
+        action="store_const",
+        const="yes",
+        help="Submit retries without prompting.",
     )
-    check_parser.set_defaults(retry=True)
-    check_interactive_group = check_parser.add_mutually_exclusive_group()
-    check_interactive_group.add_argument(
-        "--interactive",
-        dest="interactive",
-        action="store_true",
-        help="Prompt before submitting retry jobs (default).",
-    )
-    check_interactive_group.add_argument(
-        "--no-interactive",
-        dest="interactive",
-        action="store_false",
-        help="Submit retry jobs without prompting.",
-    )
-    check_parser.set_defaults(interactive=True)
+    check_parser.set_defaults(confirm_mode="prompt")
 
     retry_parser = subparsers.add_parser("retry", help="Submit only failed shards")
     add_shared_arguments(retry_parser)
-    retry_group = retry_parser.add_mutually_exclusive_group()
-    retry_group.add_argument("--interactive", dest="interactive", action="store_true")
-    retry_group.add_argument("--no-interactive", dest="interactive", action="store_false")
-    retry_parser.set_defaults(interactive=True)
+    retry_parser.add_argument(
+        "-y",
+        "--yes",
+        dest="confirm_mode",
+        action="store_const",
+        const="yes",
+        help="Submit retries without prompting.",
+    )
+    retry_parser.set_defaults(confirm_mode="prompt")
 
     run_parser = subparsers.add_parser(
         "run",
@@ -203,7 +224,15 @@ def build_argparser() -> argparse.ArgumentParser:
 
 
 def parse_shard_ids(raw_value: Optional[str], num_shards: Optional[int] = None) -> List[int]:
-    """Parse a comma-separated shard id list."""
+    """Parse a comma-separated shard id list.
+
+    Args:
+        raw_value: Comma-separated shard ids, or None/empty for full array.
+        num_shards: Optional upper bound used for range validation.
+
+    Returns:
+        Parsed shard ids.
+    """
     if not raw_value:
         return []
 
@@ -213,13 +242,11 @@ def parse_shard_ids(raw_value: Optional[str], num_shards: Optional[int] = None) 
         if not candidate:
             continue
 
-        try:
+        if shard_id.isdigit():
             shard_id = int(candidate)
-        except ValueError as exc:
-            raise ValueError(f"Invalid shard id {candidate!r}; expected integers") from exc
+        else:
+            raise ValueError(f"Invalid shard id {candidate!r}; expected integers")
 
-        if shard_id < 0:
-            raise ValueError(f"Invalid shard id {shard_id}; expected non-negative integer")
         if num_shards is not None and shard_id >= num_shards:
             raise ValueError(f"Invalid shard id {shard_id}; expected 0 <= shard_id < {num_shards}")
 
@@ -229,14 +256,32 @@ def parse_shard_ids(raw_value: Optional[str], num_shards: Optional[int] = None) 
 
 
 def handle_run(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -> int:
-    """Handle the canonical run command."""
+    """Handle the canonical run command.
+
+    Args:
+        args: Parsed CLI namespace.
+        cfg: Parsed MMIRAGE configuration object.
+        config_path: Absolute path to the MMIRAGE YAML config file.
+
+    Returns:
+        Exit code for the run operation.
+    """
     if args.shard_id is not None:
         return run_local(config_path, args.shard_id)
     return launch_pipeline(cfg, config_path, force_retry=args.force_retry)
 
 
 def handle_submit(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -> int:
-    """Submit a SLURM array job and optionally wait."""
+    """Submit a SLURM array job and optionally wait.
+
+    Args:
+        args: Parsed CLI namespace.
+        cfg: Parsed MMIRAGE configuration object.
+        config_path: Absolute path to the MMIRAGE YAML config file.
+
+    Returns:
+        Exit code for submission/wait outcome.
+    """
     if require_slurm(cfg, "submit") != 0:
         return 1
 
@@ -255,7 +300,16 @@ def handle_submit(args: argparse.Namespace, cfg: MMirageConfig, config_path: str
 
 
 def handle_check(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -> int:
-    """Inspect shard status and optionally submit retries."""
+    """Inspect shard status and optionally submit retries.
+
+    Args:
+        args: Parsed CLI namespace.
+        cfg: Parsed MMIRAGE configuration object.
+        config_path: Absolute path to the MMIRAGE YAML config file.
+
+    Returns:
+        Exit code based on shard status and optional retry submission.
+    """
     failed_shards, summary = check_failed_shards(cfg)
     print(json.dumps(asdict(summary), indent=2))
 
@@ -263,7 +317,7 @@ def handle_check(args: argparse.Namespace, cfg: MMirageConfig, config_path: str)
     if not cfg.execution_params.is_slurm():
         return status_code
 
-    if args.summary_only or not args.retry:
+    if not args.retry:
         return status_code
 
     if not failed_shards:
@@ -273,12 +327,21 @@ def handle_check(args: argparse.Namespace, cfg: MMirageConfig, config_path: str)
         cfg=cfg,
         config_path=config_path,
         failed_shards=failed_shards,
-        interactive=bool(args.interactive),
+        confirm_mode=args.confirm_mode,
     )
 
 
 def handle_retry(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -> int:
-    """Submit retries for failed shards only."""
+    """Submit retries for failed shards only.
+
+    Args:
+        args: Parsed CLI namespace.
+        cfg: Parsed MMIRAGE configuration object.
+        config_path: Absolute path to the MMIRAGE YAML config file.
+
+    Returns:
+        Exit code for retry submission outcome.
+    """
     if require_slurm(cfg, "retry") != 0:
         return 1
 
@@ -289,14 +352,14 @@ def handle_retry(args: argparse.Namespace, cfg: MMirageConfig, config_path: str)
         if summary.max_retries_exceeded > 0:
             logger.error("No retryable shards remain")
             return 1
-        print("All shards already succeeded.")
+        logger.info("All shards already succeeded.")
         return 0
 
     return submit_failed_shards(
         cfg=cfg,
         config_path=config_path,
         failed_shards=failed_shards,
-        interactive=bool(args.interactive),
+        confirm_mode=args.confirm_mode,
     )
 
 
@@ -311,7 +374,7 @@ def main() -> None:
         cfg = load_mmirage_config(config_path)
 
         setup_runtime(cfg, args.log_level)
-        validate_paths(cfg)
+        validate_edf_env_path(cfg)
 
         handlers = {
             "run": handle_run,

@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 def expand_path(path: str, project_root: Optional[str] = None) -> str:
     """Expand environment variables, user home and relative paths."""
-    expanded = os.path.expanduser(os.path.expandvars(path))
-    if not os.path.isabs(expanded) and project_root:
-        expanded = os.path.join(project_root, expanded)
-    return os.path.abspath(expanded)
+    expanded = Path(os.path.expandvars(os.path.expanduser(path)))
+    if not expanded.is_absolute() and project_root:
+        expanded = Path(project_root) / expanded
+    return str(expanded.resolve())
 
 
 def get_project_root(cfg: MMirageConfig) -> str:
@@ -35,43 +35,45 @@ def create_directories(paths: Sequence[str]) -> None:
         Path(path).mkdir(parents=True, exist_ok=True)
 
 
-def validate_paths(cfg: MMirageConfig) -> None:
-    """Validate pre-existing execution paths."""
-    project_root = get_project_root(cfg)
-    if cfg.execution_params.edf_env:
-        edf_env = expand_path(cfg.execution_params.edf_env, project_root)
-        if not os.path.exists(edf_env):
-            raise FileNotFoundError(f"EDF environment file not found: {edf_env}")
+def validate_edf_env_path(cfg: MMirageConfig) -> None:
+    """Validate the optional EDF environment file path."""
+    edf_env = cfg.execution_params.edf_env
+    if not edf_env:
+        return
+
+    resolved = expand_path(edf_env, get_project_root(cfg))
+    if not Path(resolved).is_file():
+        raise FileNotFoundError(f"EDF environment file not found: {resolved}")
 
 
 def add_file_logging(log_file: str, level: str) -> None:
     """Add a file handler so logs are also written to disk."""
-    expanded_log_file = os.path.abspath(os.path.expanduser(os.path.expandvars(log_file)))
+    resolved_log_file = Path(expand_path(log_file))
     try:
-        create_directories([str(Path(expanded_log_file).parent)])
+        resolved_log_file.parent.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        logger.warning("Unable to create log directory for %s: %s", expanded_log_file, exc)
+        logger.warning("Unable to create log directory for %s: %s", resolved_log_file, exc)
         return
 
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
-        if isinstance(handler, logging.FileHandler) and os.path.abspath(handler.baseFilename) == expanded_log_file:
+        if isinstance(handler, logging.FileHandler) and Path(handler.baseFilename).resolve() == resolved_log_file:
             return
 
     try:
-        file_handler = logging.FileHandler(expanded_log_file, mode="a", encoding="utf-8")
+        file_handler = logging.FileHandler(resolved_log_file, mode="a", encoding="utf-8")
     except OSError as exc:
-        logger.warning("Unable to open log file %s: %s", expanded_log_file, exc)
+        logger.warning("Unable to open log file %s: %s", resolved_log_file, exc)
         return
-    file_handler.setLevel(getattr(logging, level, logging.INFO))
+
+    file_handler.setLevel(getattr(logging, level.upper(), logging.INFO))
     file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     root_logger.addHandler(file_handler)
 
 
 def setup_runtime(cfg: MMirageConfig, log_level: str) -> None:
     """Initialize runtime-level logging."""
-    project_root = get_project_root(cfg)
-    report_dir = expand_path(cfg.execution_params.report_dir, project_root)
-    global_log_file = os.path.join(report_dir, f"{cfg.execution_params.job_name}.out")
-    add_file_logging(global_log_file, log_level)
-    logger.info("Writing logs to %s", global_log_file)
+    report_dir = Path(expand_path(cfg.execution_params.report_dir, get_project_root(cfg)))
+    log_file = report_dir / f"{cfg.execution_params.job_name}.out"
+    add_file_logging(str(log_file), log_level)
+    logger.info("Writing logs to %s", log_file)

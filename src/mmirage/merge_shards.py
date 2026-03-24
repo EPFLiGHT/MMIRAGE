@@ -7,13 +7,7 @@ from typing import Dict, List
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_from_disk
 
 from mmirage.core.loader.base import DatasetLike
-
-
-def _count_rows(ds: DatasetLike) -> int:
-    """Count total rows in a dataset or dataset dict."""
-    if isinstance(ds, DatasetDict):
-        return sum(len(split) for split in ds.values())
-    return len(ds)
+from mmirage.shard_utils import _count_rows
 
 
 def _merge_datasetdict(shard_dsets: List[DatasetDict]) -> DatasetDict:

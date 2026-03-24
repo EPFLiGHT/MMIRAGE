@@ -1,11 +1,11 @@
 """Data loading configuration for MMIRAGE pipeline."""
 
 import os
-import re
 from dataclasses import dataclass, field
 from typing import Union, List, cast
 
 from mmirage.core.loader.base import BaseDataLoaderConfig
+from mmirage.config.utils import _is_unresolved_env_var
 
 DEFAULT_STATE_DIR = "~/.cache/MMIRAGE/state_dir"
 
@@ -102,11 +102,3 @@ class LoadingParams:
             int: Batch size (minimum 1).
         """
         return cast(int, self.batch_size)
-
-
-_UNRESOLVED_ENV_VAR_PATTERN = re.compile(r"^\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)$")
-
-
-def _is_unresolved_env_var(value: str) -> bool:
-    """Check whether a string still looks like an unresolved shell env var."""
-    return bool(_UNRESOLVED_ENV_VAR_PATTERN.fullmatch(value.strip()))

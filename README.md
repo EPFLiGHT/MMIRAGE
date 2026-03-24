@@ -43,16 +43,16 @@ Run the pipeline via the Python CLI. Retry behavior is driven by your YAML confi
 python -m mmirage.cli run --config configs/config_mock.yaml
 ```
 
-To check status and (optionally) submit retries for failed shards:
+To check status only:
 
 ```bash
 python -m mmirage.cli check --config configs/config_mock.yaml
 ```
 
-If you only want the status summary (no retry submission):
+To check status and submit retries for failed shards:
 
 ```bash
-python -m mmirage.cli check --config configs/config_mock.yaml --summary-only
+python -m mmirage.cli check --config configs/config_mock.yaml --retry
 ```
 
 ### Text-only: Reformatting dataset
@@ -131,6 +131,9 @@ Configuration explanation:
   - `inputs`: Variables extracted from the input dataset using JMESPath queries.
   - `outputs`: Variables created by processors. Prompts use Jinja2 templating (`{{ variable }}`).
   - `output_schema`: Defines the structure of output samples.
+- `execution_params`:
+  - `mode`: "local" to run shard processing in the current Python environment or "slurm" to run through SLURM by submitting an sbatch array job.
+  - `retry`: If true, MMIRAGE automatically retries failed shards until they succeed or `max_retries` is reached. If false, the pipeline runs/submits once, and retries can be triggered later via the check/retry CLI commands.
 
 ### Multimodal: Processing images with VLMs
 

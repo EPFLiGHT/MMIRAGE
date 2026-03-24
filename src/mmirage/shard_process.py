@@ -81,6 +81,7 @@ def main():
 
     shard_id = loading_params.get_shard_id()
     num_shards = loading_params.get_num_shards()
+    last_shard_id = num_shards - 1
 
     if not (0 <= shard_id < num_shards):
         raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
@@ -89,7 +90,7 @@ def main():
 
     try:
         retry_count = _mark_running(state_dir, shard_id, datasets_config)
-        logger.info(f"Starting shard {shard_id}/{num_shards - 1} (attempt #{retry_count})")
+        logger.info(f"Starting shard {shard_id}/{last_shard_id} (attempt #{retry_count})")
 
         if retry_count > 1:
             for ds_config in datasets_config:
@@ -117,7 +118,9 @@ def main():
         ds_processed_all: List[DatasetLike] = []
         for ds_idx, ds_shard in enumerate(ds_all_shard):
             ds_config = datasets_config[ds_idx]
-            remove_columns = _remove_columns(ds_shard, processing_params.remove_columns)
+            if processing_params.remove_columns:
+                remove_columns = _remove_columns(ds_shard)
+            else: remove_columns = []
 
             logger.info(
                 f"Processing dataset {ds_idx} for shard {shard_id}: "
@@ -129,7 +132,7 @@ def main():
                 batched=True,
                 batch_size=loading_params.get_batch_size(),
                 load_from_cache_file=False,
-                desc=f"Shard {shard_id}/{num_shards - 1} dataset {ds_idx}",
+                desc=f"Shard {shard_id}/{last_shard_id} dataset {ds_idx}",
                 fn_kwargs={
                     "mapper": mapper,
                     "renderer": renderer,

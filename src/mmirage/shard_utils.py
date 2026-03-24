@@ -5,19 +5,94 @@ and file operations used in the MMIRAGE shard processing pipeline.
 """
 
 from datetime import datetime
+from dataclasses import dataclass
 from functools import reduce
 import json
 import logging
 import os
 import shutil
 import socket
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from datasets import DatasetDict
 
 from mmirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ShardStatus:
+    """Typed representation of the shard status.json payload."""
+
+    status: str = "unknown"
+    retry_count: int = 0
+    shard_id: Optional[int] = None
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    error: Optional[str] = None
+    hostname: Optional[str] = None
+    pid: Optional[int] = None
+    slurm_job_id: Optional[str] = None
+    slurm_array_task_id: Optional[str] = None
+    datasets: Optional[List[Dict[str, Any]]] = None
+
+    @classmethod
+    def from_dict(cls, payload: Dict[str, Any]) -> "ShardStatus":
+        """Build a status object from a JSON payload."""
+        data = payload or {}
+        try:
+            retry_count = int(data.get("retry_count", 0))
+        except (TypeError, ValueError):
+            retry_count = 0
+
+        shard_id = data.get("shard_id")
+        if shard_id is not None:
+            try:
+                shard_id = int(shard_id)
+            except (TypeError, ValueError):
+                shard_id = None
+
+        pid = data.get("pid")
+        if pid is not None:
+            try:
+                pid = int(pid)
+            except (TypeError, ValueError):
+                pid = None
+
+        datasets = data.get("datasets")
+        if not isinstance(datasets, list):
+            datasets = None
+
+        return cls(
+            status=str(data.get("status", "unknown")),
+            retry_count=retry_count,
+            shard_id=shard_id,
+            started_at=data.get("started_at"),
+            finished_at=data.get("finished_at"),
+            error=data.get("error"),
+            hostname=data.get("hostname"),
+            pid=pid,
+            slurm_job_id=data.get("slurm_job_id"),
+            slurm_array_task_id=data.get("slurm_array_task_id"),
+            datasets=datasets,
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize status to the JSON payload written on disk."""
+        return {
+            "status": self.status,
+            "retry_count": self.retry_count,
+            "shard_id": self.shard_id,
+            "started_at": self.started_at,
+            "finished_at": self.finished_at,
+            "error": self.error,
+            "hostname": self.hostname,
+            "pid": self.pid,
+            "slurm_job_id": self.slurm_job_id,
+            "slurm_array_task_id": self.slurm_array_task_id,
+            "datasets": self.datasets,
+        }
 
 
 def _count_rows(ds: DatasetLike) -> int:
@@ -39,13 +114,10 @@ def _shard_dataset(ds: DatasetLike, num_shards: int, shard_id: int) -> DatasetLi
     return ds.shard(num_shards=num_shards, index=shard_id)
 
 
-def _remove_columns(ds: DatasetLike, enable: bool) -> List[str]:
+def _remove_columns(ds: DatasetLike) -> List[str]:
     """Get columns to remove from dataset if enabled."""
-    if not enable:
-        return []
     if isinstance(ds, DatasetDict):
-        columns_set = [set(split_ds.column_names) for split_ds in ds.values()]
-        return list(reduce(lambda x, y: x | y, columns_set))
+        return list(set(x for split_ds in ds.values() for x in split_ds.column_names))
     return ds.column_names
 
 
@@ -88,25 +160,29 @@ def _status_file(state_dir: str) -> str:
     return os.path.join(state_dir, "status.json")
 
 
-def _read_status(state_dir: str) -> dict:
+def _read_status(state_dir: str) -> ShardStatus:
     """Read status.json if present."""
     path = _status_file(state_dir)
     if not os.path.exists(path):
-        return {}
+        return ShardStatus(status="missing")
     try:
         with open(path, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+            if not isinstance(data, dict):
+                logger.warning(f"Invalid status format in {path}; expected object")
+                return ShardStatus(status="unknown")
+            return ShardStatus.from_dict(data)
     except (json.JSONDecodeError, OSError) as e:
         logger.warning(f"Failed to read status file {path}: {e}")
-        return {}
+        return ShardStatus(status="unknown")
 
 
-def _write_status(state_dir: str, payload: dict):
+def _write_status(state_dir: str, payload: ShardStatus):
     """Atomically write status.json."""
     os.makedirs(state_dir, exist_ok=True)
     tmp_path = _status_file(state_dir) + ".tmp"
     with open(tmp_path, "w") as f:
-        json.dump(payload, f, indent=2, sort_keys=True)
+        json.dump(payload.to_dict(), f, indent=2, sort_keys=True)
     os.replace(tmp_path, _status_file(state_dir))
 
 
@@ -136,27 +212,27 @@ def _mark_running(
 ) -> int:
     """Mark shard as running and increment retry count."""
     prev = _read_status(state_dir)
-    retry_count = int(prev.get("retry_count", 0)) + 1
+    retry_count = prev.retry_count + 1
 
-    payload = {
-        "status": "running",
-        "retry_count": retry_count,
-        "shard_id": shard_id,
-        "started_at": datetime.now().isoformat(),
-        "finished_at": None,
-        "error": None,
-        "hostname": socket.gethostname(),
-        "pid": os.getpid(),
-        "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
-        "slurm_array_task_id": os.environ.get("SLURM_ARRAY_TASK_ID"),
-        "datasets": [
+    payload = ShardStatus(
+        status="running",
+        retry_count=retry_count,
+        shard_id=shard_id,
+        started_at=datetime.now().isoformat(),
+        finished_at=None,
+        error=None,
+        hostname=socket.gethostname(),
+        pid=os.getpid(),
+        slurm_job_id=os.environ.get("SLURM_JOB_ID"),
+        slurm_array_task_id=os.environ.get("SLURM_ARRAY_TASK_ID"),
+        datasets=[
             {
                 "path": ds_config.path,
                 "output_dir": ds_config.output_dir,
             }
             for ds_config in datasets_config
         ],
-    }
+    )
 
     _write_status(state_dir, payload)
     _clear_markers(state_dir)
@@ -167,9 +243,9 @@ def _mark_running(
 def _mark_success(state_dir: str):
     """Mark shard as successful."""
     prev = _read_status(state_dir)
-    prev["status"] = "success"
-    prev["finished_at"] = datetime.now().isoformat()
-    prev["error"] = None
+    prev.status = "success"
+    prev.finished_at = datetime.now().isoformat()
+    prev.error = None
     _write_status(state_dir, prev)
     _clear_markers(state_dir)
     _touch_marker(state_dir, ".SUCCESS")
@@ -178,9 +254,9 @@ def _mark_success(state_dir: str):
 def _mark_failure(state_dir: str, error_msg: str):
     """Mark shard as failed."""
     prev = _read_status(state_dir)
-    prev["status"] = "failed"
-    prev["finished_at"] = datetime.now().isoformat()
-    prev["error"] = error_msg
+    prev.status = "failed"
+    prev.finished_at = datetime.now().isoformat()
+    prev.error = error_msg
     _write_status(state_dir, prev)
     _clear_markers(state_dir)
     _touch_marker(state_dir, ".FAILED")
