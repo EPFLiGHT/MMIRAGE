@@ -64,7 +64,10 @@ def launch_pipeline(cfg: MMirageConfig, config_path: str, force_retry: bool = Fa
     if not cfg.execution_params.is_slurm():
         initial_shard_id = cfg.loading_params.get_shard_id()
         if not auto_retry:
-            return run_local(config_path, initial_shard_id)
+            exit_code = run_local(config_path, initial_shard_id)
+            if exit_code == 0:
+                logger.info("All shards completed successfully")
+            return exit_code
 
         shard_ids: List[int] = [initial_shard_id]
         attempts_by_shard = {initial_shard_id: 0}
@@ -296,7 +299,10 @@ def handle_submit(args: argparse.Namespace, cfg: MMirageConfig, config_path: str
 
     wait_for_slurm_job(job_id, cfg)
     failed_shards, summary = check_failed_shards(cfg)
-    return status_exit_code(failed_shards, summary)
+    status_code = status_exit_code(failed_shards, summary)
+    if status_code == 0:
+        logger.info("All shards completed successfully")
+    return status_code
 
 
 def handle_check(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -> int:
