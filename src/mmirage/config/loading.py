@@ -8,12 +8,7 @@ from typing import Union, List, cast
 from mmirage.core.loader.base import BaseDataLoaderConfig
 
 DEFAULT_STATE_DIR = "~/.cache/MMIRAGE/state_dir"
-_UNRESOLVED_ENV_VAR_PATTERN = re.compile(r"^\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)$")
 
-
-def _is_unresolved_env_var(value: str) -> bool:
-    """Check whether a string still looks like an unresolved shell env var."""
-    return bool(_UNRESOLVED_ENV_VAR_PATTERN.fullmatch(value.strip()))
 
 @dataclass
 class LoadingParams:
@@ -42,6 +37,9 @@ class LoadingParams:
     batch_size: Union[int, str] = 1
 
     def __post_init__(self):
+        _UNRESOLVED_ENV_VAR_PATTERN = re.compile(r"^\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)$")
+        _is_unresolved_env_var = lambda s: bool(_UNRESOLVED_ENV_VAR_PATTERN.fullmatch(s.strip()))
+        
         if isinstance(self.num_shards, str):
             try:
                 self.num_shards = int(self.num_shards)
