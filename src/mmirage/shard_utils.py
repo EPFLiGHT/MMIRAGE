@@ -6,7 +6,6 @@ and file operations used in the MMIRAGE shard processing pipeline.
 
 from datetime import datetime
 from dataclasses import dataclass
-from functools import reduce
 import json
 import logging
 import os
