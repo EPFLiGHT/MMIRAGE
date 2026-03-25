@@ -437,18 +437,17 @@ def handle_retry(args: argparse.Namespace, cfg: MMirageConfig, config_path: str)
     )
 
 
-def handle_merge(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -> int:
+def handle_merge(args: argparse.Namespace, cfg: MMirageConfig, _config_path: str) -> int:
     """Merge shard outputs defined in config.loading_params.datasets.
 
     Args:
         args: Parsed CLI namespace.
         cfg: Parsed MMIRAGE configuration object.
-        config_path: Absolute path to the MMIRAGE YAML config file.
+        _config_path: Absolute path to the MMIRAGE YAML config file (not needed here).
 
     Returns:
         Exit code for merge outcome.
     """
-    del config_path
     reports = merge_from_config(cfg, output_root=args.output_dir)
     log_merge_reports(reports)
     return 0
