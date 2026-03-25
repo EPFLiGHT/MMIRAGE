@@ -16,6 +16,22 @@ For testing and scripts that make use of the library, it is advised to create a 
 ./scripts/generate_env.sh
 ```
 
+## Docker 
+
+### Build
+
+```bash
+docker compose build
+```
+
+### Run
+
+```bash
+docker compose run --rm mmirage --config configs/your_config.yaml
+```
+
+The container requires an NVIDIA GPU. The `docker-compose.yml` handles GPU access automatically.
+
 ## Key features
 
 - **Multimodal Support**: Process both text and images with vision-language models

@@ -1,4 +1,4 @@
-FROM docker.io/lmsysorg/sglang:v0.5.8.post1
+FROM --platform=linux/amd64 lmsysorg/sglang:v0.5.8.post1-runtime
 
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
@@ -8,4 +8,4 @@ WORKDIR /workspace/MMIRAGE
 
 RUN pip install --no-cache-dir .
 
-ENTRYPOINT ["python", "-m", "mmirage.shard_process"]
+ENTRYPOINT ["python3", "-m", "mmirage.shard_process"]
