@@ -38,7 +38,8 @@ class LoadingParams:
 
     def __post_init__(self):
         _UNRESOLVED_ENV_VAR_PATTERN = re.compile(r"^\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)$")
-        _is_unresolved_env_var = lambda s: bool(_UNRESOLVED_ENV_VAR_PATTERN.fullmatch(s.strip()))
+        def is_unresolved_env_var(s: str) -> bool:
+            return bool(_UNRESOLVED_ENV_VAR_PATTERN.fullmatch(s.strip()))
         
         if isinstance(self.num_shards, str):
             try:
@@ -46,7 +47,7 @@ class LoadingParams:
                 if self.num_shards < 1:
                     raise ValueError()
             except (ValueError, TypeError):
-                if _is_unresolved_env_var(self.num_shards):
+                if is_unresolved_env_var(self.num_shards):
                     self.num_shards = 1
                 else:
                     raise ValueError(f"Invalid value for num_shards: {self.num_shards!r}")
@@ -55,7 +56,7 @@ class LoadingParams:
             try:
                 self.shard_id = int(self.shard_id)
             except (ValueError, TypeError):
-                if _is_unresolved_env_var(self.shard_id):
+                if is_unresolved_env_var(self.shard_id):
                     self.shard_id = 0
                 else:
                     raise ValueError(f"Invalid value for shard_id: {self.shard_id!r}")
