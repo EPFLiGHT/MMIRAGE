@@ -9,7 +9,13 @@ Processors are responsible for generating new output variables from
 existing variables, enabling flexible data transformations.
 """
 
-from mmirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMConfig
-from mmirage.core.process.processors.llm.llm_processor import LLMProcessor
+try:
+    from mmirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMConfig
+    from mmirage.core.process.processors.llm.llm_processor import LLMProcessor
+except ImportError:
+    pass
 
-__all__ = ["LLMOutputVar", "SGLangLLMConfig", "LLMProcessor"]
+from mmirage.core.process.processors.api_llm.config import APILLMConfig, APILLMOutputVar
+from mmirage.core.process.processors.api_llm.api_llm_processor import APILLMProcessor
+
+__all__ = ["LLMOutputVar", "SGLangLLMConfig", "LLMProcessor", "APILLMConfig", "APILLMOutputVar", "APILLMProcessor"]

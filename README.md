@@ -103,6 +103,75 @@ Configuration explanation:
   - `outputs`: Variables created by processors. Prompts use Jinja2 templating (`{{ variable }}`).
   - `output_schema`: Defines the structure of output samples.
 
+### Using API-based LLMs (OpenAI, Claude, Gemini, etc.)
+
+MMIRAGE supports API-based LLMs via any OpenAI-compatible endpoint. Use [OpenRouter](https://openrouter.ai) to access OpenAI, Anthropic Claude, Google Gemini, Meta Llama, and more with a single API key.
+
+```yaml
+processors:
+  - type: api_llm
+    model: openai/gpt-4o-mini        # or anthropic/claude-sonnet-4-20250514, etc.
+    api_key_env: OPENROUTER_API_KEY  # name of the env var holding your key
+    base_url: https://openrouter.ai/api/v1
+    default_sampling_params:
+      temperature: 0.1
+      max_tokens: 1024
+    max_concurrency: 8   # parallel requests per batch
+    max_retries: 3       # retries on rate limit / transient errors
+
+loading_params:
+  datasets:
+    - path: /path/to/dataset
+      type: JSONL
+      output_dir: /path/to/output
+  num_shards: 1
+  shard_id: 0
+  batch_size: 16
+
+processing_params:
+  inputs:
+    - name: text
+      key: text
+
+  outputs:
+    - name: formatted_answer
+      type: api_llm
+      output_type: JSON
+      output_schema:
+        - question
+        - answer
+      prompt: |
+        Generate one question and its corresponding answer using the following text:
+        {{ text }}
+
+  remove_columns: true
+  output_schema:
+    conversations:
+      - role: "user"
+        content: "{{ formatted_answer.question }}"
+      - role: "assistant"
+        content: "{{ formatted_answer.answer }}"
+```
+
+Then run:
+
+```bash
+export OPENROUTER_API_KEY=your_key_here
+python -m mmirage.shard_process --config configs/config_mock_api_llm.yaml
+```
+
+You can also use direct OpenAI or a local vLLM instance:
+
+```yaml
+# Direct OpenAI
+base_url: https://api.openai.com/v1
+api_key_env: OPENAI_API_KEY
+
+# Local vLLM
+base_url: http://localhost:8000/v1
+api_key_env: VLLM_API_KEY
+```
+
 ### Multimodal: Processing images with VLMs
 
 MMIRAGE supports multimodal processing with vision-language models:
