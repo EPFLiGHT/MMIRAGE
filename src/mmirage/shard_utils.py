@@ -11,6 +11,7 @@ import logging
 import os
 import shutil
 import socket
+import uuid
 from typing import Any, Dict, List, Optional
 
 from datasets import DatasetDict
@@ -125,7 +126,9 @@ def _save_dataset_atomic(ds_processed: DatasetLike, out_dir: str):
     parent_dir = os.path.dirname(out_dir)
     os.makedirs(parent_dir, exist_ok=True)
 
-    tmp_dir = f"{out_dir}.tmp.{os.getpid()}"
+    tmp_dir = (
+        f"{out_dir}.tmp.{socket.gethostname()}.{os.getpid()}.{uuid.uuid4().hex}"
+    )
     if os.path.exists(tmp_dir):
         shutil.rmtree(tmp_dir)
 
