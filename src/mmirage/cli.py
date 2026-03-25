@@ -245,7 +245,7 @@ def parse_shard_ids(raw_value: Optional[str], num_shards: Optional[int] = None) 
         if not candidate:
             continue
 
-        if shard_id.isdigit():
+        if candidate.isdigit():
             shard_id = int(candidate)
         else:
             raise ValueError(f"Invalid shard id {candidate!r}; expected integers")
