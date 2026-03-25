@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Union, override
+from typing import Dict, Optional, Union
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
 from datasets import (
     Dataset,
     DatasetDict,
