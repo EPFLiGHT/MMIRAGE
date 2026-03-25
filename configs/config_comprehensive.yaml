@@ -119,6 +119,11 @@ execution_params:
   # - true: submit, wait, and keep retrying failed shards until success or retry budget exhaustion
   retry: true
 
+  # Whether to merge shard outputs after a successful run.
+  # - false: keep shard_* outputs only
+  # - true: build merged datasets from shard_* outputs
+  merge: false
+
   # Maximum number of times to retry a failed shard (default: 3)
   max_retries: 3
 

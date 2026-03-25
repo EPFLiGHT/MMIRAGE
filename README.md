@@ -38,6 +38,7 @@ Run the pipeline via the Python CLI. Retry behavior is driven by your YAML confi
 
 - `execution_params.retry: true` → automatically retries failed shards until completion or `max_retries`
 - `execution_params.retry: false` → submits/runs once; you can later trigger retries via `check`
+- `execution_params.merge: true` → after a successful run, automatically merges shard outputs
 
 ```bash
 python -m mmirage.cli run --config configs/config_mock.yaml
@@ -54,6 +55,22 @@ To check status and submit retries for failed shards:
 ```bash
 python -m mmirage.cli check --config configs/config_mock.yaml --retry
 ```
+
+To merge shards from the CLI directly:
+
+```bash
+python -m mmirage.cli merge --config configs/config_mock.yaml
+```
+
+By default, merged output is written to `<dataset.output_dir>/merged` for each configured dataset.
+
+For multiple datasets, you can also choose a shared merge root:
+
+```bash
+python -m mmirage.cli merge --config configs/config_mock.yaml --output-root /path/to/merged
+```
+
+MMIRAGE still keeps datasets separate by creating one subdirectory per dataset under the root.
 
 ### Text-only: Reformatting dataset
 
@@ -119,6 +136,7 @@ processing_params:
 execution_params:
   mode: local
   retry: false
+  merge: false
 ```
 
 Configuration explanation:
@@ -134,6 +152,11 @@ Configuration explanation:
 - `execution_params`:
   - `mode`: "local" to run shard processing in the current Python environment or "slurm" to run through SLURM by submitting an sbatch array job.
   - `retry`: If true, MMIRAGE automatically retries failed shards until they succeed or `max_retries` is reached. If false, the pipeline runs/submits once, and retries can be triggered later via the check/retry CLI commands.
+  - `merge`: If true, MMIRAGE merges shard outputs after a successful `run`. Merged datasets are written under each dataset `output_dir` in a `merged` subdirectory.
+
+Merge output behavior with multiple datasets:
+- Default (`run` with `execution_params.merge: true`, or `merge` without `--output-root`): each dataset is merged to its own `<dataset.output_dir>/merged`.
+- Shared root (`merge --output-root ...`): one merged subdirectory is created per dataset under the root.
 
 ### Multimodal: Processing images with VLMs
 

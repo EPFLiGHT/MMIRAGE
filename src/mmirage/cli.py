@@ -23,6 +23,7 @@ from mmirage.cli_utils.status import (
 )
 from mmirage.config.config import MMirageConfig
 from mmirage.config.utils import load_mmirage_config
+from mmirage.merge_shards import MergeReport, merge_from_config
 
 
 logger = logging.getLogger(__name__)
@@ -48,13 +49,20 @@ def run_local(config_path: str, shard_id: Optional[int] = None) -> int:
     return result.returncode
 
 
-def launch_pipeline(cfg: MMirageConfig, config_path: str, force_retry: bool = False) -> int:
+def launch_pipeline(
+    cfg: MMirageConfig,
+    config_path: str,
+    force_retry: bool = False,
+    require_completion: bool = False,
+) -> int:
     """Launch the pipeline according to execution mode and retry settings.
 
     Args:
         cfg: Parsed MMIRAGE configuration object.
         config_path: Absolute path to the MMIRAGE YAML config file.
         force_retry: If True, enable retry orchestration regardless of config flag.
+        require_completion: If True, wait for completion and verify shard
+            status before returning success in SLURM mode when auto-retry is off.
 
     Returns:
         Exit code: 0 on success, 1 on failure.
@@ -114,7 +122,17 @@ def launch_pipeline(cfg: MMirageConfig, config_path: str, force_retry: bool = Fa
         logger.info(f"Submitted SLURM job {job_id} for shard ids: {shard_ids or 'ALL'}")
 
         if not auto_retry:
-            return 0
+            if not require_completion:
+                return 0
+
+            wait_for_slurm_job(job_id, cfg)
+            failed_shards, summary = check_failed_shards(cfg)
+            status_code = status_exit_code(failed_shards, summary)
+            if status_code == 0:
+                logger.info("All shards completed successfully")
+            else:
+                logger.error("SLURM run completed with failed shards; merge will not start")
+            return status_code
 
         wait_for_slurm_job(job_id, cfg)
         failed_shards, summary = check_failed_shards(cfg)
@@ -223,7 +241,41 @@ def build_argparser() -> argparse.ArgumentParser:
         help="Run a single shard locally (overrides execution mode)",
     )
 
+    merge_parser = subparsers.add_parser(
+        "merge",
+        help="Merge shard outputs listed in config.loading_params.datasets",
+    )
+    add_shared_arguments(merge_parser)
+    merge_parser.add_argument(
+        "--output-dir",
+        "--output-root",
+        dest="output_dir",
+        default=None,
+        help=(
+            "Optional root directory for merged outputs. MMIRAGE creates one "
+            "subdirectory per configured dataset under this root. If omitted, "
+            "each dataset is merged into <dataset.output_dir>/merged"
+        ),
+    )
+
     return parser
+
+
+def log_merge_reports(reports: List[MergeReport]) -> None:
+    """Log merge summary for one or more datasets."""
+    for report in reports:
+        skipped_total = report.skipped_invalid_dirs + report.skipped_zero_rows
+        logger.info(
+            "Merged dataset %s: shards=%d rows=%d output=%s skipped=%d "
+            "(invalid=%d, zero_rows=%d)",
+            report.dataset_name,
+            report.used_shards,
+            report.merged_rows,
+            report.output_dir,
+            skipped_total,
+            report.skipped_invalid_dirs,
+            report.skipped_zero_rows,
+        )
 
 
 def parse_shard_ids(raw_value: Optional[str], num_shards: Optional[int] = None) -> List[int]:
@@ -271,7 +323,22 @@ def handle_run(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -
     """
     if args.shard_id is not None:
         return run_local(config_path, args.shard_id)
-    return launch_pipeline(cfg, config_path, force_retry=args.force_retry)
+
+    exit_code = launch_pipeline(
+        cfg,
+        config_path,
+        force_retry=args.force_retry,
+        require_completion=cfg.execution_params.merge,
+    )
+    if exit_code != 0:
+        return exit_code
+
+    if cfg.execution_params.merge:
+        logger.info("Execution_params.merge is true; merging shard outputs")
+        reports = merge_from_config(cfg)
+        log_merge_reports(reports)
+
+    return 0
 
 
 def handle_submit(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -> int:
@@ -370,6 +437,23 @@ def handle_retry(args: argparse.Namespace, cfg: MMirageConfig, config_path: str)
     )
 
 
+def handle_merge(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -> int:
+    """Merge shard outputs defined in config.loading_params.datasets.
+
+    Args:
+        args: Parsed CLI namespace.
+        cfg: Parsed MMIRAGE configuration object.
+        config_path: Absolute path to the MMIRAGE YAML config file.
+
+    Returns:
+        Exit code for merge outcome.
+    """
+    del config_path
+    reports = merge_from_config(cfg, output_root=args.output_dir)
+    log_merge_reports(reports)
+    return 0
+
+
 def main() -> None:
     """CLI entry point."""
     parser = build_argparser()
@@ -388,6 +472,7 @@ def main() -> None:
             "submit": handle_submit,
             "check": handle_check,
             "retry": handle_retry,
+            "merge": handle_merge,
         }
         handler = handlers.get(args.command)
         if handler is None:

@@ -1,4 +1,4 @@
-"""Utility functions for shard processing.
+"""Utility functions for shard and merge processing.
 
 This module contains helper functions for dataset sharding, state management,
 and file operations used in the MMIRAGE shard processing pipeline.
@@ -93,6 +93,19 @@ class ShardStatus:
             "slurm_array_task_id": self.slurm_array_task_id,
             "datasets": self.datasets,
         }
+
+
+@dataclass
+class MergeReport:
+    """Summary of a merge operation for one dataset directory."""
+
+    dataset_name: str
+    input_dir: str
+    output_dir: str
+    used_shards: int
+    merged_rows: int
+    skipped_invalid_dirs: int
+    skipped_zero_rows: int
 
 
 def _count_rows(ds: DatasetLike) -> int:
@@ -262,3 +275,34 @@ def _mark_failure(state_dir: str, error_msg: str):
     _write_status(state_dir, prev)
     _clear_markers(state_dir)
     _touch_marker(state_dir, ".FAILED")
+
+
+def _list_shard_dirs(dataset_dir: str) -> List[str]:
+    """List shard directories in a dataset directory."""
+    shard_dirs: List[str] = []
+    for name in os.listdir(dataset_dir):
+        if not name.startswith("shard_"):
+            continue
+        path = os.path.join(dataset_dir, name)
+        if os.path.isdir(path):
+            shard_dirs.append(path)
+
+    def _shard_key(path: str) -> int:
+        base = os.path.basename(path)
+        suffix = base.removeprefix("shard_")
+        return int(suffix) if suffix.isdigit() else 0
+
+    shard_dirs.sort(key=_shard_key)
+    return shard_dirs
+
+
+def _dataset_dirs(input_dir: str) -> List[str]:
+    """Find dataset directories containing shard folders."""
+    candidates: List[str] = []
+    for name in os.listdir(input_dir):
+        path = os.path.join(input_dir, name)
+        if not os.path.isdir(path):
+            continue
+        if _list_shard_dirs(path):
+            candidates.append(path)
+    return sorted(candidates)
