@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Literal, Optional, Sequence
 import jmespath
 from PIL import Image
 
+from mmirage.core.assets.image_manager import ImageAssetManager
+
 # Cache compiled JMESPath expressions to avoid recompilation across samples.
 _JMESPATH_CACHE: Dict[str, jmespath.parser.ParsedResult] = dict()
 
@@ -233,7 +235,12 @@ class VariableEnvironment:
         return any(k in self._vars_env for k in self._image_vars)
 
     @staticmethod
-    def from_input_variables(sample: Dict[str, Any], input_vars: List[InputVar], image_base_path: Optional[str] = None) -> "VariableEnvironment":
+    def from_input_variables(
+        sample: Dict[str, Any],
+        input_vars: List[InputVar],
+        image_base_path: Optional[str] = None,
+        image_asset_manager: Optional[ImageAssetManager] = None,
+    ) -> "VariableEnvironment":
         """Create a variable environment from a single sample.
 
         Args:
@@ -259,7 +266,10 @@ class VariableEnvironment:
                 )
 
             if input_var.is_image():
-                value = _resolve_image_input(value, image_base_path)
+                if image_asset_manager is not None:
+                    value = image_asset_manager.resolve_image(value).canonical_path
+                else:
+                    value = _resolve_image_input(value, image_base_path)
                 image_vars.add(input_var.name)
 
             ret[input_var.name] = value
@@ -268,7 +278,10 @@ class VariableEnvironment:
 
     @staticmethod
     def from_batch_input_variables(
-        batch: Dict[str, List[Any]], input_vars: List[InputVar], image_base_path: Optional[str] = None
+        batch: Dict[str, List[Any]],
+        input_vars: List[InputVar],
+        image_base_path: Optional[str] = None,
+        image_asset_manager: Optional[ImageAssetManager] = None,
     ) -> List["VariableEnvironment"]:
         """Extract input variables from a batch of samples.
 
@@ -288,6 +301,13 @@ class VariableEnvironment:
         ]
 
         for sample in batch_list:
-            vars_samples.append(VariableEnvironment.from_input_variables(sample, input_vars, image_base_path))
+            vars_samples.append(
+                VariableEnvironment.from_input_variables(
+                    sample,
+                    input_vars,
+                    image_base_path,
+                    image_asset_manager,
+                )
+            )
 
         return vars_samples

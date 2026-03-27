@@ -47,7 +47,6 @@ loading_params:
     - path: tests/mock_data/data.jsonl
       type: JSONL
       output_dir: tests/output/data
-      # image_base_path: /path/to/images  # Optional, for vision tasks
 
   # Total number of shards to split datasets into.
   # For SLURM, this determines the array job size.
@@ -100,6 +99,26 @@ processing_params:
         content: "{{ formatted_answer.question }}"
       - role: "assistant"
         content: "{{ formatted_answer.answer }}"
+
+
+# ============================================================================
+# ASSET PARAMETERS
+# ============================================================================
+# Configure canonical image resolution.
+
+# assets:
+#   images:
+#     root_dir: /path/to/images
+#     canonical:
+#       apply_exif_orientation: true
+#       convert_mode: RGB         # RGB | RGBA | L | null
+#       max_side: 4096            # optional
+#       format: png               # png | jpeg | jpg
+#       jpeg_quality: 95          # used when format is jpeg/jpg
+#     remote:
+#       timeout_s: 20
+#       max_bytes: 20000000
+#       user_agent: mmirage/0.x
 
 
 # ============================================================================

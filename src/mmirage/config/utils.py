@@ -6,6 +6,7 @@ import yaml
 import os
 
 from mmirage.config.config import MMirageConfig
+from mmirage.core.assets.image_manager import ImageAssetManager
 from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry, OutputVar
 from mmirage.core.loader.base import BaseDataLoaderConfig, DataLoaderRegistry
 
@@ -47,10 +48,13 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
         - path: /path/to/dataset.jsonl
           type: JSONL
           output_dir: /path/to/output
-          image_base_path: /path/to/images
       num_shards: 4
       shard_id: 0
       batch_size: 64
+
+    assets:
+      images:
+        root_dir: /path/to/images
 
     processing_params:
       inputs:
@@ -122,3 +126,22 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
     cfg_obj = from_dict(MMirageConfig, cast(dict, cfg), config=config)
 
     return cfg_obj
+
+
+def build_image_asset_manager(cfg: MMirageConfig) -> ImageAssetManager:
+    """Build an ImageAssetManager from MMIRAGE config."""
+    images_cfg = cfg.assets.images
+    canonical_cfg = images_cfg.canonical
+    remote_cfg = images_cfg.remote
+
+    return ImageAssetManager(
+        root_dir=images_cfg.root_dir,
+        apply_exif_orientation=canonical_cfg.apply_exif_orientation,
+        convert_mode=canonical_cfg.convert_mode,
+        max_side=canonical_cfg.max_side,
+        canonical_format=canonical_cfg.format,
+        jpeg_quality=canonical_cfg.jpeg_quality,
+        remote_timeout_s=remote_cfg.timeout_s,
+        remote_max_bytes=remote_cfg.max_bytes,
+        remote_user_agent=remote_cfg.user_agent,
+    )

@@ -96,6 +96,59 @@ class ProcessingParams:
 
 
 @dataclass
+class ImageCanonicalConfig:
+    """Canonicalization settings for image assets."""
+
+    apply_exif_orientation: bool = True
+    convert_mode: Optional[str] = "RGB"
+    max_side: Optional[int] = None
+    format: str = "png"
+    jpeg_quality: int = 95
+
+    def __post_init__(self) -> None:
+        self.format = self.format.lower().strip()
+        if self.format == "jpg":
+            self.format = "jpeg"
+        if self.format not in ("png", "jpeg"):
+            raise ValueError(f"Invalid assets.images.canonical.format: {self.format!r}")
+        if self.max_side is not None and self.max_side <= 0:
+            raise ValueError("assets.images.canonical.max_side must be > 0 when set")
+        if self.jpeg_quality < 1 or self.jpeg_quality > 100:
+            raise ValueError("assets.images.canonical.jpeg_quality must be in [1, 100]")
+
+
+@dataclass
+class ImageRemoteConfig:
+    """Remote fetch settings for image assets."""
+
+    timeout_s: int = 20
+    max_bytes: int = 20_000_000
+    user_agent: str = "mmirage/0.x"
+
+    def __post_init__(self) -> None:
+        if self.timeout_s <= 0:
+            raise ValueError("assets.images.remote.timeout_s must be > 0")
+        if self.max_bytes <= 0:
+            raise ValueError("assets.images.remote.max_bytes must be > 0")
+
+
+@dataclass
+class ImageAssetsConfig:
+    """Top-level image asset settings."""
+
+    root_dir: Optional[str] = None
+    canonical: ImageCanonicalConfig = field(default_factory=ImageCanonicalConfig)
+    remote: ImageRemoteConfig = field(default_factory=ImageRemoteConfig)
+
+
+@dataclass
+class AssetsConfig:
+    """Asset managers configuration block."""
+
+    images: ImageAssetsConfig = field(default_factory=ImageAssetsConfig)
+
+
+@dataclass
 class MMirageConfig:
     """Main configuration class for MMIRAGE pipeline.
 
@@ -113,4 +166,5 @@ class MMirageConfig:
     processors: List[BaseProcessorConfig]
     loading_params: LoadingParams
     processing_params: ProcessingParams
+    assets: AssetsConfig = field(default_factory=AssetsConfig)
     execution_params: ExecutionParams = field(default_factory=ExecutionParams)

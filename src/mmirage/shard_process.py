@@ -9,7 +9,7 @@ import sys
 import traceback
 from typing import Any, Dict, List
 
-from mmirage.config.utils import load_mmirage_config
+from mmirage.config.utils import build_image_asset_manager, load_mmirage_config
 from mmirage.core.loader.base import DatasetLike
 from mmirage.core.loader.utils import load_datasets_from_configs
 from mmirage.core.process.mapper import MMIRAGEMapper
@@ -34,14 +34,12 @@ def rewrite_batch(
     batch: Dict[str, List[Any]],
     mapper: MMIRAGEMapper,
     renderer: TemplateRenderer,
-    image_base_path: str = None,
 ) -> Dict[str, List[Any]]:
     """Rewrite a batch of samples by applying transformations.
     Args:
         batch: Dictionary mapping column names to lists of values.
         mapper: MMIRAGEMapper for processing transformations.
         renderer: TemplateRenderer for generating output.
-        image_base_path: Optional base directory for resolving relative image paths.
     Returns:
         Dictionary mapping output keys to lists of rendered values.
     Raises:
@@ -52,7 +50,7 @@ def rewrite_batch(
             "Uncomputable variables detected. Verify your configuration and make sure that there is no undefined variables"
         )
 
-    batch_environment = mapper.rewrite_batch(batch, image_base_path)
+    batch_environment = mapper.rewrite_batch(batch)
     rendered_list = renderer.batch_render(batch_environment)
     return rendered_list
 
@@ -112,10 +110,11 @@ def main():
             cfg.processors,
             processing_params.inputs,
             processing_params.outputs,
+            image_asset_manager=build_image_asset_manager(cfg),
         )
         renderer = TemplateRenderer(processing_params.output_schema)
 
-        ds_processed_all: List[DatasetLike] = []
+        ds_processed_all: List[Any] = []
         for ds_idx, ds_shard in enumerate(ds_all_shard):
             ds_config = datasets_config[ds_idx]
             if processing_params.remove_columns:
@@ -137,7 +136,6 @@ def main():
                 fn_kwargs={
                     "mapper": mapper,
                     "renderer": renderer,
-                    "image_base_path": ds_config.image_base_path,
                 },
                 remove_columns=remove_columns,
             )

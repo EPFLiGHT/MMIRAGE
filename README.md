@@ -162,12 +162,15 @@ loading_params:
   shard_id: "$SLURM_ARRAY_TASK_ID"
   batch_size: 32
 
+assets:
+  images:
+    root_dir: /path/to/images
+
 processing_params:
   inputs:
     - name: medical_image
       key: image
       type: image  # Mark as image input
-      image_base_path: /path/to/images  # Base directory for relative paths
     - name: original_caption
       key: caption
       type: text
@@ -194,7 +197,7 @@ execution_params:
 Key multimodal features:
 - `chat_template`: Specify the VLM chat template (e.g., `qwen2-vl`)
 - `type: image`: Mark input variables as images
-- `image_base_path`: Base directory for resolving relative image paths
+- `assets.images.root_dir`: Base directory for resolving relative image paths
 - Supports PIL Images, URLs, and file paths
 
 ## Architecture

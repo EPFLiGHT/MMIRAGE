@@ -1,9 +1,10 @@
 """Mapper for orchestrating variable transformations."""
 
-from typing import Dict, Any, List, cast
+from typing import Dict, Any, List, Optional, cast
 
 from mmirage.core.process.variables import BaseVar, InputVar, OutputVar
 from mmirage.core.process.base import AutoProcessor, BaseProcessor, BaseProcessorConfig
+from mmirage.core.assets.image_manager import ImageAssetManager
 
 import logging
 
@@ -29,6 +30,7 @@ class MMIRAGEMapper:
         processor_configs: List[BaseProcessorConfig],
         input_vars: List[InputVar],
         output_vars: List[OutputVar],
+        image_asset_manager: Optional[ImageAssetManager] = None,
     ) -> None:
         """Initialize the MMIRAGE mapper.
 
@@ -40,6 +42,7 @@ class MMIRAGEMapper:
         self.processors: Dict[str, BaseProcessor] = dict()
         self.input_vars = input_vars
         self.output_vars = output_vars
+        self.image_asset_manager = image_asset_manager
 
         for config in processor_configs:
             processor_cls = AutoProcessor.from_name(config.type)
@@ -88,7 +91,10 @@ class MMIRAGEMapper:
             RuntimeError: If an output variable type has no registered processor.
         """
         batch_environment = VariableEnvironment.from_batch_input_variables(
-            batch, self.input_vars, image_base_path
+            batch,
+            self.input_vars,
+            image_base_path,
+            self.image_asset_manager,
         )
 
         for output_var in self.output_vars:
