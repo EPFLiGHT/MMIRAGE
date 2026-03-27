@@ -9,7 +9,7 @@ on:
       - main
 
 env:
-  IMAGE_NAME: michelducartier24/mirage
+  IMAGE_NAME: fabnemepfl/mirage
   REGISTRY: docker.io
 
 jobs:
