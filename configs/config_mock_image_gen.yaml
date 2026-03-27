@@ -1,0 +1,50 @@
+processors:
+  - type: image_gen
+    pipeline_args:
+      model_path: runwayml/stable-diffusion-v1-5
+      torch_dtype: float16
+      device: auto
+      enable_attention_slicing: true
+    default_sampling_params:
+      num_inference_steps: 20
+      guidance_scale: 7.5
+    output_dir: tests/output/image_gen/generated_images
+    file_format: png
+
+loading_params:
+  state_dir: tests/output/image_gen/_pipeline_state
+  datasets:
+    - path: tests/mock_data/data.jsonl
+      type: JSONL
+      output_dir: tests/output/image_gen
+
+  num_shards: 1
+  shard_id: 0
+  batch_size: 4
+
+processing_params:
+  inputs:
+    - name: text
+      key: text
+
+  outputs:
+    - name: generated_image
+      type: image_gen
+      output_mode: path
+      filename_template: "generated_{{ __sample_index }}"
+      width: 512
+      height: 512
+      prompt: |
+        Create a clean and detailed illustration for:
+        {{ text }}
+
+  remove_columns: false
+  output_schema:
+    prompt_source: "{{ text }}"
+    image_path: "{{ generated_image }}"
+
+execution_params:
+  mode: local
+  retry: false
+  report_dir: ~/reports
+  hf_home: ~/hf

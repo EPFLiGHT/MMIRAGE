@@ -120,7 +120,10 @@ class ProcessorRegistry:
     # Import processor implementations lazily because they may depend on heavy
     # libraries (torch/transformers). Config/output-var types are registered via
     # mmirage.config.utils importing the relevant config modules.
-    _lazy_processor_imports = {"llm": "mmirage.core.process.processors.llm.llm_processor"}
+    _lazy_processor_imports = {
+        "llm": "mmirage.core.process.processors.llm.llm_processor",
+        "image_gen": "mmirage.core.process.processors.image_gen.image_gen_processor",
+    }
 
     @classmethod
     def register_types(

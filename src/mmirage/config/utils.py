@@ -17,6 +17,7 @@ from mmirage.core.loader.base import BaseDataLoaderConfig, DataLoaderRegistry
 # to construct config/output-var objects from YAML without importing heavy
 # processor implementations (e.g. torch/transformers).
 import mmirage.core.process.processors.llm.config  # noqa: F401
+import mmirage.core.process.processors.image_gen.config  # noqa: F401
 import mmirage.core.loader.jsonl  # noqa: F401
 import mmirage.core.loader.local_hf  # noqa: F401
 
