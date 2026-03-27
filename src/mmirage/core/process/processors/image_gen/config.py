@@ -29,7 +29,7 @@ class DiffusersPipelineArgs:
         enable_attention_slicing: Enable attention slicing when available to reduce VRAM usage.
     """
 
-    model_path: str = "runwayml/stable-diffusion-v1-5"
+    model_path: str = "stable-diffusion-v1-5/stable-diffusion-v1-5"
     revision: Optional[str] = None
     torch_dtype: str = "float16"
     device: str = "auto"

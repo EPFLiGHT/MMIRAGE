@@ -298,7 +298,7 @@ MMIRAGE also supports image generation with Diffusers models:
 processors:
   - type: image_gen
     pipeline_args:
-      model_path: runwayml/stable-diffusion-v1-5
+      model_path: stable-diffusion-v1-5/stable-diffusion-v1-5
       torch_dtype: float16
       device: auto
       enable_attention_slicing: true
