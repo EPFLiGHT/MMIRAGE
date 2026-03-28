@@ -30,7 +30,12 @@ docker compose build
 docker compose run --rm mmirage --config configs/your_config.yaml
 ```
 
-The container requires an NVIDIA GPU. The `docker-compose.yml` handles GPU access automatically.
+The container requires an NVIDIA GPU. The `docker-compose.yml` is configured to request GPU access, but the host must have:
+- NVIDIA GPU drivers installed
+- NVIDIA Container Toolkit / `nvidia-container-runtime` configured for Docker
+- A recent Docker Engine and Docker Compose version with GPU support enabled
+
+Without these host-side prerequisites, `docker compose run` may fail to detect or use the GPU.
 
 ## Key features
 

@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - main
+      - fix/docker-deployment # <--- This lets you test in your fork!
   pull_request:
     branches:
       - main
+  workflow_dispatch: # <--- Adds a button to run it manually
 
 env:
-  IMAGE_NAME: michelducartier24/mirage
+  IMAGE_NAME: specializedboy/mirage-git # <--- Updated to your Docker Hub username
   REGISTRY: docker.io
 
 jobs:
@@ -62,6 +64,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Log in to DockerHub
+        # MAGIC FIX: Skip login if this is a PR (fixes the upstream crash)
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -75,7 +79,8 @@ jobs:
         with:
           context: .
           file: ${{ matrix.path }}
-          push: true
+          # MAGIC FIX: Only push if it is NOT a PR
+          push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/${{ matrix.name }}:latest-${{ matrix.tag_base }}
             ${{ secrets.DOCKER_USERNAME }}/${{ matrix.name }}:${{ github.sha }}-${{ matrix.tag_base }}
