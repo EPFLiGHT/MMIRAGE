@@ -118,10 +118,13 @@ def merge_input_dir(input_dir: str, output_dir: str) -> List[MergeReport]:
     - one dataset dir containing shard_* folders directly
     - a parent dir containing multiple dataset subdirectories, each with shard_*
     """
-    dataset_dirs = _dataset_dirs(input_dir)
     root_shards = _list_shard_dirs(input_dir)
+    dataset_dirs = _dataset_dirs(input_dir)
 
-    if not dataset_dirs and root_shards:
+    # If shards are present at the input root, treat it as a single dataset.
+    # This avoids accidentally picking internal subdirectories (for example
+    # pipeline state folders that may also contain shard_* entries).
+    if root_shards:
         dataset_dirs = [input_dir]
 
     if not dataset_dirs:
