@@ -4,14 +4,15 @@ on:
   push:
     branches:
       - main
-      # - fix/docker-deployment 
+      - fix/docker-deployment 
+
   pull_request:
     branches:
       - main
   workflow_dispatch: 
 
 env:
-  IMAGE_NAME: fabnemepfl/mirage
+  IMAGE_NAME: specializedboy/mirage
   REGISTRY: docker.io
 
 jobs:
@@ -28,6 +29,14 @@ jobs:
             path: docker/Dockerfile
             tag_base: arm64
             name: mirage-git
+          - platform: ubuntu-latest
+            path: docker/Dockerfile.cpu
+            tag_base: amd64
+            name: mirage-git-cpu
+          - platform: ubuntu-24.04-arm
+            path: docker/Dockerfile.cpu
+            tag_base: arm64
+            name: mirage-git-cpu
 
     runs-on: ${{ matrix.platform }}
     environment: docker
