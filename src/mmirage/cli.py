@@ -23,7 +23,7 @@ from mmirage.cli_utils.status import (
 )
 from mmirage.config.config import MMirageConfig
 from mmirage.config.utils import load_mmirage_config
-from mmirage.merge_shards import MergeReport, merge_from_config
+from mmirage.merge_shards import MergeReport, merge_from_config, merge_input_dir
 
 
 logger = logging.getLogger(__name__)
@@ -258,6 +258,30 @@ def build_argparser() -> argparse.ArgumentParser:
         ),
     )
 
+    merge_dir_parser = subparsers.add_parser(
+        "merge-dir",
+        help="Merge shards directly from an input directory into an output directory",
+    )
+    merge_dir_parser.add_argument(
+        "--input-dir",
+        required=True,
+        help=(
+            "Input directory containing one dataset with shard_* folders, or "
+            "multiple dataset subdirectories each containing shard_* folders"
+        ),
+    )
+    merge_dir_parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="Output directory for merged dataset(s)",
+    )
+    merge_dir_parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Log verbosity",
+    )
+
     return parser
 
 
@@ -453,6 +477,20 @@ def handle_merge(args: argparse.Namespace, cfg: MMirageConfig, _config_path: str
     return 0
 
 
+def handle_merge_dir(args: argparse.Namespace) -> int:
+    """Merge shard outputs directly from input/output directory arguments.
+
+    Args:
+        args: Parsed CLI namespace.
+
+    Returns:
+        Exit code for merge outcome.
+    """
+    reports = merge_input_dir(args.input_dir, args.output_dir)
+    log_merge_reports(reports)
+    return 0
+
+
 def main() -> None:
     """CLI entry point."""
     parser = build_argparser()
@@ -460,6 +498,9 @@ def main() -> None:
     configure_logging(args.log_level)
 
     try:
+        if args.command == "merge-dir":
+            sys.exit(handle_merge_dir(args))
+
         config_path = os.path.abspath(args.config)
         cfg = load_mmirage_config(config_path)
 

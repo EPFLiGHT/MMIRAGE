@@ -59,15 +59,24 @@ python -m mmirage.cli check --config configs/config_mock.yaml --retry
 To merge shards from the CLI directly:
 
 ```bash
-python -m mmirage.cli merge --config configs/config_mock.yaml
+mmirage merge --config configs/config_mock.yaml
 ```
+
+To merge shards without a config file (input directory + output directory only):
+
+```bash
+mmirage merge-dir --input-dir /path/to/shards --output-dir /path/to/merged
+```
+
+`--input-dir` can point either to a single dataset directory that contains `shard_*`
+folders, or to a parent directory containing multiple dataset subdirectories.
 
 By default, merged output is written to `<dataset.output_dir>/merged` for each configured dataset.
 
 For multiple datasets, you can also choose a shared merge root:
 
 ```bash
-python -m mmirage.cli merge --config configs/config_mock.yaml --output-root /path/to/merged
+mmirage merge --config configs/config_mock.yaml --output-root /path/to/merged
 ```
 
 MMIRAGE still keeps datasets separate by creating one subdirectory per dataset under the root.
