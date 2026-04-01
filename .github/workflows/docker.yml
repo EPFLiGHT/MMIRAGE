@@ -4,14 +4,14 @@ on:
   push:
     branches:
       - main
-      - fix/docker-deployment 
+      # - fix/docker-deployment 
   pull_request:
     branches:
       - main
   workflow_dispatch: 
 
 env:
-  IMAGE_NAME: specializedboy/mirage
+  IMAGE_NAME: fabnemepfl/mirage
   REGISTRY: docker.io
 
 jobs:
