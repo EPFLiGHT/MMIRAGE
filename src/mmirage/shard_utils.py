@@ -169,7 +169,13 @@ def _validate_safe_output_dir(dataset_dir: str, output_dir: str) -> None:
             f"(dataset_dir={dataset_real}, output_dir={output_real})."
         )
 
-    if os.path.commonpath([dataset_real, output_real]) == output_real:
+    try:
+        common = os.path.commonpath([dataset_real, output_real])
+    except ValueError:
+        # Different drives (Windows) -> no ancestor relationship possible
+        return
+
+    if common == output_real:
         raise RuntimeError(
             "Unsafe merge output path: output_dir contains dataset_dir "
             f"(dataset_dir={dataset_real}, output_dir={output_real})."

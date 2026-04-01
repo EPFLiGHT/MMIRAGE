@@ -76,7 +76,8 @@ def merge_dataset_dir(dataset_dir: str, output_dir: str) -> MergeReport:
     Returns:
         MergeReport with summary details.
     """
-    _validate_safe_output_dir(dataset_dir, output_dir)
+    normalized_output_dir = os.path.abspath(output_dir)
+    _validate_safe_output_dir(dataset_dir, normalized_output_dir)
 
     shard_dirs = _list_shard_dirs(dataset_dir)
     if not shard_dirs:
@@ -116,13 +117,13 @@ def merge_dataset_dir(dataset_dir: str, output_dir: str) -> MergeReport:
     ds_merged = _merge_shards(shard_dsets)
     merged_rows = _count_rows(ds_merged)
 
-    _save_dataset_atomic(ds_merged, output_dir)
+    _save_dataset_atomic(ds_merged, normalized_output_dir)
 
     dataset_name = os.path.basename(os.path.normpath(dataset_dir))
     return MergeReport(
         dataset_name=dataset_name,
         input_dir=dataset_dir,
-        output_dir=output_dir,
+        output_dir=normalized_output_dir,
         used_shards=len(shard_dsets),
         merged_rows=merged_rows,
         skipped_invalid_dirs=skipped_invalid_dirs,
