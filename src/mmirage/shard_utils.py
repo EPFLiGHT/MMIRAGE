@@ -153,6 +153,29 @@ def _save_dataset_atomic(ds_processed: DatasetLike, out_dir: str):
     os.replace(tmp_dir, out_dir)
 
 
+def _validate_safe_output_dir(dataset_dir: str, output_dir: str) -> None:
+    """Reject output paths that could delete input data.
+
+    We forbid output directories that are the same as, or ancestors of,
+    the input dataset directory. This prevents accidental deletion when
+    clearing pre-existing output_dir before writing merged data.
+    """
+    dataset_real = os.path.realpath(os.path.abspath(dataset_dir))
+    output_real = os.path.realpath(os.path.abspath(output_dir))
+
+    if output_real == dataset_real:
+        raise RuntimeError(
+            "Unsafe merge output path: output_dir equals dataset_dir "
+            f"(dataset_dir={dataset_real}, output_dir={output_real})."
+        )
+
+    if os.path.commonpath([dataset_real, output_real]) == output_real:
+        raise RuntimeError(
+            "Unsafe merge output path: output_dir contains dataset_dir "
+            f"(dataset_dir={dataset_real}, output_dir={output_real})."
+        )
+
+
 def _dataset_out_dir(shard_idx: int, ds_config: BaseDataLoaderConfig) -> str:
     """Get dataset-specific output directory for a shard."""
     return os.path.join(ds_config.output_dir, f"shard_{shard_idx}")

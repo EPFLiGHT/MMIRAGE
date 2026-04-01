@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import shutil
 import logging
 from typing import Dict, List, Optional
 
@@ -10,9 +9,32 @@ from datasets import Dataset, DatasetDict, concatenate_datasets, load_from_disk
 
 from mmirage.config.config import MMirageConfig
 from mmirage.core.loader.base import DatasetLike
-from mmirage.shard_utils import _count_rows, MergeReport, _list_shard_dirs, _dataset_dirs
+from mmirage.shard_utils import (
+    _count_rows,
+    _save_dataset_atomic,
+    _validate_safe_output_dir,
+    MergeReport,
+    _list_shard_dirs,
+    _dataset_dirs,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _configure_logging(level: str) -> None:
+    """Configure logging for direct module execution.
+
+    Keeps existing logging configuration intact when this module is invoked
+    from another CLI entrypoint that already configured handlers.
+    """
+    root_logger = logging.getLogger()
+    if root_logger.handlers:
+        return
+
+    logging.basicConfig(
+        level=getattr(logging, level.upper(), logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
 
 
 def _merge_datasetdict(shard_dsets: List[DatasetDict]) -> DatasetDict:
@@ -54,6 +76,8 @@ def merge_dataset_dir(dataset_dir: str, output_dir: str) -> MergeReport:
     Returns:
         MergeReport with summary details.
     """
+    _validate_safe_output_dir(dataset_dir, output_dir)
+
     shard_dirs = _list_shard_dirs(dataset_dir)
     if not shard_dirs:
         raise RuntimeError(f"No shard_* folders found in {dataset_dir}.")
@@ -92,12 +116,7 @@ def merge_dataset_dir(dataset_dir: str, output_dir: str) -> MergeReport:
     ds_merged = _merge_shards(shard_dsets)
     merged_rows = _count_rows(ds_merged)
 
-    parent_dir = os.path.dirname(output_dir)
-    if parent_dir:
-        os.makedirs(parent_dir, exist_ok=True)
-    if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
-    ds_merged.save_to_disk(output_dir)
+    _save_dataset_atomic(ds_merged, output_dir)
 
     dataset_name = os.path.basename(os.path.normpath(dataset_dir))
     return MergeReport(
@@ -206,7 +225,14 @@ def main():
         required=True,
         help="Directory to write merged datasets into.",
     )
+    ap.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Logging level for merge summaries.",
+    )
     args = ap.parse_args()
+    _configure_logging(args.log_level)
 
     reports = merge_input_dir(args.input_dir, args.output_dir)
     for report in reports:
