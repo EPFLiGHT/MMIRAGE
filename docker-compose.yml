@@ -10,8 +10,3 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-
-  mmirage-cpu:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.cpu
