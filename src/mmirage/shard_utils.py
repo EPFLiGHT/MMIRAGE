@@ -312,6 +312,14 @@ def _list_shard_dirs(dataset_dir: str) -> List[str]:
     for name in os.listdir(dataset_dir):
         if not name.startswith("shard_"):
             continue
+        # Only accept canonical shard directories of the form "shard_<int>"
+        # and explicitly skip atomic-save temp dirs like
+        # "shard_0.tmp.<host>.<pid>.<uuid>".
+        if ".tmp." in name:
+            continue
+        suffix = name[len("shard_") :]
+        if not suffix.isdigit():
+            continue
         path = os.path.join(dataset_dir, name)
         if os.path.isdir(path):
             shard_dirs.append(path)
