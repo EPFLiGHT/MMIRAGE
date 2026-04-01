@@ -37,6 +37,14 @@ The container requires an NVIDIA GPU. The `docker-compose.yml` is configured to 
 
 Without these host-side prerequisites, `docker compose run` may fail to detect or use the GPU.
 
+### CPU-only (API-based LLMs)
+
+For API-based LLMs that do not require a GPU:
+
+```bash
+docker compose run --rm mmirage-cpu --config configs/your_config.yaml
+```
+
 ## Key features
 
 - **Multimodal Support**: Process both text and images with vision-language models
