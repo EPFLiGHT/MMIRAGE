@@ -16,6 +16,7 @@ from mmirage.shard_utils import (
     MergeReport,
     _list_shard_dirs,
     _dataset_dirs,
+    _validate_input_dir,
 )
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,8 @@ def merge_dataset_dir(dataset_dir: str, output_dir: str) -> MergeReport:
     Returns:
         MergeReport with summary details.
     """
+    _validate_input_dir(dataset_dir, "dataset_dir")
+    
     normalized_output_dir = os.path.abspath(output_dir)
     _validate_safe_output_dir(dataset_dir, normalized_output_dir)
 
@@ -138,6 +141,8 @@ def merge_input_dir(input_dir: str, output_dir: str) -> List[MergeReport]:
     - one dataset dir containing shard_* folders directly
     - a parent dir containing multiple dataset subdirectories, each with shard_*
     """
+    _validate_input_dir(dataset_dir, "dataset_dir")
+
     root_shards = _list_shard_dirs(input_dir)
     dataset_dirs = _dataset_dirs(input_dir)
 

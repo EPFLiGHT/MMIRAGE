@@ -335,3 +335,10 @@ def _dataset_dirs(input_dir: str) -> List[str]:
         if _list_shard_dirs(path):
             candidates.append(path)
     return sorted(candidates)
+
+def _validate_input_dir(path: str, arg_name: str) -> None:
+    """Ensure a user-provided input path exists and is a directory."""
+    if not os.path.isdir(path):
+        raise RuntimeError(
+            f"{arg_name} does not exist or is not a directory: {path}"
+        )
