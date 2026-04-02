@@ -8,7 +8,11 @@ import logging
 from typing import Any, List, Tuple
 
 import jinja2
-import sglang as sgl
+try:
+    import sglang as sgl
+    SGLANG_AVAILABLE = True
+except ImportError:
+    SGLANG_AVAILABLE = False
 from transformers import AutoTokenizer
 
 from mmirage.core.process.base import BaseProcessor, ProcessorRegistry
@@ -58,6 +62,8 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             **kwargs: Additional arguments passed to base class.
         """
         super().__init__(engine_args, **kwargs)
+        if not SGLANG_AVAILABLE:
+            raise RuntimeError("SGLang is not installed. Install with: pip install '.[gpu]'")
         self.llm = sgl.Engine(**asdict(engine_args.server_args))
         self.tokenizer = AutoTokenizer.from_pretrained(
             engine_args.server_args.model_path,
