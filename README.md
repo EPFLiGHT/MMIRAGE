@@ -8,7 +8,7 @@ To install the library, you can clone it from GitHub and then use pip to install
 
 ```bash
 git clone git@github.com:EPFLiGHT/MMIRAGE.git
-pip install -e ./MMIRAGE
+pip install -e './MMIRAGE[gpu]'
 ```
 
 For testing and scripts that make use of the library, it is advised to create a .env file:
