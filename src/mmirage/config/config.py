@@ -87,12 +87,14 @@ class ProcessingParams:
         outputs: List of output variables to generate using processors.
         output_schema: Dictionary defining the structure of output samples.
         remove_columns: If True, removes all columns from original dataset.
+        n_samples: Number of output samples to generate per input sample. Defaults to 1.
     """
 
     inputs: List[InputVar]
     outputs: List[OutputVar]
     output_schema: Dict[str, Any]
     remove_columns: bool = False
+    n_samples: int = 1
 
 
 @dataclass

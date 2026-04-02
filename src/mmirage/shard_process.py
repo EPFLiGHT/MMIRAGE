@@ -35,6 +35,8 @@ def rewrite_batch(
     mapper: MMIRAGEMapper,
     renderer: TemplateRenderer,
     image_base_path: str = None,
+    n_samples: int = 1,
+    preserve_columns: bool = False,
 ) -> Dict[str, List[Any]]:
     """Rewrite a batch of samples by applying transformations.
     Args:
@@ -42,18 +44,31 @@ def rewrite_batch(
         mapper: MMIRAGEMapper for processing transformations.
         renderer: TemplateRenderer for generating output.
         image_base_path: Optional base directory for resolving relative image paths.
+        n_samples: Number of output samples to generate per input sample.
+        preserve_columns: If True, re-attach original columns to the output (scaled up).
     Returns:
         Dictionary mapping output keys to lists of rendered values.
     Raises:
         ValueError: If variables are not computable given the configuration.
     """
+    if n_samples > 1:
+        expanded_batch = {k: [v for v in vs for _ in range(n_samples)] for k, vs in batch.items()}
+    else:
+        expanded_batch = batch
+
     if not mapper.validate_vars():
         raise ValueError(
             "Uncomputable variables detected. Verify your configuration and make sure that there is no undefined variables"
         )
 
-    batch_environment = mapper.rewrite_batch(batch, image_base_path)
+    batch_environment = mapper.rewrite_batch(expanded_batch, image_base_path)
     rendered_list = renderer.batch_render(batch_environment)
+
+    if preserve_columns:
+        for k, v in expanded_batch.items():
+            if k not in rendered_list:
+                rendered_list[k] = v
+
     return rendered_list
 
 
@@ -118,10 +133,19 @@ def main():
         ds_processed_all: List[DatasetLike] = []
         for ds_idx, ds_shard in enumerate(ds_all_shard):
             ds_config = datasets_config[ds_idx]
-            if processing_params.remove_columns:
-                remove_columns = _remove_columns(ds_shard)
+            n_samples = processing_params.n_samples
+            original_columns = _remove_columns(ds_shard)
+
+            if n_samples > 1:
+                # HF Datasets enforces equal-length columns. When expanding rows
+                # (n_samples > 1), we must drop all original columns on the HF side
+                # to avoid a length mismatch crash. If remove_columns=False, we
+                # re-attach them manually inside rewrite_batch (already scaled up).
+                remove_columns_hf = original_columns
+                preserve_columns = not processing_params.remove_columns
             else:
-                remove_columns = []
+                remove_columns_hf = original_columns if processing_params.remove_columns else []
+                preserve_columns = False
 
             logger.info(
                 f"Processing dataset {ds_idx} for shard {shard_id}: "
@@ -138,8 +162,10 @@ def main():
                     "mapper": mapper,
                     "renderer": renderer,
                     "image_base_path": ds_config.image_base_path,
+                    "n_samples": n_samples,
+                    "preserve_columns": preserve_columns,
                 },
-                remove_columns=remove_columns,
+                remove_columns=remove_columns_hf,
             )
             ds_processed_all.append(ds_processed)
 
