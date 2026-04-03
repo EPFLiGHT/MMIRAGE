@@ -59,6 +59,8 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         self._torch = torch
         self._pipeline = self._build_pipeline(DiffusionPipeline, config)
         self._default_sampling_params = dict(config.default_sampling_params)
+        self._parallel_inference = bool(config.parallel_inference)
+        self._parallel_chunk_size = config.parallel_chunk_size
 
         self._output_dir = config.get_output_dir()
         self._file_format = (config.file_format or "png").lower()
@@ -139,6 +141,31 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
 
         return params
 
+    def _build_batch_sampling_params(
+        self, output_var: ImageGenOutputVar, start_index: int, chunk_size: int
+    ) -> Dict[str, Any]:
+        """Build generation kwargs for a batched inference call."""
+        params = dict(self._default_sampling_params)
+
+        if output_var.width is not None:
+            params["width"] = output_var.width
+        if output_var.height is not None:
+            params["height"] = output_var.height
+        if output_var.num_inference_steps is not None:
+            params["num_inference_steps"] = output_var.num_inference_steps
+        if output_var.guidance_scale is not None:
+            params["guidance_scale"] = output_var.guidance_scale
+
+        if output_var.seed is not None:
+            generators = []
+            for offset in range(chunk_size):
+                generator = self._torch.Generator(device=self._device)
+                generator = generator.manual_seed(int(output_var.seed) + start_index + offset)
+                generators.append(generator)
+            params["generator"] = generators
+
+        return params
+
     def _render_filename(self, output_var: ImageGenOutputVar, env: VariableEnvironment, sample_index: int) -> str:
         """Render output filename stem from template and context."""
         template = jinja2.Template(output_var.filename_template)
@@ -161,18 +188,86 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         image.save(path)
         return path
 
-    @override
-    def batch_process_sample(
-        self, batch: List[VariableEnvironment], output_var: ImageGenOutputVar
+    def _process_chunk_parallel(
+        self,
+        chunk: List[VariableEnvironment],
+        output_var: ImageGenOutputVar,
+        prompt_template: jinja2.Template,
+        negative_prompt_template: Optional[jinja2.Template],
+        start_index: int,
     ) -> List[VariableEnvironment]:
-        """Generate images for each sample in the batch."""
-        updated: List[VariableEnvironment] = []
-        prompt_template = jinja2.Template(output_var.prompt)
-        negative_prompt_template = (
-            jinja2.Template(output_var.negative_prompt)
-            if output_var.negative_prompt
-            else None
+        """Process a chunk of samples with a single batched Diffusers call."""
+        prompts: List[str] = []
+        negative_prompts: Optional[List[str]] = [] if negative_prompt_template is not None else None
+
+        for env in chunk:
+            context = env.to_dict()
+            prompts.append(prompt_template.render(**context))
+            if negative_prompt_template is not None and negative_prompts is not None:
+                negative_prompts.append(negative_prompt_template.render(**context))
+
+        sampling_params = self._build_batch_sampling_params(output_var, start_index, len(chunk))
+        output = self._pipeline(
+            prompt=prompts,
+            negative_prompt=negative_prompts,
+            **sampling_params,
         )
+
+        images = output.images
+        if len(images) != len(chunk):
+            raise RuntimeError(
+                f"Expected {len(chunk)} images from batched generation, got {len(images)}"
+            )
+
+        updated: List[VariableEnvironment] = []
+        for local_index, (env, image) in enumerate(zip(chunk, images)):
+            sample_index = start_index + local_index
+            if output_var.output_mode == "pil":
+                value = image
+                is_image = True
+            else:
+                filename = self._render_filename(output_var, env, sample_index)
+                value = self._save_image(image, filename)
+                is_image = False
+
+            updated.append(env.with_variable(output_var.name, value, is_image=is_image))
+
+        return updated
+
+    def _batch_process_parallel(
+        self,
+        batch: List[VariableEnvironment],
+        output_var: ImageGenOutputVar,
+        prompt_template: jinja2.Template,
+        negative_prompt_template: Optional[jinja2.Template],
+    ) -> List[VariableEnvironment]:
+        """Process a full mapper batch using batched Diffusers calls."""
+        chunk_size = self._parallel_chunk_size or len(batch)
+        updated: List[VariableEnvironment] = []
+
+        for start_index in range(0, len(batch), chunk_size):
+            chunk = batch[start_index : start_index + chunk_size]
+            updated.extend(
+                self._process_chunk_parallel(
+                    chunk,
+                    output_var,
+                    prompt_template,
+                    negative_prompt_template,
+                    start_index,
+                )
+            )
+
+        return updated
+
+    def _batch_process_sequential(
+        self,
+        batch: List[VariableEnvironment],
+        output_var: ImageGenOutputVar,
+        prompt_template: jinja2.Template,
+        negative_prompt_template: Optional[jinja2.Template],
+    ) -> List[VariableEnvironment]:
+        """Process samples sequentially (legacy behavior)."""
+        updated: List[VariableEnvironment] = []
 
         for sample_index, env in enumerate(batch):
             try:
@@ -211,6 +306,39 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                 )
 
         return updated
+
+    @override
+    def batch_process_sample(
+        self, batch: List[VariableEnvironment], output_var: ImageGenOutputVar
+    ) -> List[VariableEnvironment]:
+        """Generate images for each sample in the batch."""
+        prompt_template = jinja2.Template(output_var.prompt)
+        negative_prompt_template = (
+            jinja2.Template(output_var.negative_prompt)
+            if output_var.negative_prompt
+            else None
+        )
+
+        if self._parallel_inference and len(batch) > 1:
+            try:
+                return self._batch_process_parallel(
+                    batch,
+                    output_var,
+                    prompt_template,
+                    negative_prompt_template,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Parallel image generation failed; falling back to sequential mode. "
+                    f"Reason: {exc}"
+                )
+
+        return self._batch_process_sequential(
+            batch,
+            output_var,
+            prompt_template,
+            negative_prompt_template,
+        )
 
     def shutdown(self) -> None:
         """Release pipeline references."""

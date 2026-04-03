@@ -43,14 +43,24 @@ class DiffusersImageGenConfig(BaseProcessorConfig):
     Attributes:
         pipeline_args: Arguments used to initialize the Diffusers pipeline.
         default_sampling_params: Default generation kwargs passed to pipeline calls.
+        parallel_inference: If True, process batch samples in parallel via a single batched pipeline call.
+        parallel_chunk_size: Optional chunk size for batched calls. If None or <= 0,
+            the full mapper batch size is used.
         output_dir: Directory where generated images are written when output_mode is "path".
         file_format: Image file format for saved outputs.
     """
 
     pipeline_args: DiffusersPipelineArgs = field(default_factory=DiffusersPipelineArgs)
     default_sampling_params: Dict[str, Any] = field(default_factory=dict)
+    parallel_inference: bool = True
+    parallel_chunk_size: Optional[int] = None
     output_dir: str = ".mmirage/generated_images"
     file_format: str = "png"
+
+    def __post_init__(self) -> None:
+        """Validate optional parallelism settings."""
+        if self.parallel_chunk_size is not None and self.parallel_chunk_size <= 0:
+            self.parallel_chunk_size = None
 
     def get_output_dir(self) -> str:
         """Get normalized absolute output directory path."""
