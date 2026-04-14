@@ -143,7 +143,6 @@ def merge_input_dir(input_dir: str, output_dir: str) -> List[MergeReport]:
     """
     input_dir = os.path.abspath(os.path.expandvars(os.path.expanduser(input_dir)))
     output_dir = os.path.abspath(os.path.expandvars(os.path.expanduser(output_dir)))
-    
     _validate_input_dir(input_dir, "input_dir")
 
     root_shards = _list_shard_dirs(input_dir)
