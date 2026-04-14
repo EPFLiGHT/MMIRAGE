@@ -77,8 +77,9 @@ def merge_dataset_dir(dataset_dir: str, output_dir: str) -> MergeReport:
     Returns:
         MergeReport with summary details.
     """
+    dataset_dir = os.path.abspath(os.path.expandvars(os.path.expanduser(dataset_dir)))
+    normalized_output_dir = os.path.abspath(os.path.expandvars(os.path.expanduser(output_dir)))
     _validate_input_dir(dataset_dir, "dataset_dir")
-    normalized_output_dir = os.path.abspath(output_dir)
     _validate_safe_output_dir(dataset_dir, normalized_output_dir)
 
     shard_dirs = _list_shard_dirs(dataset_dir)
@@ -140,6 +141,9 @@ def merge_input_dir(input_dir: str, output_dir: str) -> List[MergeReport]:
     - one dataset dir containing shard_* folders directly
     - a parent dir containing multiple dataset subdirectories, each with shard_*
     """
+    input_dir = os.path.abspath(os.path.expandvars(os.path.expanduser(input_dir)))
+    output_dir = os.path.abspath(os.path.expandvars(os.path.expanduser(output_dir)))
+    
     _validate_input_dir(input_dir, "input_dir")
 
     root_shards = _list_shard_dirs(input_dir)
@@ -158,7 +162,13 @@ def merge_input_dir(input_dir: str, output_dir: str) -> List[MergeReport]:
 
     reports: List[MergeReport] = []
     for dataset_dir in dataset_dirs:
-        reports.append(merge_dataset_dir(dataset_dir, output_dir))
+        if dataset_dir == input_dir:
+            ds_output_dir = output_dir
+        else:
+            dataset_name = os.path.basename(dataset_dir)
+            ds_output_dir = os.path.join(output_dir, dataset_name)
+
+        reports.append(merge_dataset_dir(dataset_dir, ds_output_dir))
 
     return reports
 
