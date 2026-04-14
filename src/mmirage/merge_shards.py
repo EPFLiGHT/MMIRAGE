@@ -218,7 +218,6 @@ def merge_from_config(
 
 def main():
     """CLI entrypoint for directory-based shard merging.
-    
     Scans --input-dir for dataset subdirectories containing shard_* folders.
     For each dataset directory, merges shard datasets and writes directly to
     the provided `--output-dir`.
