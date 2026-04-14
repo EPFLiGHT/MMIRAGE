@@ -73,8 +73,6 @@ folders, or to a parent directory containing multiple dataset subdirectories.
 If `shard_*` folders are present directly in `--input-dir`, MMIRAGE merges that
 root dataset directly and ignores nested internal folders.
 
-By default, merged output is written to `<dataset.output_dir>/merged` for each configured dataset.
-
 For multiple datasets, you can also choose a shared merge root:
 
 ```bash

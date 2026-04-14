@@ -158,13 +158,7 @@ def merge_input_dir(input_dir: str, output_dir: str) -> List[MergeReport]:
 
     reports: List[MergeReport] = []
     for dataset_dir in dataset_dirs:
-        if dataset_dir == input_dir:
-            ds_output_dir = output_dir
-        else:
-            dataset_name = os.path.basename(dataset_dir)
-            ds_output_dir = os.path.join(output_dir, dataset_name)
-
-        reports.append(merge_dataset_dir(dataset_dir, ds_output_dir))
+        reports.append(merge_dataset_dir(dataset_dir, output_dir))
 
     return reports
 
@@ -216,8 +210,8 @@ def main():
     """CLI entrypoint for directory-based shard merging.
     
     Scans --input-dir for dataset subdirectories containing shard_* folders.
-    For each dataset directory, merges shard datasets and writes to --output-dir
-    while preserving the dataset directory name.
+    For each dataset directory, merges shard datasets and writes directly to
+    the provided `--output-dir`.
     """
     ap = argparse.ArgumentParser("Merge processed shard datasets into HF datasets.")
     ap.add_argument(
