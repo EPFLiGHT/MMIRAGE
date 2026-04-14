@@ -10,6 +10,7 @@ from pydantic import BaseModel, create_model
 from mmirage.core.process.variables import BaseVar, OutputVar
 
 from mmirage.core.process.base import BaseProcessorConfig
+from mmirage.core.process.base import ProcessorRegistry
 from jinja2 import Environment, meta
 
 logger = logging.getLogger(__name__)
@@ -137,3 +138,6 @@ class LLMOutputVar(OutputVar):
             return False
 
         return True
+
+
+ProcessorRegistry.register_types("llm", SGLangLLMConfig, LLMOutputVar)

@@ -31,23 +31,21 @@ def load_datasets_from_configs(configs: List[BaseDataLoaderConfig]) -> List[Data
         RuntimeError: If no datasets could be loaded successfully.
     """
 
-    config_per_type = {}
-    for ds_config in configs:
-        config_per_type[ds_config.type] = config_per_type.get(ds_config.type, []) + [
-            ds_config
-        ]
-
     valid_ds: List[DatasetLike] = []
-    for config_type, config_list in config_per_type.items():
-        loader = AutoDataLoader.from_name(config_type)()
-        for ds_config in config_list:
-            try:
-                ds = loader.from_config(ds_config)
-                if ds is None:
-                    continue
-                valid_ds.append(ds)
-            except Exception as e:
-                logger.warning(f"⚠️ Dataset loading failed with error: {e}. Skipping")
+    loader_by_type = {}
+    for ds_config in configs:
+        loader = loader_by_type.get(ds_config.type)
+        if loader is None:
+            loader = AutoDataLoader.from_name(ds_config.type)()
+            loader_by_type[ds_config.type] = loader
+
+        try:
+            ds = loader.from_config(ds_config)
+            if ds is None:
+                continue
+            valid_ds.append(ds)
+        except Exception as e:
+            logger.warning(f"Dataset loading failed with error: {e}. Skipping")
 
     if not valid_ds:
         raise RuntimeError("No valid datasets loaded from the provided configs.")

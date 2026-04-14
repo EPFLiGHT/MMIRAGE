@@ -13,12 +13,13 @@ processors:
           enable_thinking: false
 
 loading_params:
+  state_dir: tests/output/data/_pipeline_state
   datasets:
     - path: tests/mock_data/data.jsonl
       type: JSONL
       output_dir: tests/output/data
 
-  num_shards: 4
+  num_shards: 1
   shard_id: 0
   batch_size: 64
 
@@ -47,3 +48,13 @@ processing_params:
         content: "{{ formatted_answer.question }}"
       - role: "assistant"
         content: "{{ formatted_answer.answer }}"
+
+# Execution configuration (local or SLURM cluster)
+# For local testing, use mode: local
+# For SLURM cluster, use mode: slurm and specify account
+execution_params:
+  mode: local
+  retry: false
+  merge: true
+  report_dir: ~/reports
+  hf_home: ~/hf

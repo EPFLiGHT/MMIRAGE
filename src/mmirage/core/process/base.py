@@ -1,6 +1,7 @@
 """Base classes and registry for processors in MMIRAGE."""
 
 import abc
+from importlib import import_module
 from dataclasses import dataclass
 from typing import Callable, Generic, List, Type, TypeVar
 
@@ -80,6 +81,28 @@ class ProcessorRegistry:
     _config_registry = dict()
     _output_var_registry = dict()
 
+    # Import processor implementations lazily because they may depend on heavy
+    # libraries (torch/transformers). Config/output-var types are registered via
+    # mmirage.config.utils importing the relevant config modules.
+    _lazy_processor_imports = {"llm": "mmirage.core.process.processors.llm.llm_processor"}
+
+    @classmethod
+    def register_types(
+        cls,
+        name: str,
+        config_cls: Type[BaseProcessorConfig],
+        output_var_cls: Type[OutputVar],
+    ) -> None:
+        """Register config/output-var types without importing processor implementations."""
+        cls._config_registry[name] = config_cls
+        cls._output_var_registry[name] = output_var_cls
+
+    @classmethod
+    def _maybe_import_processor(cls, name: str) -> None:
+        module = cls._lazy_processor_imports.get(name)
+        if module:
+            import_module(module)
+
     @classmethod
     def register(
         cls,
@@ -118,6 +141,9 @@ class ProcessorRegistry:
         Raises:
             ValueError: If no processor is registered under the given name.
         """
+        if name not in cls._registry:
+            cls._maybe_import_processor(name)
+
         if name not in cls._registry:
             raise ValueError(
                 f"Processor {name} not registered. Available processors are {list(cls._registry.keys())}"

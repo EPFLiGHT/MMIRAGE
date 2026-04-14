@@ -11,13 +11,14 @@ processors:
       max_new_tokens: 512
 
 loading_params:
+  state_dir: tests/output/data_vision/_pipeline_state
   datasets:
     - path: tests/mock_data_vision/data.jsonl
       type: JSONL
       output_dir: tests/output/data_vision
       image_base_path: tests/mock_data_vision  # Base directory where images are stored
 
-  num_shards: 4
+  num_shards: 1
   shard_id: 0
   batch_size: 1
 
@@ -38,3 +39,11 @@ processing_params:
   output_schema:
     image: "{{ image_input }}"
     caption: "{{ caption }}"
+
+# Execution configuration (local or SLURM cluster)
+execution_params:
+  mode: local
+  retry: false
+  merge: true
+  report_dir: ~/reports
+  hf_home: ~/hf
