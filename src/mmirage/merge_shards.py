@@ -78,7 +78,6 @@ def merge_dataset_dir(dataset_dir: str, output_dir: str) -> MergeReport:
         MergeReport with summary details.
     """
     _validate_input_dir(dataset_dir, "dataset_dir")
-    
     normalized_output_dir = os.path.abspath(output_dir)
     _validate_safe_output_dir(dataset_dir, normalized_output_dir)
 
