@@ -315,7 +315,7 @@ def _list_shard_dirs(dataset_dir: str) -> List[str]:
         # Only accept canonical shard directories of the form "shard_<int>"
         # and explicitly skip atomic-save temp dirs like
         # "shard_0.tmp.<host>.<pid>.<uuid>".
-        if ".tmp." in name:
+        if ".tmp" in name:
             continue
         suffix = name[len("shard_") :]
         if not suffix.isdigit():
