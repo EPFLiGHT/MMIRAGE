@@ -140,7 +140,7 @@ def merge_input_dir(input_dir: str, output_dir: str) -> List[MergeReport]:
     - one dataset dir containing shard_* folders directly
     - a parent dir containing multiple dataset subdirectories, each with shard_*
     """
-    _validate_input_dir(dataset_dir, "dataset_dir")
+    _validate_input_dir(input_dir, "input_dir")
 
     root_shards = _list_shard_dirs(input_dir)
     dataset_dirs = _dataset_dirs(input_dir)
