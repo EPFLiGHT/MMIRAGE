@@ -32,6 +32,15 @@ sys.modules["datasets"] = _datasets_mock
 sys.modules["datasets.arrow_dataset"] = MagicMock()
 sys.modules["datasets.dataset_dict"] = MagicMock()
 
+# -- typing.override shim for Python < 3.12 ------------------------------------
+# `override` was added to `typing` in Python 3.12.  The source uses it without
+# a try/except in some files, so we inject a no-op shim before importing.
+import typing as _typing
+if not hasattr(_typing, "override"):
+    def _override(f):  # type: ignore[return]
+        return f
+    _typing.override = _override  # type: ignore[attr-defined]
+
 # -- Project information -------------------------------------------------------
 project = "MMIRAGE"
 copyright = "2024, Meditron team"
@@ -44,8 +53,8 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
-    "sphinx_autodoc_typehints",
     "myst_parser",
+    "sphinx_design",
 ]
 
 templates_path = ["_templates"]
@@ -103,6 +112,15 @@ napoleon_google_docstring = True
 napoleon_numpy_docstring = False
 napoleon_include_init_with_doc = True
 napoleon_attr_annotations = True
+
+# Suppress noisy-but-benign warnings:
+#  - duplicate member descriptions caused by __init__.py re-exports
+#  - unresolvable forward refs in mocked type annotations
+suppress_warnings = [
+    "ref.duplicate",
+    "sphinx_autodoc_typehints.forward_reference",
+    "myst.header",
+]
 
 # -- Intersphinx ---------------------------------------------------------------
 intersphinx_mapping = {
