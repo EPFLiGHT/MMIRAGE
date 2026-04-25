@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Union, override
+from typing import Dict, Optional, Union
+
+try:
+    from typing import override  # Python 3.12+
+except ImportError:  # pragma: no cover
+    from typing_extensions import override  # type: ignore
+
 from datasets import (
     Dataset,
     DatasetDict,
