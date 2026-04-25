@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
 try:
-    from typing import override  # Python 3.12+
-except ImportError:  # pragma: no cover
+    from typing import override
+except ImportError:
     from typing_extensions import override  # type: ignore
 
 from datasets import (
