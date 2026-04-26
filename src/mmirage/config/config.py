@@ -66,7 +66,9 @@ class ExecutionParams:
     def __post_init__(self):
         """Validate execution parameters."""
         if self.mode not in ("local", "slurm"):
-            raise ValueError(f"Invalid execution mode: {self.mode!r}. Must be 'local' or 'slurm'.")
+            raise ValueError(
+                f"Invalid execution mode: {self.mode!r}. Must be 'local' or 'slurm'."
+            )
         if self.mode == "slurm" and not self.account:
             raise ValueError("account is required when mode='slurm'")
         if self.max_retries < 0:
@@ -98,6 +100,25 @@ class ProcessingParams:
 
 
 @dataclass
+class DeduplicationParams:
+    """Configuration for fuzzy deduplication post-processing.
+
+    Attributes:
+        enabled: Whether deduplication is enabled. Defaults to False.
+        text_field: Column name containing text to deduplicate.
+        threshold: Jaccard similarity threshold above which rows are duplicates.
+        num_perm: Number of MinHash permutations (signature size).
+        shingle_size: Character n-gram size for shingling.
+    """
+
+    enabled: bool = False
+    text_field: str = "text"
+    threshold: float = 0.85
+    num_perm: int = 128
+    shingle_size: int = 5
+
+
+@dataclass
 class MMirageConfig:
     """Main configuration class for MMIRAGE pipeline.
 
@@ -110,9 +131,13 @@ class MMirageConfig:
         loading_params: Parameters for loading input datasets.
         processing_params: Parameters for processing dataset samples.
         execution_params: Parameters for executing the pipeline (local/SLURM).
+        deduplication_params: Parameters for post-merge fuzzy deduplication.
     """
 
     processors: List[BaseProcessorConfig]
     loading_params: LoadingParams
     processing_params: ProcessingParams
     execution_params: ExecutionParams = field(default_factory=ExecutionParams)
+    deduplication_params: DeduplicationParams = field(
+        default_factory=DeduplicationParams
+    )

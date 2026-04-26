@@ -173,6 +173,29 @@ Merge output behavior with multiple datasets:
 - Default (`run` with `execution_params.merge: true`, or `merge` without `--output-root`): each dataset is merged to its own `<dataset.output_dir>/merged`.
 - Shared root (`merge --output-root ...`): one merged subdirectory is created per dataset under the root.
 
+### Fuzzy deduplication (optional)
+
+After merging, MMIRAGE can drop near-duplicate rows using character n-gram MinHash + LSH. This is CPU-only and uses the lightweight `datasketch` package.
+
+Install the optional extra:
+
+```bash
+pip install -e '.[dedup]'
+```
+
+Enable in your YAML config:
+
+```yaml
+deduplication_params:
+  enabled: true
+  text_field: text
+  threshold: 0.85       # Jaccard similarity threshold
+  num_perm: 128         # MinHash signature size
+  shingle_size: 5       # character n-gram size
+```
+
+Dedup runs as part of `mmirage merge --config <cfg>` and as part of `mmirage run` when `execution_params.merge: true`. With `enabled: false` (default) the dedup module is not imported and there is no overhead.
+
 ### Multimodal: Processing images with VLMs
 
 MMIRAGE supports multimodal processing with vision-language models:

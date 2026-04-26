@@ -186,6 +186,30 @@ execution_params:
 
 
 # ============================================================================
+# DEDUPLICATION PARAMETERS (optional)
+# ============================================================================
+# Optional fuzzy deduplication applied after merging shards.
+# Uses character n-gram MinHash + LSH (via the `datasketch` package).
+# Install with: pip install -e '.[dedup]'
+
+deduplication_params:
+  # Set to true to enable fuzzy dedup; default false (no overhead).
+  enabled: false
+
+  # Column name to deduplicate on
+  text_field: text
+
+  # Jaccard similarity threshold above which rows are duplicates (0.0–1.0)
+  threshold: 0.85
+
+  # Number of MinHash permutations (signature size)
+  num_perm: 128
+
+  # Character n-gram size for shingling
+  shingle_size: 5
+
+
+# ============================================================================
 # USAGE EXAMPLES
 # ============================================================================
 #

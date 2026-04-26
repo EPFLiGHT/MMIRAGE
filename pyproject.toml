@@ -48,6 +48,9 @@ dev = [
   "ipykernel",
   "pytest",
 ]
+dedup = [
+  "datasketch>=1.6.0",
+]
 
 [project.scripts]
 mmirage = "mmirage.cli:main"
