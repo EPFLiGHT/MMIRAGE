@@ -76,7 +76,7 @@ class ImageGenOutputVar(OutputVar):
         negative_prompt: Optional Jinja2 template used as negative prompt.
         output_mode: Output representation: "path" (default) or "pil".
         filename_template: Optional Jinja2 template used for saved image filename stem.
-            Supported internal variables: __sample_index, __output_name.
+            Supported internal variables: __sample_index, __output_name, __shard_id.
         width: Optional image width override.
         height: Optional image height override.
         num_inference_steps: Optional sampling steps override.
@@ -96,7 +96,7 @@ class ImageGenOutputVar(OutputVar):
 
     def is_computable(self, vars: Sequence[BaseVar]) -> bool:
         """Check if all variables referenced in templates are available."""
-        reserved = {"__sample_index", "__output_name"}
+        reserved = {"__sample_index", "__output_name", "__shard_id"}
         var_names = {v.name for v in vars}
 
         templates: List[str] = [self.prompt]

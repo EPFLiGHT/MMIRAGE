@@ -43,9 +43,9 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
     either saved file paths or in-memory PIL.Image outputs.
     """
 
-    def __init__(self, config: DiffusersImageGenConfig, **kwargs) -> None:
+    def __init__(self, config: DiffusersImageGenConfig, shard_id: int = 0, **kwargs) -> None:
         """Initialize processor and load Diffusers pipeline."""
-        super().__init__(config, **kwargs)
+        super().__init__(config)
 
         try:
             import torch
@@ -66,6 +66,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         self._file_format = (config.file_format or "png").lower()
         os.makedirs(self._output_dir, exist_ok=True)
 
+        self._shard_id = shard_id
         run_token = uuid.uuid4().hex[:8]
         self._run_id = f"{socket.gethostname()}.{os.getpid()}.{run_token}"
 
@@ -172,6 +173,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         context = dict(env.to_dict())
         context["__sample_index"] = sample_index
         context["__output_name"] = output_var.name
+        context["__shard_id"] = self._shard_id
 
         stem = template.render(**context)
         stem = _sanitize_filename(stem)

@@ -144,6 +144,7 @@ def main():
             cfg.processors,
             processing_params.inputs,
             processing_params.outputs,
+            shard_id=shard_id,
         )
         renderer = TemplateRenderer(processing_params.output_schema)
 
