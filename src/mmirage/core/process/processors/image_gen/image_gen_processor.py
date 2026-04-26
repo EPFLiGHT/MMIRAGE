@@ -58,7 +58,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
             ) from e
 
         self._torch = torch
-        self._pipeline = self._build_pipeline(DiffusionPipeline, config)
+        self._pipeline, self._device = self._build_pipeline(DiffusionPipeline, config)
         self._default_sampling_params = dict(config.default_sampling_params)
         self._parallel_inference = bool(config.parallel_inference)
         self._parallel_chunk_size = config.parallel_chunk_size
@@ -95,8 +95,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         if pipeline_args.enable_attention_slicing and hasattr(pipeline, "enable_attention_slicing"):
             pipeline.enable_attention_slicing()
 
-        self._device = device
-        return pipeline
+        return pipeline, device
 
     def _parse_torch_dtype(self, dtype: str) -> Optional[Any]:
         """Convert dtype string to torch dtype object."""
@@ -175,27 +174,27 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         payload = str(sorted(env.to_dict().items()))
         return hashlib.sha256(payload.encode()).hexdigest()[:8]
 
-    def _render_filename(self, output_var: ImageGenOutputVar, env: VariableEnvironment, sample_index: int) -> str:
+    def _render_filename(self, filename_template: jinja2.Template, output_var: ImageGenOutputVar, env: VariableEnvironment, sample_index: int) -> str:
         """Render output filename stem from template and context."""
-        template = jinja2.Template(output_var.filename_template)
         context = dict(env.to_dict())
         context["__sample_index"] = sample_index
         context["__output_name"] = output_var.name
         context["__shard_id"] = self._shard_id
         context["__source_hash"] = self._compute_source_hash(env)
 
-        stem = template.render(**context)
+        stem = filename_template.render(**context)
         stem = _sanitize_filename(stem)
         return f"{stem}.{self._file_format}"
 
     def _save_image(self, image: Any, filename: str) -> str:
         """Persist image to output directory and return absolute path."""
+        stem, ext = os.path.splitext(filename)
         path = os.path.join(self._output_dir, filename)
-
-        if os.path.exists(path):
-            stem, ext = os.path.splitext(filename)
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+        except FileExistsError:
             path = os.path.join(self._output_dir, f"{stem}.{self._run_id}{ext}")
-
         image.save(path)
         return path
 
@@ -206,6 +205,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         prompt_template: jinja2.Template,
         negative_prompt_template: Optional[jinja2.Template],
         start_index: int,
+        filename_template: jinja2.Template,
     ) -> List[VariableEnvironment]:
         """Process a chunk of samples with a single batched Diffusers call."""
         prompts: List[str] = []
@@ -218,11 +218,10 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                 negative_prompts.append(negative_prompt_template.render(**context))
 
         sampling_params = self._build_batch_sampling_params(output_var, start_index, len(chunk))
-        output = self._pipeline(
-            prompt=prompts,
-            negative_prompt=negative_prompts,
-            **sampling_params,
-        )
+        call_kwargs: Dict[str, Any] = {"prompt": prompts, **sampling_params}
+        if negative_prompts is not None:
+            call_kwargs["negative_prompt"] = negative_prompts
+        output = self._pipeline(**call_kwargs)
 
         images = output.images
         if len(images) != len(chunk):
@@ -237,7 +236,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                 value = image
                 is_image = True
             else:
-                filename = self._render_filename(output_var, env, sample_index)
+                filename = self._render_filename(filename_template, output_var, env, sample_index)
                 value = self._save_image(image, filename)
                 is_image = False
 
@@ -251,6 +250,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         output_var: ImageGenOutputVar,
         prompt_template: jinja2.Template,
         negative_prompt_template: Optional[jinja2.Template],
+        filename_template: jinja2.Template,
     ) -> List[VariableEnvironment]:
         """Process a full mapper batch using batched Diffusers calls."""
         chunk_size = self._parallel_chunk_size or len(batch)
@@ -265,6 +265,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                     prompt_template,
                     negative_prompt_template,
                     self._sample_counter + start_index,
+                    filename_template,
                 )
             )
 
@@ -277,6 +278,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         output_var: ImageGenOutputVar,
         prompt_template: jinja2.Template,
         negative_prompt_template: Optional[jinja2.Template],
+        filename_template: jinja2.Template,
     ) -> List[VariableEnvironment]:
         """Process samples sequentially (legacy behavior)."""
         updated: List[VariableEnvironment] = []
@@ -293,18 +295,17 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                 )
 
                 sampling_params = self._build_sampling_params(output_var, sample_index)
-                output = self._pipeline(
-                    prompt=prompt,
-                    negative_prompt=negative_prompt,
-                    **sampling_params,
-                )
+                call_kwargs: Dict[str, Any] = {"prompt": prompt, **sampling_params}
+                if negative_prompt is not None:
+                    call_kwargs["negative_prompt"] = negative_prompt
+                output = self._pipeline(**call_kwargs)
                 image = output.images[0]
 
                 if output_var.output_mode == "pil":
                     value = image
                     is_image = True
                 else:
-                    filename = self._render_filename(output_var, env, sample_index)
+                    filename = self._render_filename(filename_template, output_var, env, sample_index)
                     value = self._save_image(image, filename)
                     is_image = False
 
@@ -332,6 +333,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
             if output_var.negative_prompt
             else None
         )
+        filename_template = jinja2.Template(output_var.filename_template)
 
         if self._parallel_inference and len(batch) > 1:
             try:
@@ -340,6 +342,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                     output_var,
                     prompt_template,
                     negative_prompt_template,
+                    filename_template,
                 )
             except Exception as exc:
                 logger.warning(
@@ -352,6 +355,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
             output_var,
             prompt_template,
             negative_prompt_template,
+            filename_template,
         )
 
     def shutdown(self) -> None:

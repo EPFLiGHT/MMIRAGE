@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import logging
 import os
-from typing import Any, Dict, List, Optional, Sequence, TypeAlias
+from typing import Any, Dict, List, Literal, Optional, Sequence, TypeAlias
 from jinja2 import Environment, meta
 
 from mmirage.core.process.base import BaseProcessorConfig
@@ -14,7 +14,7 @@ from mmirage.core.process.variables import BaseVar, OutputVar
 logger = logging.getLogger(__name__)
 env = Environment()
 
-ImageOutputMode: TypeAlias = str
+ImageOutputMode: TypeAlias = Literal["path", "pil"]
 
 
 @dataclass
@@ -53,7 +53,7 @@ class DiffusersImageGenConfig(BaseProcessorConfig):
     pipeline_args: DiffusersPipelineArgs = field(default_factory=DiffusersPipelineArgs)
     default_sampling_params: Dict[str, Any] = field(default_factory=dict)
     parallel_inference: bool = True
-    parallel_chunk_size: Optional[int] = None
+    parallel_chunk_size: Optional[int] = 4
     output_dir: str = ".mmirage/generated_images"
     file_format: str = "png"
 
@@ -89,7 +89,7 @@ class ImageGenOutputVar(OutputVar):
     prompt: str = ""
     negative_prompt: str = ""
     output_mode: ImageOutputMode = "path"
-    filename_template: str = "{{ __output_name }}_{{ __sample_index }}"
+    filename_template: str = "generated_{{ __shard_id }}_{{ __sample_index }}_{{ __source_hash }}"
     width: Optional[int] = None
     height: Optional[int] = None
     num_inference_steps: Optional[int] = None
@@ -114,13 +114,13 @@ class ImageGenOutputVar(OutputVar):
             undeclared |= template_vars - var_names - reserved
 
         if undeclared:
-            logger.info(
+            logger.warning(
                 f"⚠️ Undeclared variables found for {self.name}: {undeclared}"
             )
             return False
 
         if self.output_mode not in {"path", "pil"}:
-            logger.info(
+            logger.warning(
                 f"⚠️ Invalid output_mode for {self.name}: {self.output_mode}. Expected one of ['path', 'pil']"
             )
             return False
