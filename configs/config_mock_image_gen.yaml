@@ -43,7 +43,7 @@ processing_params:
   remove_columns: false
   output_schema:
     prompt_source: "{{ text }}"
-    image_path: "{{ generated_image }}"
+    image: "{{ generated_image }}"
 
 execution_params:
   # Execution mode: "local" or "slurm"
