@@ -327,7 +327,7 @@ processing_params:
     - name: generated_image
       type: image_gen
       output_mode: path          # "path" or "pil"
-      filename_template: "img_{{ __sample_index }}"
+      filename_template: "generated_{{ __shard_id }}_{{ __sample_index }}_{{ __source_hash }}"
       width: 512
       height: 512
       prompt: |
@@ -337,7 +337,7 @@ processing_params:
   remove_columns: false
   output_schema:
     text: "{{ prompt_text }}"
-    image_path: "{{ generated_image }}"
+    image: "{{ generated_image }}"
 
 execution_params:
   mode: local
