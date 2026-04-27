@@ -45,11 +45,13 @@ class BaseProcessor(abc.ABC, Generic[C]):
         config: Configuration object for this processor.
     """
 
-    def __init__(self, config: BaseProcessorConfig) -> None:
+    def __init__(self, config: BaseProcessorConfig, **kwargs) -> None:
         """Initialize the processor with configuration.
 
         Args:
             config: Configuration object for this processor.
+            **kwargs: Ignored; allows subclasses to forward unknown keyword
+                arguments (e.g. ``shard_id``) without raising TypeError.
         """
         super().__init__()
         self.config = config

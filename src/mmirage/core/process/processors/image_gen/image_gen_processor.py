@@ -234,13 +234,11 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
             sample_index = start_index + local_index
             if output_var.output_mode == "pil":
                 value = image
-                is_image = True
             else:
                 filename = self._render_filename(filename_template, output_var, env, sample_index)
                 value = self._save_image(image, filename)
-                is_image = False
 
-            updated.append(env.with_variable(output_var.name, value, is_image=is_image))
+            updated.append(env.with_variable(output_var.name, value, is_image=True))
 
         return updated
 
@@ -303,20 +301,17 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
 
                 if output_var.output_mode == "pil":
                     value = image
-                    is_image = True
                 else:
                     filename = self._render_filename(filename_template, output_var, env, sample_index)
                     value = self._save_image(image, filename)
-                    is_image = False
 
-                updated.append(env.with_variable(output_var.name, value, is_image=is_image))
+                updated.append(env.with_variable(output_var.name, value, is_image=True))
             except Exception as exc:
                 logger.error(
                     f"Image generation failed for output '{output_var.name}' at sample {sample_index}: {exc}"
                 )
-                fallback_value = None if output_var.output_mode == "pil" else ""
                 updated.append(
-                    env.with_variable(output_var.name, fallback_value, is_image=False)
+                    env.with_variable(output_var.name, None, is_image=True)
                 )
 
         self._sample_counter += len(batch)
