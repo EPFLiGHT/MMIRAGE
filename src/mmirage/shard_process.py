@@ -10,7 +10,7 @@ import sys
 import traceback
 from typing import Any, Dict, List, Optional
 
-from datasets import Dataset, DatasetDict, Image as HFImage
+from datasets import DatasetDict, Image as HFImage
 
 from mmirage.config.utils import load_mmirage_config
 from mmirage.core.loader.base import DatasetLike
