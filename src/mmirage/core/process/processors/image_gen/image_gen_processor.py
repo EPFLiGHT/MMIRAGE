@@ -55,7 +55,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         except ImportError as e:  # pragma: no cover
             raise RuntimeError(
                 "image_gen processor requires optional dependencies. "
-                "Install with: pip install diffusers accelerate safetensors"
+                "Install with: pip install -e .[image_gen]"
             ) from e
 
         self._torch = torch
