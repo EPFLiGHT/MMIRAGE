@@ -101,15 +101,21 @@ class ImageGenOutputVar(OutputVar):
         reserved = {"__sample_index", "__output_name", "__shard_id", "__source_hash"}
         var_names = {v.name for v in vars}
 
-        templates: List[str] = [self.prompt]
+        # Prompt/negative_prompt are rendered from env.to_dict() only — reserved
+        # vars are not injected there, so treat them as undeclared in those templates.
+        prompt_templates: List[str] = [self.prompt]
         if self.negative_prompt:
-            templates.append(self.negative_prompt)
-        if self.filename_template:
-            templates.append(self.filename_template)
+            prompt_templates.append(self.negative_prompt)
 
         undeclared: set[str] = set()
-        for template in templates:
+        for template in prompt_templates:
             parsed_content = env.parse(template)
+            template_vars = meta.find_undeclared_variables(parsed_content)
+            undeclared |= template_vars - var_names
+
+        # filename_template is rendered with reserved vars injected, so allow them.
+        if self.filename_template:
+            parsed_content = env.parse(self.filename_template)
             template_vars = meta.find_undeclared_variables(parsed_content)
             undeclared |= template_vars - var_names - reserved
 

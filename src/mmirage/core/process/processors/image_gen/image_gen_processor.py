@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import socket
+import tempfile
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -190,12 +191,21 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         """Persist image to output directory and return absolute path."""
         stem, ext = os.path.splitext(filename)
         path = os.path.join(self._output_dir, filename)
-        try:
-            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.close(fd)
-        except FileExistsError:
+        if os.path.exists(path):
             path = os.path.join(self._output_dir, f"{stem}.{self._run_id}{ext}")
-        image.save(path)
+
+        tmp_fd, tmp_path = tempfile.mkstemp(dir=self._output_dir, suffix=ext)
+        try:
+            os.close(tmp_fd)
+            image.save(tmp_path)
+            os.replace(tmp_path, path)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+
         return path
 
     def _process_chunk_parallel(
