@@ -75,14 +75,16 @@ def _cast_image_columns(ds: DatasetLike, cols: List[str]) -> DatasetLike:
             for split in list(ds.keys()):
                 if col in ds[split].column_names:
                     ds[split] = ds[split].map(
-                        _normalise_col, batched=True, fn_kwargs={"col": col}, desc=f"Normalising {col}"
+                        _normalise_col, batched=True, fn_kwargs={"col": col}, desc=f"Normalising {col}",
+                        load_from_cache_file=False,
                     )
                     ds[split] = ds[split].cast_column(col, HFImage())
     else:
         for col in cols:
             if col in ds.column_names:
                 ds = ds.map(
-                    _normalise_col, batched=True, fn_kwargs={"col": col}, desc=f"Normalising {col}"
+                    _normalise_col, batched=True, fn_kwargs={"col": col}, desc=f"Normalising {col}",
+                    load_from_cache_file=False,
                 )
                 ds = ds.cast_column(col, HFImage())
     return ds

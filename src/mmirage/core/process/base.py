@@ -45,16 +45,28 @@ class BaseProcessor(abc.ABC, Generic[C]):
         config: Configuration object for this processor.
     """
 
-    def __init__(self, config: BaseProcessorConfig, **kwargs) -> None:
+    def __init__(self, config: BaseProcessorConfig, shard_id: int = 0, **kwargs) -> None:
         """Initialize the processor with configuration.
 
         Args:
             config: Configuration object for this processor.
-            **kwargs: Ignored; allows subclasses to forward unknown keyword
-                arguments (e.g. ``shard_id``) without raising TypeError.
+            shard_id: Optional shard identifier accepted for compatibility
+                with callers that forward it during processor construction.
+            **kwargs: Additional keyword arguments. Any unexpected keyword
+                arguments will raise ``TypeError``.
+
+        Raises:
+            TypeError: If unexpected keyword arguments are provided.
         """
+        if kwargs:
+            unexpected_args = ", ".join(sorted(kwargs))
+            raise TypeError(
+                f"Unexpected keyword argument(s) for "
+                f"{self.__class__.__name__}: {unexpected_args}"
+            )
         super().__init__()
         self.config = config
+        self.shard_id = shard_id
 
     @abc.abstractmethod
     def batch_process_sample(
