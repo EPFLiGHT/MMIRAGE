@@ -11,6 +11,8 @@ import logging
 import os
 import shutil
 import socket
+import subprocess
+import threading
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -19,6 +21,191 @@ from datasets import DatasetDict
 from mmirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
 
 logger = logging.getLogger(__name__)
+
+
+def _format_duration(seconds: Optional[float]) -> Optional[str]:
+    """Format a duration given in seconds as a human-readable string.
+
+    Examples::
+
+        _format_duration(45.3)     -> "45s"
+        _format_duration(125.0)    -> "2m 5s"
+        _format_duration(3725.0)   -> "1h 2m 5s"
+    """
+    if seconds is None:
+        return None
+    total = int(seconds)
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}h {minutes}m {secs}s"
+    if minutes:
+        return f"{minutes}m {secs}s"
+    return f"{secs}s"
+
+
+@dataclass
+class ShardStats:
+    """Per-shard benchmark statistics recorded at completion."""
+
+    runtime_seconds: Optional[float] = None
+    rows_processed: Optional[int] = None
+    throughput_rows_per_sec: Optional[float] = None
+    gpu_util_mean: Optional[float] = None
+    gpu_util_min: Optional[float] = None
+    gpu_util_max: Optional[float] = None
+    gpu_util_samples: Optional[int] = None
+    # Token-level throughput metrics (DataTrove-compatible benchmark format).
+    # input_tokens: total prompt tokens consumed across all LLM calls in this shard.
+    # output_tokens: total completion tokens generated across all LLM calls in this shard.
+    # num_gpus: number of GPUs used (tensor-parallel size from the LLM processor config).
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    num_gpus: Optional[int] = None
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> Optional["ShardStats"]:
+        """Build a ShardStats from a JSON payload, or return None if data is missing."""
+        if not isinstance(data, dict):
+            return None
+
+        def _opt_float(v: Any) -> Optional[float]:
+            try:
+                return float(v) if v is not None else None
+            except (TypeError, ValueError):
+                return None
+
+        def _opt_int(v: Any) -> Optional[int]:
+            try:
+                return int(v) if v is not None else None
+            except (TypeError, ValueError):
+                return None
+
+        return cls(
+            runtime_seconds=_opt_float(data.get("runtime_seconds")),
+            rows_processed=_opt_int(data.get("rows_processed")),
+            throughput_rows_per_sec=_opt_float(data.get("throughput_rows_per_sec")),
+            gpu_util_mean=_opt_float(data.get("gpu_util_mean")),
+            gpu_util_min=_opt_float(data.get("gpu_util_min")),
+            gpu_util_max=_opt_float(data.get("gpu_util_max")),
+            gpu_util_samples=_opt_int(data.get("gpu_util_samples")),
+            input_tokens=_opt_int(data.get("input_tokens")),
+            output_tokens=_opt_int(data.get("output_tokens")),
+            num_gpus=_opt_int(data.get("num_gpus")),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        # Derived token-throughput metrics (DataTrove-compatible benchmark format).
+        # tokens_per_sec_per_gpu = output_tokens / (runtime_seconds * num_gpus)
+        # gpu_days_per_billion_tokens = (num_gpus * runtime_seconds / 86_400) / (output_tokens / 1e9)
+        tokens_per_sec_per_gpu: Optional[float] = None
+        gpu_days_per_billion_tokens: Optional[float] = None
+        if (
+            self.output_tokens is not None
+            and self.output_tokens > 0
+            and self.runtime_seconds is not None
+            and self.runtime_seconds > 0
+            and self.num_gpus is not None
+            and self.num_gpus > 0
+        ):
+            tokens_per_sec_per_gpu = round(
+                self.output_tokens / (self.runtime_seconds * self.num_gpus), 2
+            )
+            gpu_days_per_billion_tokens = round(
+                (self.num_gpus * self.runtime_seconds / 86_400) / (self.output_tokens / 1e9), 4
+            )
+
+        return {
+            "runtime_seconds": self.runtime_seconds,
+            "runtime_human": _format_duration(self.runtime_seconds),
+            "rows_processed": self.rows_processed,
+            "throughput_rows_per_sec": self.throughput_rows_per_sec,
+            "gpu_util_mean": self.gpu_util_mean,
+            "gpu_util_min": self.gpu_util_min,
+            "gpu_util_max": self.gpu_util_max,
+            "gpu_util_samples": self.gpu_util_samples,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "num_gpus": self.num_gpus,
+            "tokens_per_sec_per_gpu": tokens_per_sec_per_gpu,
+            "gpu_days_per_billion_tokens": gpu_days_per_billion_tokens,
+        }
+
+
+class GpuUtilizationPoller:
+    """Polls ``nvidia-smi`` in a background daemon thread.
+
+    Usage::
+
+        poller = GpuUtilizationPoller()
+        poller.start()
+        # ... do work ...
+        gpu_info = poller.stop()  # {"mean": 85.2, "min": 70.0, "max": 98.0, "samples": 24}
+
+    If ``nvidia-smi`` is unavailable all values are ``None`` and samples is 0.
+    """
+
+    def __init__(self, interval_seconds: float = 5.0) -> None:
+        self._interval = interval_seconds
+        self._samples: List[float] = []
+        self._thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+
+    def start(self) -> None:
+        """Start background polling."""
+        self._stop_event.clear()
+        self._samples = []
+        self._thread = threading.Thread(target=self._poll_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> Dict[str, Any]:
+        """Stop polling and return a summary dict."""
+        self._stop_event.set()
+        if self._thread is not None:
+            self._thread.join(timeout=self._interval + 2.0)
+        samples = self._samples
+        if not samples:
+            return {"mean": None, "min": None, "max": None, "samples": 0}
+        return {
+            "mean": round(sum(samples) / len(samples), 1),
+            "min": float(min(samples)),
+            "max": float(max(samples)),
+            "samples": len(samples),
+        }
+
+    def _poll_loop(self) -> None:
+        while not self._stop_event.wait(timeout=self._interval):
+            util = self._query_gpu_util()
+            if util is not None:
+                self._samples.append(util)
+
+    def _query_gpu_util(self) -> Optional[float]:
+        try:
+            result = subprocess.run(
+                [
+                    "nvidia-smi",
+                    "--query-gpu=utilization.gpu",
+                    "--format=csv,noheader,nounits",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            if result.returncode == 0:
+                values = []
+                for line in result.stdout.strip().splitlines():
+                    line = line.strip()
+                    if line:
+                        try:
+                            values.append(float(line))
+                        except ValueError:
+                            pass
+                if values:
+                    return sum(values) / len(values)
+        except Exception:
+            pass
+        return None
 
 
 @dataclass
@@ -36,6 +223,7 @@ class ShardStatus:
     slurm_job_id: Optional[str] = None
     slurm_array_task_id: Optional[str] = None
     datasets: Optional[List[Dict[str, Any]]] = None
+    stats: Optional[ShardStats] = None
 
     @classmethod
     def from_dict(cls, payload: Dict[str, Any]) -> "ShardStatus":
@@ -64,6 +252,8 @@ class ShardStatus:
         if not isinstance(datasets, list):
             datasets = None
 
+        stats = ShardStats.from_dict(data.get("stats"))
+
         return cls(
             status=str(data.get("status", "unknown")),
             retry_count=retry_count,
@@ -76,6 +266,7 @@ class ShardStatus:
             slurm_job_id=data.get("slurm_job_id"),
             slurm_array_task_id=data.get("slurm_array_task_id"),
             datasets=datasets,
+            stats=stats,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -92,6 +283,7 @@ class ShardStatus:
             "slurm_job_id": self.slurm_job_id,
             "slurm_array_task_id": self.slurm_array_task_id,
             "datasets": self.datasets,
+            "stats": self.stats.to_dict() if self.stats is not None else None,
         }
 
 
@@ -284,12 +476,42 @@ def _mark_running(
     return retry_count
 
 
-def _mark_success(state_dir: str):
-    """Mark shard as successful."""
+def _mark_success(state_dir: str, stats: Optional[ShardStats] = None):
+    """Mark shard as successful and record benchmark statistics.
+
+    Args:
+        state_dir: Shard state directory.
+        stats: Optional benchmark stats; ``runtime_seconds`` and
+            ``throughput_rows_per_sec`` are computed from the stored timestamps
+            when not already set.
+    """
     prev = _read_status(state_dir)
     prev.status = "success"
-    prev.finished_at = datetime.now().isoformat()
+    now = datetime.now()
+    prev.finished_at = now.isoformat()
     prev.error = None
+
+    if stats is not None:
+        # Derive runtime from stored start timestamp when not already supplied.
+        if stats.runtime_seconds is None and prev.started_at:
+            try:
+                started = datetime.fromisoformat(prev.started_at)
+                stats.runtime_seconds = round((now - started).total_seconds(), 3)
+            except (ValueError, TypeError):
+                pass
+
+        # Derive throughput once we have both rows and runtime.
+        if (
+            stats.throughput_rows_per_sec is None
+            and stats.rows_processed is not None
+            and stats.runtime_seconds is not None
+            and stats.runtime_seconds > 0
+        ):
+            stats.throughput_rows_per_sec = round(
+                stats.rows_processed / stats.runtime_seconds, 2
+            )
+
+    prev.stats = stats
     _write_status(state_dir, prev)
     _clear_markers(state_dir)
     _touch_marker(state_dir, ".SUCCESS")

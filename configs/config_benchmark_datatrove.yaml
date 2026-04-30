@@ -1,0 +1,78 @@
+# MMIRAGE — DataTrove-compatible throughput benchmark
+#
+# Mirrors the conditions used in the DataTrove inference benchmark
+# (https://github.com/huggingface/datatrove/tree/main/examples/inference/benchmark):
+#
+#   dataset : simplescaling/s1K-1.1  (train split, 1 000 samples)
+#   prompt  : raw `question` field, no system prompt
+#   output  : up to 1 024 tokens per sample
+#   context : 2 048-token model max context
+#   model   : Qwen/Qwen3-4B  (DataTrove baseline: tp=1 on a single GPU)
+#
+# Download the dataset before running:
+#
+#   python -c "
+#   from datasets import load_dataset
+#   ds = load_dataset('simplescaling/s1K-1.1', split='train')
+#   ds.save_to_disk('data/s1K-1.1')
+#   "
+#
+# Then run with stats collection enabled:
+#
+#   mmirage run --config configs/config_benchmark_datatrove.yaml --stats
+#
+# Inspect results:
+#
+#   mmirage stats --config configs/config_benchmark_datatrove.yaml
+#
+# Key metrics to compare against DataTrove:
+#   tokens_per_sec_per_gpu        (DataTrove: output_tps_per_gpu)
+#   gpu_days_per_billion_tokens   (DataTrove: gpu_days_to_process_1b_tokens)
+
+processors:
+  - type: llm
+    server_args:
+      model_path: Qwen/Qwen3-4B           # same model family as DataTrove baseline
+      tp_size: 1                           # DataTrove baseline: tp=1
+      trust_remote_code: true
+      disable_custom_all_reduce: true
+    default_sampling_params:
+      temperature: 0.0                     # greedy — maximises reproducible throughput
+      max_new_tokens: 1024                 # DataTrove: max-tokens=1024
+      # Keep context to 2 048 tokens to match DataTrove model-max-context=2048.
+      # SGLang enforces this via max_total_tokens on the server; set it in
+      # server_args if your SGLang version supports it:
+      #   max_total_tokens: 2048
+
+loading_params:
+  state_dir: /users/qchapp/data/benchmark_s1k/_pipeline_state
+  datasets:
+    - path: /users/qchapp/data/s1K-1.1                  # save_to_disk() target above
+      type: loadable
+      output_dir: /users/qchapp/data/benchmark_s1k/output
+  num_shards: 4                            # adjust to your GPU/node count
+  shard_id: "$SLURM_ARRAY_TASK_ID"        # use 0 for a local single-shard run
+  batch_size: 64
+
+processing_params:
+  inputs:
+    - name: question
+      key: question                        # DataTrove: prompt-column=question
+
+  outputs:
+    - name: answer
+      type: llm
+      output_type: plain
+      prompt: "{{ question }}"             # bare question, no system prompt (DataTrove baseline)
+
+  remove_columns: false
+  output_schema:
+    question: "{{ question }}"
+    answer: "{{ answer }}"
+
+execution_params:
+  mode: local                              # switch to slurm for multi-node
+  retry: false
+  merge: true
+  report_dir: /users/qchapp/reports
+  hf_home: /users/qchapp/hf

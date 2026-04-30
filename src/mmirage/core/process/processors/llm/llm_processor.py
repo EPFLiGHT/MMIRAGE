@@ -65,6 +65,28 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         )
         self.sampling_params = engine_args.default_sampling_params
         self.chat_template = engine_args.chat_template
+        # Cumulative token counts across all generate() calls in this processor's lifetime.
+        self._total_input_tokens: int = 0
+        self._total_output_tokens: int = 0
+
+    def get_token_counts(self) -> dict:
+        """Return cumulative token counts for this processor.
+
+        Returns:
+            Dict with ``input_tokens`` (prompt tokens) and ``output_tokens``
+            (completion tokens) accumulated since this processor was created.
+        """
+        return {
+            "input_tokens": self._total_input_tokens,
+            "output_tokens": self._total_output_tokens,
+        }
+
+    def _accumulate_tokens(self, outputs: list) -> None:
+        """Add token counts from a list of SGLang generate() outputs."""
+        for out in outputs:
+            meta = out.get("meta_info") or {}
+            self._total_input_tokens += int(meta.get("prompt_tokens") or 0)
+            self._total_output_tokens += int(meta.get("completion_tokens") or 0)
 
     def build_prompt(
         self, prompt_template: str, vars_samples: List[VariableEnvironment]
@@ -190,6 +212,8 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                         f"{len(text_only_outputs) if isinstance(text_only_outputs, list) else 'non-list'}"
                     )
 
+                self._accumulate_tokens(text_only_outputs)
+
                 for local_idx, global_i in enumerate(text_only_indices):
                     value = text_only_outputs[local_idx].get("text", "").strip()
                     if output_var.output_type == "JSON":
@@ -251,6 +275,8 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                         f"{len(multimodal_prompts)} vs "
                         f"{len(multimodal_outputs) if isinstance(multimodal_outputs, list) else 'non-list'}"
                     )
+
+                self._accumulate_tokens(multimodal_outputs)
 
                 for local_idx, global_i in enumerate(multimodal_indices):
                     value = multimodal_outputs[local_idx].get("text", "").strip()

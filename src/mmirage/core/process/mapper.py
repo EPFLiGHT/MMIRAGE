@@ -103,3 +103,21 @@ class MMIRAGEMapper:
             )
 
         return batch_environment
+
+    def get_token_counts(self) -> Dict[str, int]:
+        """Return cumulative token counts aggregated across all LLM processors.
+
+        Sums ``input_tokens`` and ``output_tokens`` from every processor that
+        exposes a ``get_token_counts()`` method (i.e., ``LLMProcessor``).
+
+        Returns:
+            Dict with ``input_tokens`` and ``output_tokens`` keys.
+        """
+        total_input = 0
+        total_output = 0
+        for proc in self.processors.values():
+            if hasattr(proc, "get_token_counts"):
+                counts = proc.get_token_counts()
+                total_input += counts.get("input_tokens", 0)
+                total_output += counts.get("output_tokens", 0)
+        return {"input_tokens": total_input, "output_tokens": total_output}

@@ -5,9 +5,10 @@ Supports both text-only and multimodal (vision-language) processing.
 
 import argparse
 import logging
+import os
 import sys
 import traceback
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from mmirage.config.utils import load_mmirage_config
 from mmirage.core.loader.base import DatasetLike
@@ -15,6 +16,8 @@ from mmirage.core.loader.utils import load_datasets_from_configs
 from mmirage.core.process.mapper import MMIRAGEMapper
 from mmirage.core.writer.renderer import TemplateRenderer
 from mmirage.shard_utils import (
+    GpuUtilizationPoller,
+    ShardStats,
     _cleanup_old_shard_data,
     _count_rows,
     _dataset_out_dir,
@@ -88,9 +91,14 @@ def main():
 
     state_dir = _shard_state_dir(shard_id, loading_params.get_state_root())
 
+    collect_stats = os.environ.get("MMIRAGE_COLLECT_STATS", "") == "1"
+    gpu_poller: GpuUtilizationPoller = GpuUtilizationPoller(interval_seconds=5.0)
     try:
         retry_count = _mark_running(state_dir, shard_id, datasets_config)
         logger.info(f"Starting shard {shard_id}/{last_shard_id} (attempt #{retry_count})")
+
+        if collect_stats:
+            gpu_poller.start()
 
         if retry_count > 1:
             for ds_config in datasets_config:
@@ -148,13 +156,40 @@ def main():
             _save_dataset_atomic(ds_processed, out_dir)
             logger.info(f"✅ Saved dataset {ds_idx} shard in: {out_dir}")
 
-        _mark_success(state_dir)
+        gpu_info = gpu_poller.stop() if collect_stats else {"mean": None, "min": None, "max": None, "samples": 0}
+
+        # Collect token counts accumulated by LLM processor(s).
+        token_counts = mapper.get_token_counts()
+        input_tokens = token_counts["input_tokens"] or None
+        output_tokens = token_counts["output_tokens"] or None
+
+        # Resolve num_gpus from the first processor config that exposes tp_size.
+        num_gpus: Optional[int] = None
+        for proc_cfg in cfg.processors:
+            tp = getattr(getattr(proc_cfg, "server_args", None), "tp_size", None)
+            if tp and tp > 0:
+                num_gpus = int(tp)
+                break
+
+        stats = ShardStats(
+            rows_processed=shard_rows,
+            gpu_util_mean=gpu_info["mean"],
+            gpu_util_min=gpu_info["min"],
+            gpu_util_max=gpu_info["max"],
+            gpu_util_samples=gpu_info["samples"],
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            num_gpus=num_gpus,
+        )
+        _mark_success(state_dir, stats=stats)
         logger.info(f"✅ Logical shard {shard_id} completed successfully")
 
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.error(f"❌ Shard {shard_id} failed: {error_msg}")
         logger.error(traceback.format_exc())
+        if collect_stats:
+            gpu_poller.stop()
         _mark_failure(state_dir, error_msg)
         sys.exit(1)
 
