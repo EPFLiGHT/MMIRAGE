@@ -120,9 +120,6 @@ def main():
         retry_count = _mark_running(state_dir, shard_id, datasets_config)
         logger.info(f"Starting shard {shard_id}/{last_shard_id} (attempt #{retry_count})")
 
-        if collect_stats:
-            gpu_poller.start()
-
         if retry_count > 1:
             for ds_config in datasets_config:
                 out_dir = _dataset_out_dir(shard_id, ds_config)
@@ -145,6 +142,11 @@ def main():
             processing_params.outputs,
         )
         renderer = TemplateRenderer(processing_params.output_schema)
+
+        # Start GPU polling after model loading so utilisation samples reflect
+        # inference only, not weight transfers during sgl.Engine() init.
+        if collect_stats:
+            gpu_poller.start()
 
         ds_processed_all: List[DatasetLike] = []
         for ds_idx, ds_shard in enumerate(ds_all_shard):
