@@ -181,12 +181,18 @@ class GpuUtilizationPoller:
 
     def _query_gpu_util(self) -> Optional[float]:
         try:
+            cmd = [
+                "nvidia-smi",
+                "--query-gpu=utilization.gpu",
+                "--format=csv,noheader,nounits",
+            ]
+            # Restrict to GPUs visible to this process so we don't dilute
+            # utilization by averaging over idle GPUs on the same node.
+            cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+            if cuda_visible and cuda_visible.lower() not in ("all", "nodevfiles"):
+                cmd += [f"--id={cuda_visible}"]
             result = subprocess.run(
-                [
-                    "nvidia-smi",
-                    "--query-gpu=utilization.gpu",
-                    "--format=csv,noheader,nounits",
-                ],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=5,
