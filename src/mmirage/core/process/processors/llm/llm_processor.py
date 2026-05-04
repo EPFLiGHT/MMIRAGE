@@ -58,7 +58,10 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             **kwargs: Additional arguments passed to base class.
         """
         super().__init__(engine_args, **kwargs)
-        self.llm = sgl.Engine(**asdict(engine_args.server_args))
+        server_kwargs = asdict(engine_args.server_args)
+        extra = server_kwargs.pop("extra_engine_args", {}) or {}
+        server_kwargs.update(extra)
+        self.llm = sgl.Engine(**server_kwargs)
         self.tokenizer = AutoTokenizer.from_pretrained(
             engine_args.server_args.model_path,
             trust_remote_code=getattr(engine_args.server_args, "trust_remote_code", False),

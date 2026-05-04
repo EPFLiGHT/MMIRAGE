@@ -36,13 +36,16 @@ processors:
       tp_size: 1                           # DataTrove baseline: tp=1
       trust_remote_code: true
       disable_custom_all_reduce: true
+      # SGLang engine tuning — equivalents of DataTrove's vLLM mns/mnbt knobs.
+      # Tune these to close the gap vs the DataTrove baseline (7 919 tok/s/GPU).
+      # Uncomment and adjust for your hardware:
+      extra_engine_args:
+        max_running_requests: 512          # vLLM mns=512 equivalent
+        chunked_prefill_size: 32768        # vLLM mnbt=32768 equivalent
+        # mem_fraction_static: 0.90       # increase if GPU has headroom
     default_sampling_params:
       temperature: 0.0                     # greedy — maximises reproducible throughput
       max_new_tokens: 1024                 # DataTrove: max-tokens=1024
-      # Keep context to 2 048 tokens to match DataTrove model-max-context=2048.
-      # SGLang enforces this via max_total_tokens on the server; set it in
-      # server_args if your SGLang version supports it:
-      #   max_total_tokens: 2048
 
 loading_params:
   state_dir: /users/qchapp/data/benchmark_s1k/_pipeline_state
@@ -50,9 +53,9 @@ loading_params:
     - path: /users/qchapp/data/s1K-1.1                  # save_to_disk() target above
       type: loadable
       output_dir: /users/qchapp/data/benchmark_s1k/output
-  num_shards: 4                            # adjust to your GPU/node count
-  shard_id: "$SLURM_ARRAY_TASK_ID"        # use 0 for a local single-shard run
-  batch_size: 64
+  num_shards: 1
+  shard_id: "$SLURM_ARRAY_TASK_ID"
+  batch_size: 1000
 
 processing_params:
   inputs:
@@ -71,8 +74,8 @@ processing_params:
     answer: "{{ answer }}"
 
 execution_params:
-  mode: local                              # switch to slurm for multi-node
+  mode: local
   retry: false
-  merge: true
-  report_dir: /users/qchapp/reports
-  hf_home: /users/qchapp/hf
+  merge: false
+  report_dir: ~/reports
+  hf_home: ~/hf
