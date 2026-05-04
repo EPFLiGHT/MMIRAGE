@@ -145,11 +145,14 @@ class GpuUtilizationPoller:
     If ``nvidia-smi`` is unavailable all values are ``None`` and samples is 0.
     """
 
-    def __init__(self, interval_seconds: float = 5.0) -> None:
+    def __init__(self, interval_seconds: float = 5.0, gpu_indices: Optional[List[int]] = None) -> None:
         self._interval = interval_seconds
         self._samples: List[float] = []
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
+        # Explicit GPU indices take priority over CUDA_VISIBLE_DEVICES.
+        # Pass the indices SGLang will use (0..tp_size-1 in local mode).
+        self._gpu_indices = gpu_indices
 
     def start(self) -> None:
         """Start background polling."""
@@ -186,11 +189,15 @@ class GpuUtilizationPoller:
                 "--query-gpu=utilization.gpu",
                 "--format=csv,noheader,nounits",
             ]
-            # Restrict to GPUs visible to this process so we don't dilute
-            # utilization by averaging over idle GPUs on the same node.
-            cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
-            if cuda_visible and cuda_visible.lower() not in ("all", "nodevfiles"):
-                cmd += [f"--id={cuda_visible}"]
+            # Restrict to the GPUs this process actually uses so we don't
+            # dilute utilization by averaging over idle GPUs on the same node.
+            # Priority: explicit gpu_indices > CUDA_VISIBLE_DEVICES > all GPUs.
+            if self._gpu_indices is not None:
+                cmd += [f"--id={','.join(str(i) for i in self._gpu_indices)}"]
+            else:
+                cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+                if cuda_visible and cuda_visible.lower() not in ("all", "nodevfiles"):
+                    cmd += [f"--id={cuda_visible}"]
             result = subprocess.run(
                 cmd,
                 capture_output=True,

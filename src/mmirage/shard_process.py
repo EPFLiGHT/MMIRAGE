@@ -92,7 +92,21 @@ def main():
     state_dir = _shard_state_dir(shard_id, loading_params.get_state_root())
 
     collect_stats = os.environ.get("MMIRAGE_COLLECT_STATS", "") == "1"
-    gpu_poller: GpuUtilizationPoller = GpuUtilizationPoller(interval_seconds=5.0)
+    # Determine which physical GPU indices SGLang will use so the poller
+    # measures only the active GPU(s) — not all GPUs on the node.
+    # In SLURM mode CUDA_VISIBLE_DEVICES is already set by the scheduler;
+    # in local mode we derive indices from tp_size (SGLang defaults to 0..N-1).
+    gpu_indices_for_polling: Optional[list] = None
+    if not os.environ.get("CUDA_VISIBLE_DEVICES"):
+        for proc_cfg in cfg.processors:
+            tp = getattr(getattr(proc_cfg, "server_args", None), "tp_size", None)
+            if tp and int(tp) > 0:
+                gpu_indices_for_polling = list(range(int(tp)))
+                break
+
+    gpu_poller: GpuUtilizationPoller = GpuUtilizationPoller(
+        interval_seconds=5.0, gpu_indices=gpu_indices_for_polling
+    )
     try:
         retry_count = _mark_running(state_dir, shard_id, datasets_config)
         logger.info(f"Starting shard {shard_id}/{last_shard_id} (attempt #{retry_count})")
