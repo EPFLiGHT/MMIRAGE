@@ -46,6 +46,7 @@ processors:
     default_sampling_params:
       temperature: 0.0                     # greedy — maximises reproducible throughput
       max_new_tokens: 1024                 # DataTrove: max-tokens=1024
+      enable_thinking: false               # disable Qwen3 chain-of-thought; matches DataTrove baseline
 
 loading_params:
   state_dir: /users/qchapp/data/benchmark_s1k/_pipeline_state
@@ -53,7 +54,7 @@ loading_params:
     - path: /users/qchapp/data/s1K-1.1                  # save_to_disk() target above
       type: loadable
       output_dir: /users/qchapp/data/benchmark_s1k/output
-  num_shards: 4
+  num_shards: 1
   shard_id: "$SLURM_ARRAY_TASK_ID"
   batch_size: 1000
 
