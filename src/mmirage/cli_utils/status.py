@@ -184,6 +184,7 @@ def collect_bench_stats(cfg: MMirageConfig) -> Dict[str, Any]:
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     has_token_data: bool = False
+    sum_model_load_seconds: float = 0.0
     num_gpus: Optional[int] = None  # taken from first shard that has it
 
     for shard_id in range(num_shards):
@@ -212,6 +213,8 @@ def collect_bench_stats(cfg: MMirageConfig) -> Dict[str, Any]:
         if s.output_tokens is not None:
             total_output_tokens += s.output_tokens
             has_token_data = True
+        if s.model_load_seconds is not None:
+            sum_model_load_seconds += s.model_load_seconds
         if num_gpus is None and s.num_gpus is not None:
             num_gpus = s.num_gpus
 
@@ -244,14 +247,18 @@ def collect_bench_stats(cfg: MMirageConfig) -> Dict[str, Any]:
         mean_gpu_util = round(sum(gpu_util_weighted) / gpu_total_rows_for_weight, 1)
 
     # Aggregate token-throughput metrics (DataTrove-compatible benchmark format).
-    # Uses sum of shard runtimes (total GPU-time) to compute a per-GPU token rate.
+    # Uses sum of inference runtimes (total minus model loading) for a per-GPU token rate
+    # that excludes one-time model initialisation overhead.
     agg_tokens_per_sec_per_gpu: Optional[float] = None
     agg_gpu_days_per_billion_tokens: Optional[float] = None
+    agg_inference_runtime: Optional[float] = None
     if has_token_data and total_output_tokens > 0 and runtimes and num_gpus and num_gpus > 0:
-        total_gpu_seconds = sum_runtime * num_gpus
-        agg_tokens_per_sec_per_gpu = round(total_output_tokens / total_gpu_seconds, 2)
-        total_gpu_days = total_gpu_seconds / 86_400
-        agg_gpu_days_per_billion_tokens = round(total_gpu_days / (total_output_tokens / 1e9), 4)
+        agg_inference_runtime = max(0.0, sum_runtime - sum_model_load_seconds)
+        if agg_inference_runtime > 0:
+            total_gpu_seconds = agg_inference_runtime * num_gpus
+            agg_tokens_per_sec_per_gpu = round(total_output_tokens / total_gpu_seconds, 2)
+            total_gpu_days = total_gpu_seconds / 86_400
+            agg_gpu_days_per_billion_tokens = round(total_gpu_days / (total_output_tokens / 1e9), 4)
 
     aggregate: Dict[str, Any] = {
         "total_shards": num_shards,
@@ -271,6 +278,8 @@ def collect_bench_stats(cfg: MMirageConfig) -> Dict[str, Any]:
         "num_gpus": num_gpus,
         "total_input_tokens": total_input_tokens if has_token_data else None,
         "total_output_tokens": total_output_tokens if has_token_data else None,
+        "sum_model_load_seconds": round(sum_model_load_seconds, 3) if sum_model_load_seconds else None,
+        "sum_inference_runtime_seconds": round(agg_inference_runtime, 3) if agg_inference_runtime is not None else None,
         "tokens_per_sec_per_gpu": agg_tokens_per_sec_per_gpu,
         "gpu_days_per_billion_tokens": agg_gpu_days_per_billion_tokens,
     }

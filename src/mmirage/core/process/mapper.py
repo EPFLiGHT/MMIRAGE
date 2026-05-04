@@ -121,3 +121,11 @@ class MMIRAGEMapper:
                 total_input += counts.get("input_tokens", 0)
                 total_output += counts.get("output_tokens", 0)
         return {"input_tokens": total_input, "output_tokens": total_output}
+
+    def get_load_time(self) -> float:
+        """Return total model-loading time (seconds) summed across all LLM processors."""
+        total = 0.0
+        for proc in self.processors.values():
+            if hasattr(proc, "get_load_time"):
+                total += proc.get_load_time()
+        return total

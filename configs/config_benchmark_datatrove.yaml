@@ -40,8 +40,7 @@ processors:
       # Tune these to close the gap vs the DataTrove baseline (7 919 tok/s/GPU).
       # Uncomment and adjust for your hardware:
       extra_engine_args:
-        max_running_requests: 512          # vLLM mns=512 equivalent
-        chunked_prefill_size: 32768        # vLLM mnbt=32768 equivalent
+        max_running_requests: 1000          # vLLM mns=512 equivalent
         # mem_fraction_static: 0.90       # increase if GPU has headroom
     default_sampling_params:
       temperature: 0.0                     # greedy — maximises reproducible throughput

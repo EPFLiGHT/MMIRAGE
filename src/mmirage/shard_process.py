@@ -185,6 +185,7 @@ def main():
         token_counts = mapper.get_token_counts()
         input_tokens = token_counts["input_tokens"] or None
         output_tokens = token_counts["output_tokens"] or None
+        model_load_seconds = mapper.get_load_time() or None
 
         # Resolve num_gpus from the first processor config that exposes tp_size.
         num_gpus: Optional[int] = None
@@ -203,6 +204,7 @@ def main():
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             num_gpus=num_gpus,
+            model_load_seconds=model_load_seconds,
         )
         _mark_success(state_dir, stats=stats)
         logger.info(f"✅ Logical shard {shard_id} completed successfully")

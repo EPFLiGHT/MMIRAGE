@@ -62,6 +62,7 @@ class ShardStats:
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
     num_gpus: Optional[int] = None
+    model_load_seconds: Optional[float] = None
 
     @classmethod
     def from_dict(cls, data: Optional[Dict[str, Any]]) -> Optional["ShardStats"]:
@@ -92,32 +93,41 @@ class ShardStats:
             input_tokens=_opt_int(data.get("input_tokens")),
             output_tokens=_opt_int(data.get("output_tokens")),
             num_gpus=_opt_int(data.get("num_gpus")),
+            model_load_seconds=_opt_float(data.get("model_load_seconds")),
         )
 
     def to_dict(self) -> Dict[str, Any]:
         # Derived token-throughput metrics (DataTrove-compatible benchmark format).
-        # tokens_per_sec_per_gpu = output_tokens / (runtime_seconds * num_gpus)
-        # gpu_days_per_billion_tokens = (num_gpus * runtime_seconds / 86_400) / (output_tokens / 1e9)
+        # Use inference_runtime (total minus model loading) so metrics reflect
+        # pure generation speed, excluding one-time model initialisation overhead.
         tokens_per_sec_per_gpu: Optional[float] = None
         gpu_days_per_billion_tokens: Optional[float] = None
+        inference_runtime: Optional[float] = None
+        if self.runtime_seconds is not None:
+            if self.model_load_seconds is not None:
+                inference_runtime = max(0.0, self.runtime_seconds - self.model_load_seconds)
+            else:
+                inference_runtime = self.runtime_seconds
         if (
             self.output_tokens is not None
             and self.output_tokens > 0
-            and self.runtime_seconds is not None
-            and self.runtime_seconds > 0
+            and inference_runtime is not None
+            and inference_runtime > 0
             and self.num_gpus is not None
             and self.num_gpus > 0
         ):
             tokens_per_sec_per_gpu = round(
-                self.output_tokens / (self.runtime_seconds * self.num_gpus), 2
+                self.output_tokens / (inference_runtime * self.num_gpus), 2
             )
             gpu_days_per_billion_tokens = round(
-                (self.num_gpus * self.runtime_seconds / 86_400) / (self.output_tokens / 1e9), 4
+                (self.num_gpus * inference_runtime / 86_400) / (self.output_tokens / 1e9), 4
             )
 
         return {
             "runtime_seconds": self.runtime_seconds,
             "runtime_human": _format_duration(self.runtime_seconds),
+            "model_load_seconds": round(self.model_load_seconds, 3) if self.model_load_seconds is not None else None,
+            "inference_runtime_seconds": round(inference_runtime, 3) if inference_runtime is not None else None,
             "rows_processed": self.rows_processed,
             "throughput_rows_per_sec": self.throughput_rows_per_sec,
             "gpu_util_mean": self.gpu_util_mean,

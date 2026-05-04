@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 import json
 import logging
+import time
 from typing import Any, List, Tuple
 
 import jinja2
@@ -61,7 +62,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         server_kwargs = asdict(engine_args.server_args)
         extra = server_kwargs.pop("extra_engine_args", {}) or {}
         server_kwargs.update(extra)
+        _load_start = time.monotonic()
         self.llm = sgl.Engine(**server_kwargs)
+        self._model_load_seconds: float = time.monotonic() - _load_start
         self.tokenizer = AutoTokenizer.from_pretrained(
             engine_args.server_args.model_path,
             trust_remote_code=getattr(engine_args.server_args, "trust_remote_code", False),
@@ -71,6 +74,10 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         # Cumulative token counts across all generate() calls in this processor's lifetime.
         self._total_input_tokens: int = 0
         self._total_output_tokens: int = 0
+
+    def get_load_time(self) -> float:
+        """Return the wall-clock seconds spent initializing the SGLang engine."""
+        return self._model_load_seconds
 
     def get_token_counts(self) -> dict:
         """Return cumulative token counts for this processor.
