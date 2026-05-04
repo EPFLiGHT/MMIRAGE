@@ -46,7 +46,6 @@ processors:
     default_sampling_params:
       temperature: 0.0                     # greedy — maximises reproducible throughput
       max_new_tokens: 1024                 # DataTrove: max-tokens=1024
-      enable_thinking: false               # disable Qwen3 chain-of-thought; matches DataTrove baseline
 
 loading_params:
   state_dir: /users/qchapp/data/benchmark_s1k/_pipeline_state
@@ -67,7 +66,10 @@ processing_params:
     - name: answer
       type: llm
       output_type: plain
-      prompt: "{{ question }}"             # bare question, no system prompt (DataTrove baseline)
+      # Qwen3 thinking is disabled by embedding an empty <think> block in the prompt.
+      # This is equivalent to passing enable_thinking=False to the chat template and
+      # avoids any dependency on SGLang sampling-param support for that flag.
+      prompt: "<|im_start|>user\n{{ question }}\n<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n"
 
   remove_columns: false
   output_schema:
