@@ -144,7 +144,7 @@ class MMirageConfig:
         loading_params: Parameters for loading input datasets.
         processing_params: Parameters for processing dataset samples.
         execution_params: Parameters for executing the pipeline (local/SLURM).
-        deduplication_params: Parameters for post-merge fuzzy deduplication.
+        deduplication_params: Parameters for post-merge deduplication.
     """
 
     processors: List[BaseProcessorConfig]

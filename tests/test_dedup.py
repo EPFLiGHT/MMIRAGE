@@ -2,12 +2,25 @@
 
 import argparse
 import logging
+from typing import List
 
 from datasets import Dataset, load_dataset
 
 from mmirage.config.config import DeduplicationParams
 from mmirage.core.postprocess.exact_dedup import exact_deduplicate
 from mmirage.core.postprocess.fuzzy_dedup import deduplicate
+from mmirage.merge_shards import _apply_dedup
+
+
+class _RecordCapture(logging.Handler):
+    """Capture log records emitted by a target logger for assertions."""
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.DEBUG)
+        self.records: List[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
 
 
 SYNTHETIC_TEXTS = [
@@ -55,6 +68,89 @@ def _run_synthetic(mode: str, threshold: float, num_perm: int, shingle_size: int
     print(f"[synthetic mode={mode}] OK")
 
 
+def _run_orchestrator() -> None:
+    """Exercise _apply_dedup / _dedup_one across all four (exact, fuzzy) combos."""
+    target = logging.getLogger("mmirage.merge_shards")
+    cap = _RecordCapture()
+    prior_level = target.level
+    target.addHandler(cap)
+    target.setLevel(logging.DEBUG)
+    target.propagate = False
+
+    try:
+        cases = [
+            (True, True, 1, "100 → 2 → 1"),
+            (True, False, 2, None),
+            (False, True, 1, None),
+            (False, False, 3, None),
+        ]
+        for exact, fuzzy, expected_len, _ in cases:
+            cap.records.clear()
+            ds = Dataset.from_dict({"text": SYNTHETIC_TEXTS})
+            params = DeduplicationParams(
+                enabled=True, exact=exact, fuzzy=fuzzy, text_field="text"
+            )
+            out = _apply_dedup(ds, params)
+
+            assert len(out) == expected_len, (
+                f"(exact={exact}, fuzzy={fuzzy}): expected {expected_len} rows, got {len(out)}"
+            )
+
+            messages = [r.getMessage() for r in cap.records]
+            warnings = [
+                r.getMessage() for r in cap.records if r.levelno == logging.WARNING
+            ]
+            infos = [r.getMessage() for r in cap.records if r.levelno == logging.INFO]
+
+            if not exact and not fuzzy:
+                assert len(warnings) == 1, f"expected 1 WARNING, got {len(warnings)}: {warnings}"
+                assert "both 'exact' and 'fuzzy' are disabled" in warnings[0], warnings[0]
+                assert not infos, f"no-op path should not emit INFO; got {infos}"
+            else:
+                assert len(infos) == 1, f"expected 1 INFO line, got {len(infos)}: {infos}"
+                line = infos[0]
+                if exact and fuzzy:
+                    assert "skipped" not in line, f"both stages ran but log says skipped: {line}"
+                elif exact and not fuzzy:
+                    assert line.endswith("→ skipped rows."), f"unexpected log line: {line}"
+                elif fuzzy and not exact:
+                    assert "→ skipped →" in line, f"unexpected log line: {line}"
+
+            print(
+                f"[orchestrator exact={exact}, fuzzy={fuzzy}] "
+                f"len={len(out)} | "
+                f"INFO={infos} | WARN={warnings}"
+            )
+
+        # Column-check ordering: missing text_field on a 1-row dataset must raise.
+        bad_ds = Dataset.from_dict({"other": ["x"]})
+        try:
+            exact_deduplicate(bad_ds, DeduplicationParams(enabled=True, exact=True, text_field="text"))
+        except ValueError:
+            print("[orchestrator] column-check raises on missing field (1-row): OK")
+        else:
+            raise AssertionError("expected ValueError for missing text_field on 1-row dataset")
+
+        # Non-string skip path: Nones must pass through unchanged, dup strings collapse.
+        # (pyarrow forbids mixed-type columns, so None is the practical non-string case.)
+        none_ds = Dataset.from_dict(
+            {"text": [None, "hello", "hello", None, "hello"]}
+        )
+        params = DeduplicationParams(enabled=True, exact=True, text_field="text")
+        out = exact_deduplicate(none_ds, params)
+        # Expected: None (0), "hello" (1, first sight), None (3, kept as-is), → 3 kept.
+        assert len(out) == 3, f"non-string skip: expected 3 kept, got {len(out)}"
+        kept_texts = list(out["text"])
+        assert kept_texts == [None, "hello", None], f"unexpected kept: {kept_texts}"
+        print(f"[orchestrator] non-string skip: kept={kept_texts} OK")
+
+        print("[orchestrator] all assertions passed")
+    finally:
+        target.removeHandler(cap)
+        target.setLevel(prior_level)
+        target.propagate = True
+
+
 def _run_tinystories(limit, mode, threshold, num_perm, shingle_size):
     ds = load_dataset("roneneldan/TinyStories", split="train")
     if limit is not None:
@@ -86,6 +182,11 @@ def main():
         help="Run the offline synthetic case (no network) and assert behavior.",
     )
     ap.add_argument(
+        "--orchestrator",
+        action="store_true",
+        help="Run orchestrator-level asserts against _apply_dedup/_dedup_one.",
+    )
+    ap.add_argument(
         "--mode",
         choices=["exact", "fuzzy", "both"],
         default="both",
@@ -103,6 +204,10 @@ def main():
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO)
+
+    if args.orchestrator:
+        _run_orchestrator()
+        return
 
     if args.synthetic:
         _run_synthetic(args.mode, args.threshold, args.num_perm, args.shingle_size)

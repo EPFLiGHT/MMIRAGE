@@ -54,35 +54,36 @@ def _merge_datasetdict(shard_dsets: List[DatasetDict]) -> DatasetDict:
 
 def _dedup_one(ds: Dataset, params: DeduplicationParams) -> Dataset:
     """Run the configured dedup stages on a single Dataset and log a combined line."""
-    if not params.exact and not params.fuzzy:
-        logger.warning(
-            "Deduplication enabled but both 'exact' and 'fuzzy' are disabled; skipping."
-        )
-        return ds
-
     before = _count_rows(ds)
-    after_exact = before
+    after_exact: Optional[int] = None
+    after_fuzzy: Optional[int] = None
+
     if params.exact:
         from mmirage.core.postprocess.exact_dedup import exact_deduplicate
 
         ds = exact_deduplicate(ds, params)
         after_exact = _count_rows(ds)
 
-    after_fuzzy = after_exact
     if params.fuzzy:
         from mmirage.core.postprocess.fuzzy_dedup import deduplicate
 
         ds = deduplicate(ds, params)
         after_fuzzy = _count_rows(ds)
 
-    logger.info(
-        f"Dedup: {before} → {after_exact} → {after_fuzzy} rows."
-    )
+    exact_str = str(after_exact) if after_exact is not None else "skipped"
+    fuzzy_str = str(after_fuzzy) if after_fuzzy is not None else "skipped"
+    logger.info(f"Dedup: {before} → {exact_str} → {fuzzy_str} rows.")
     return ds
 
 
 def _apply_dedup(ds: DatasetLike, params: DeduplicationParams) -> DatasetLike:
     """Apply deduplication to a Dataset or each split of a DatasetDict."""
+    if not params.exact and not params.fuzzy:
+        logger.warning(
+            "Deduplication enabled but both 'exact' and 'fuzzy' are disabled; skipping."
+        )
+        return ds
+
     if isinstance(ds, DatasetDict):
         return DatasetDict(
             {split: _dedup_one(split_ds, params) for split, split_ds in ds.items()}
@@ -115,7 +116,7 @@ def merge_dataset_dir(
     Args:
         dataset_dir: Input directory containing shard_* folders.
         output_dir: Destination directory for merged dataset.
-        dedup_params: Optional fuzzy dedup config; applied before saving when enabled.
+        dedup_params: Optional dedup config; applied before saving when enabled.
 
     Returns:
         MergeReport with summary details.

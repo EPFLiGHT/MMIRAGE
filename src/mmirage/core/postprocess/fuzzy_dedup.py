@@ -51,32 +51,41 @@ def deduplicate(dataset: Dataset, params: DeduplicationParams) -> Dataset:
     Returns:
         Filtered Dataset with near-duplicates removed.
     """
-    _check_dependencies()
-    from datasketch import MinHash, MinHashLSH
-
-    n = len(dataset)
-    if n <= 1:
-        logger.debug("Dataset has %d row(s), skipping fuzzy dedup.", n)
-        return dataset
-
     if params.text_field not in dataset.column_names:
         raise ValueError(
             f"Text field {params.text_field!r} not in dataset columns: "
             f"{dataset.column_names}"
         )
 
+    n = len(dataset)
+    if n <= 1:
+        logger.debug("Dataset has %d row(s), skipping fuzzy dedup.", n)
+        return dataset
+
+    _check_dependencies()
+    from datasketch import MinHash, MinHashLSH
+
     lsh = MinHashLSH(threshold=params.threshold, num_perm=params.num_perm)
     keep: List[int] = []
+    skipped_non_string = 0
     texts: Iterable = dataset[params.text_field]
 
     for i, raw in enumerate(texts):
-        text = raw if isinstance(raw, str) else str(raw)
+        if not isinstance(raw, str):
+            skipped_non_string += 1
+            keep.append(i)
+            continue
         m = MinHash(num_perm=params.num_perm)
-        m.update_batch(list(_shingles(text, params.shingle_size)))
+        m.update_batch(_shingles(raw, params.shingle_size))
         if not lsh.query(m):
             lsh.insert(str(i), m)
             keep.append(i)
 
+    if skipped_non_string:
+        logger.debug(
+            "Fuzzy dedup: skipped %d non-string row(s) (kept as-is).",
+            skipped_non_string,
+        )
     logger.debug(
         "Fuzzy dedup: %d → %d rows (%d duplicates removed).",
         n,

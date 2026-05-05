@@ -205,15 +205,13 @@ deduplication_params:
   # Column name to deduplicate on
   text_field: text
 
-  # threshold/num_perm/shingle_size only apply to the fuzzy pass.
-
-  # Jaccard similarity threshold above which rows are duplicates (0.0–1.0)
+  # Jaccard similarity threshold above which rows are duplicates (0.0–1.0, fuzzy only)
   threshold: 0.85
 
-  # Number of MinHash permutations (signature size)
+  # Number of MinHash permutations (signature size, fuzzy only)
   num_perm: 128
 
-  # Character n-gram size for shingling
+  # Character n-gram size for shingling (fuzzy only)
   shingle_size: 5
 
 
