@@ -101,17 +101,30 @@ class ProcessingParams:
 
 @dataclass
 class DeduplicationParams:
-    """Configuration for fuzzy deduplication post-processing.
+    """Configuration for deduplication post-processing.
+
+    Two stages run in sequence when ``enabled`` is True:
+
+    1. ``exact``: stdlib hash pass that drops rows with identical normalized text.
+    2. ``fuzzy``: char-ngram MinHash + LSH pass that drops near-duplicates.
+
+    The fuzzy pass requires the ``[dedup]`` extra (``datasketch``); the exact pass
+    has no extra dependency. ``threshold``, ``num_perm`` and ``shingle_size`` only
+    apply to the fuzzy pass.
 
     Attributes:
-        enabled: Whether deduplication is enabled. Defaults to False.
+        enabled: Master switch. When False, no dedup runs and neither submodule is imported.
+        exact: Run the exact-hash pass.
+        fuzzy: Run the MinHash + LSH pass.
         text_field: Column name containing text to deduplicate.
-        threshold: Jaccard similarity threshold above which rows are duplicates.
-        num_perm: Number of MinHash permutations (signature size).
-        shingle_size: Character n-gram size for shingling.
+        threshold: Jaccard similarity threshold above which rows are duplicates (fuzzy only).
+        num_perm: Number of MinHash permutations (fuzzy only).
+        shingle_size: Character n-gram size for shingling (fuzzy only).
     """
 
     enabled: bool = False
+    exact: bool = True
+    fuzzy: bool = False
     text_field: str = "text"
     threshold: float = 0.85
     num_perm: int = 128

@@ -173,28 +173,35 @@ Merge output behavior with multiple datasets:
 - Default (`run` with `execution_params.merge: true`, or `merge` without `--output-root`): each dataset is merged to its own `<dataset.output_dir>/merged`.
 - Shared root (`merge --output-root ...`): one merged subdirectory is created per dataset under the root.
 
-### Fuzzy deduplication (optional)
+### Deduplication (optional)
 
-After merging, MMIRAGE can drop near-duplicate rows using character n-gram MinHash + LSH. This is CPU-only and uses the lightweight `datasketch` package.
+After merging, MMIRAGE can drop duplicate rows in two stages:
 
-Install the optional extra:
+1. **Exact** — stdlib `hashlib.blake2b` over normalized text. Drops rows whose text is byte-identical after lowercasing and whitespace collapse. Cheap and stdlib-only.
+2. **Fuzzy** — character n-gram MinHash + LSH via `datasketch`. Drops near-duplicates above a Jaccard similarity threshold.
+
+Either or both can be enabled. Exact runs first so the more expensive fuzzy pass sees a smaller input.
+
+Install the fuzzy-pass extra (only needed when `fuzzy: true`):
 
 ```bash
 pip install -e '.[dedup]'
 ```
 
-Enable in your YAML config:
+`threshold`, `num_perm`, and `shingle_size` only apply to the fuzzy pass.
 
 ```yaml
 deduplication_params:
   enabled: true
   text_field: text
-  threshold: 0.85       # Jaccard similarity threshold
-  num_perm: 128         # MinHash signature size
-  shingle_size: 5       # character n-gram size
+  exact: true           # cheap stdlib hash pass
+  fuzzy: false          # heavier MinHash + LSH; needs `pip install -e '.[dedup]'`
+  threshold: 0.85       # fuzzy only — Jaccard similarity threshold
+  num_perm: 128         # fuzzy only — MinHash signature size
+  shingle_size: 5       # fuzzy only — character n-gram size
 ```
 
-Dedup runs as part of `mmirage merge --config <cfg>` and as part of `mmirage run` when `execution_params.merge: true`. With `enabled: false` (default) the dedup module is not imported and there is no overhead.
+Dedup runs as part of `mmirage merge --config <cfg>` and as part of `mmirage run` when `execution_params.merge: true`. With `enabled: false` (default), neither dedup module is imported. With `enabled: true, fuzzy: false`, only the stdlib hash pass runs — `datasketch` is **not** imported, and the `[dedup]` extra is **not** required.
 
 ### Multimodal: Processing images with VLMs
 
@@ -270,6 +277,7 @@ mmirage/
 │   ├── process/      # Processors (LLM, etc.) and variable system
 │   │   └── processors/
 │   │       └── llm/  # LLM processor with multimodal support
+│   ├── postprocess/  # Optional dedup (exact hash + fuzzy MinHash/LSH)
 │   └── writer/       # Output rendering with Jinja2
 ├── shard_process.py  # Main processing script
 └── merge_shards.py   # Shard merging utility

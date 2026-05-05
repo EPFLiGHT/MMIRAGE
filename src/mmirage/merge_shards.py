@@ -52,15 +52,42 @@ def _merge_datasetdict(shard_dsets: List[DatasetDict]) -> DatasetDict:
     return DatasetDict(merged)
 
 
-def _apply_dedup(ds: DatasetLike, params: DeduplicationParams) -> DatasetLike:
-    """Apply fuzzy deduplication to a Dataset or each split of a DatasetDict."""
-    from mmirage.core.postprocess.fuzzy_dedup import deduplicate
+def _dedup_one(ds: Dataset, params: DeduplicationParams) -> Dataset:
+    """Run the configured dedup stages on a single Dataset and log a combined line."""
+    if not params.exact and not params.fuzzy:
+        logger.warning(
+            "Deduplication enabled but both 'exact' and 'fuzzy' are disabled; skipping."
+        )
+        return ds
 
+    before = _count_rows(ds)
+    after_exact = before
+    if params.exact:
+        from mmirage.core.postprocess.exact_dedup import exact_deduplicate
+
+        ds = exact_deduplicate(ds, params)
+        after_exact = _count_rows(ds)
+
+    after_fuzzy = after_exact
+    if params.fuzzy:
+        from mmirage.core.postprocess.fuzzy_dedup import deduplicate
+
+        ds = deduplicate(ds, params)
+        after_fuzzy = _count_rows(ds)
+
+    logger.info(
+        f"Dedup: {before} → {after_exact} → {after_fuzzy} rows."
+    )
+    return ds
+
+
+def _apply_dedup(ds: DatasetLike, params: DeduplicationParams) -> DatasetLike:
+    """Apply deduplication to a Dataset or each split of a DatasetDict."""
     if isinstance(ds, DatasetDict):
         return DatasetDict(
-            {split: deduplicate(split_ds, params) for split, split_ds in ds.items()}
+            {split: _dedup_one(split_ds, params) for split, split_ds in ds.items()}
         )
-    return deduplicate(ds, params)
+    return _dedup_one(ds, params)
 
 
 def _merge_shards(shard_dsets: List[DatasetLike]) -> DatasetLike:
@@ -136,13 +163,7 @@ def merge_dataset_dir(
     ds_merged = _merge_shards(shard_dsets)
 
     if dedup_params is not None and dedup_params.enabled:
-        rows_before = _count_rows(ds_merged)
         ds_merged = _apply_dedup(ds_merged, dedup_params)
-        rows_after = _count_rows(ds_merged)
-        logger.info(
-            f"Fuzzy dedup: {rows_before} → {rows_after} rows "
-            f"({rows_before - rows_after} duplicates removed)."
-        )
 
     merged_rows = _count_rows(ds_merged)
 
@@ -267,7 +288,7 @@ def main():
     ap.add_argument(
         "--config",
         default=None,
-        help="Optional MMIRAGE YAML config; enables fuzzy dedup if configured.",
+        help="Optional MMIRAGE YAML config; enables deduplication if configured.",
     )
     ap.add_argument(
         "--log-level",

@@ -186,18 +186,26 @@ execution_params:
 
 
 # ============================================================================
-# DEDUPLICATION PARAMETERS (optional)
+# DEDUPLICATION PARAMETERS (optional, exact and/or fuzzy)
 # ============================================================================
-# Optional fuzzy deduplication applied after merging shards.
-# Uses character n-gram MinHash + LSH (via the `datasketch` package).
-# Install with: pip install -e '.[dedup]'
+# Two-stage post-merge dedup. Exact runs first via stdlib hash; fuzzy runs
+# second via char-ngram MinHash + LSH. Either or both can be enabled.
+# Fuzzy requires the `[dedup]` extra: pip install -e '.[dedup]'
 
 deduplication_params:
-  # Set to true to enable fuzzy dedup; default false (no overhead).
+  # Master switch. When false, neither dedup module is imported.
   enabled: false
+
+  # Run the exact (stdlib hash) pass.
+  exact: true
+
+  # Run the fuzzy (MinHash + LSH) pass. Requires `[dedup]` extra.
+  fuzzy: false
 
   # Column name to deduplicate on
   text_field: text
+
+  # threshold/num_perm/shingle_size only apply to the fuzzy pass.
 
   # Jaccard similarity threshold above which rows are duplicates (0.0–1.0)
   threshold: 0.85

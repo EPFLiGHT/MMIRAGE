@@ -12,6 +12,7 @@ from typing import Iterable, List, Set
 from datasets import Dataset
 
 from mmirage.config.config import DeduplicationParams
+from mmirage.core.postprocess._text import normalize
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +22,13 @@ def _check_dependencies() -> None:
         import datasketch  # noqa: F401
     except ImportError as e:
         raise ImportError(
-            "Deduplication requires `datasketch`. "
+            "Fuzzy deduplication requires `datasketch`. "
             "Install with: pip install 'mmirage[dedup]'"
         ) from e
 
 
 def _shingles(text: str, k: int) -> Set[bytes]:
-    text = " ".join(text.lower().split())
+    text = normalize(text)
     if len(text) < k:
         return {text.encode("utf-8")}
     return {text[i : i + k].encode("utf-8") for i in range(len(text) - k + 1)}
@@ -55,7 +56,7 @@ def deduplicate(dataset: Dataset, params: DeduplicationParams) -> Dataset:
 
     n = len(dataset)
     if n <= 1:
-        logger.info("Dataset has %d row(s), skipping deduplication.", n)
+        logger.debug("Dataset has %d row(s), skipping fuzzy dedup.", n)
         return dataset
 
     if params.text_field not in dataset.column_names:
@@ -71,18 +72,16 @@ def deduplicate(dataset: Dataset, params: DeduplicationParams) -> Dataset:
     for i, raw in enumerate(texts):
         text = raw if isinstance(raw, str) else str(raw)
         m = MinHash(num_perm=params.num_perm)
-        for s in _shingles(text, params.shingle_size):
-            m.update(s)
+        m.update_batch(list(_shingles(text, params.shingle_size)))
         if not lsh.query(m):
             lsh.insert(str(i), m)
             keep.append(i)
 
-    n_removed = n - len(keep)
-    logger.info(
+    logger.debug(
         "Fuzzy dedup: %d → %d rows (%d duplicates removed).",
         n,
         len(keep),
-        n_removed,
+        n - len(keep),
     )
 
     return dataset.select(keep)
