@@ -237,7 +237,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                 logger.error(
                     f"Batch generation failed for text-only samples in output '{output_var.name}': {e}"
                 )
-                raise
+                for global_i in text_only_indices:
+                    empty_val = {} if output_var.output_type == "JSON" else ""
+                    results[global_i] = batch[global_i].with_variable(output_var.name, empty_val)
 
         # Multimodal batch
         if multimodal_indices:
@@ -299,7 +301,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                 logger.error(
                     f"Batch generation failed for multimodal samples in output '{output_var.name}': {e}"
                 )
-                raise
+                for global_i in multimodal_indices:
+                    empty_val = {} if output_var.output_type == "JSON" else ""
+                    results[global_i] = batch[global_i].with_variable(output_var.name, empty_val)
 
         return [results[i] for i in range(nb_samples)]
 

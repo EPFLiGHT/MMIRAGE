@@ -87,84 +87,6 @@ mmirage merge --config configs/config_mock.yaml --output-root /path/to/merged
 
 MMIRAGE still keeps datasets separate by creating one subdirectory per dataset under the root.
 
-### Benchmarking shard performance
-
-Pass `--stats` to `run` or `submit` to enable per-shard benchmarking. This activates GPU
-utilization polling and throughput tracking on compute nodes — disabled by default to
-avoid unnecessary overhead.
-
-```bash
-# Local run with stats collection
-mmirage run --config configs/config_mock.yaml --stats
-
-# SLURM submission with stats collection
-mmirage submit --config configs/config_mock.yaml --stats
-```
-
-After the run completes, inspect the results with:
-
-```bash
-mmirage stats --config configs/config_mock.yaml
-```
-
-This prints a JSON report with per-shard details and an aggregate summary:
-
-```json
-{
-  "per_shard": [
-    {
-      "shard_id": 0,
-      "status": "success",
-      "started_at": "2026-04-30T10:00:00",
-      "finished_at": "2026-04-30T10:01:05",
-      "stats": {
-        "runtime_seconds": 65.2,
-        "runtime_human": "1m 5s",
-        "rows_processed": 1024,
-        "throughput_rows_per_sec": 15.7,
-        "gpu_util_mean": 88.4,
-        "gpu_util_min": 72.0,
-        "gpu_util_max": 98.0,
-        "gpu_util_samples": 13,
-        "input_tokens": 512000,
-        "output_tokens": 196608,
-        "num_gpus": 4,
-        "tokens_per_sec_per_gpu": 753.1,
-        "gpu_days_per_billion_tokens": 0.0015
-      }
-    }
-  ],
-  "aggregate": {
-    "total_shards": 4,
-    "completed_shards": 4,
-    "total_rows_processed": 4096,
-    "wall_clock_runtime_seconds": 68.1,
-    "wall_clock_runtime_human": "1m 8s",
-    "sum_shard_runtime_seconds": 261.4,
-    "sum_shard_runtime_human": "4m 21s",
-    "min_shard_runtime_seconds": 62.3,
-    "min_shard_runtime_human": "1m 2s",
-    "max_shard_runtime_seconds": 69.7,
-    "max_shard_runtime_human": "1m 9s",
-    "overall_throughput_rows_per_sec": 60.1,
-    "mean_gpu_util_pct": 87.9,
-    "num_gpus": 4,
-    "total_input_tokens": 2048000,
-    "total_output_tokens": 786432,
-    "tokens_per_sec_per_gpu": 750.8,
-    "gpu_days_per_billion_tokens": 0.0015
-  }
-}
-```
-
-Key metrics:
-- **`runtime_seconds`** / **`runtime_human`**: time from when the shard started on the cluster (after dispatch), excluding queue wait time.
-- **`overall_throughput_rows_per_sec`**: total rows / wall-clock time across all shards running in parallel.
-- **`mean_gpu_util_pct`**: weighted average GPU utilization across shards (weighted by rows processed).
-- **`tokens_per_sec_per_gpu`**: output tokens generated per second per GPU — the primary throughput metric used by frameworks such as [DataTrove](https://github.com/huggingface/datatrove).
-- **`gpu_days_per_billion_tokens`**: total GPU-days consumed to generate 1 billion output tokens — useful for cost and scaling comparisons across different hardware configurations.
-- Token metrics are `null` when no LLM processor was active, and GPU stats are `null` when `nvidia-smi` is unavailable or `--stats` was not passed.
-
 ### Text-only: Reformatting dataset
 
 Suppose you have a dataset with samples of the following format
@@ -313,6 +235,88 @@ Key multimodal features:
 - `image_base_path`: Base directory for resolving relative image paths
 - Supports PIL Images, URLs, and file paths
 
+### Benchmarking shard performance
+
+Pass `--stats` to `run` or `submit` to enable per-shard benchmarking. This activates GPU
+utilization polling and throughput tracking on compute nodes — disabled by default to
+avoid unnecessary overhead.
+
+```bash
+# Local run with stats collection
+mmirage run --config configs/config_mock.yaml --stats
+
+```
+
+After the run completes, inspect the results with:
+
+```bash
+mmirage stats --config configs/config_mock.yaml
+```
+
+This prints a JSON report with per-shard details and an aggregate summary:
+
+```json
+{
+  "per_shard": [
+    {
+      "shard_id": 0,
+      "status": "success",
+      "started_at": "2026-04-30T10:00:00",
+      "finished_at": "2026-04-30T10:01:05",
+      "stats": {
+        "runtime_seconds": 65.2,
+        "runtime_human": "1m 5s",
+        "rows_processed": 1024,
+        "throughput_rows_per_sec": 15.7,
+        "gpu_util_mean": 88.4,
+        "gpu_util_min": 72.0,
+        "gpu_util_max": 98.0,
+        "gpu_util_samples": 13,
+        "input_tokens": 512000,
+        "output_tokens": 196608,
+        "num_gpus": 4,
+        "tokens_per_sec_per_gpu": 753.1,
+        "gpu_days_per_billion_tokens": 0.0015
+      }
+    }
+  ],
+  "aggregate": {
+    "total_shards": 1,
+    "completed_shards": 1,
+    "total_rows_processed": 1000,
+    "wall_clock_runtime_seconds": 133.04,
+    "wall_clock_runtime_human": "2m 13s",
+    "sum_shard_runtime_seconds": 133.04,
+    "sum_shard_runtime_human": "2m 13s",
+    "min_shard_runtime_seconds": 133.04,
+    "min_shard_runtime_human": "2m 13s",
+    "max_shard_runtime_seconds": 133.04,
+    "max_shard_runtime_human": "2m 13s",
+    "overall_throughput_rows_per_sec": 7.52,
+    "mean_gpu_util_pct": 86.2,
+    "num_gpus": 1,
+    "total_input_tokens": 146214,
+    "total_output_tokens": 1022046,
+    "sum_model_load_seconds": 38.272,
+    "sum_inference_runtime_seconds": 94.768,
+    "tokens_per_sec_per_gpu": 10784.72,
+    "gpu_days_per_billion_tokens": 1.0732
+  }
+}
+```
+
+Key metrics:
+- **`runtime_seconds`** / **`runtime_human`**: time from when the shard started on the cluster (after dispatch), excluding queue wait time.
+- **`overall_throughput_rows_per_sec`**: total rows / wall-clock time across all shards running in parallel.
+- **`mean_gpu_util_pct`**: mean percentage GPU utilization across shards.
+- **`tokens_per_sec_per_gpu`**: output tokens generated per second per GPU — the primary throughput metric used by frameworks such as [DataTrove](https://github.com/huggingface/datatrove).
+- **`gpu_days_per_billion_tokens`**: total GPU-days consumed to generate 1 billion output tokens — useful for cost and scaling comparisons across different hardware configurations.
+- Token metrics are `null` when no LLM processor was active, and GPU stats are `null` when `nvidia-smi` is unavailable or `--stats` was not passed.
+
+Reference benchmark:
+- [DataTrove Benchmark](https://github.com/huggingface/datatrove/tree/main/examples/inference/benchmark)
+- `mmirage run --config configs/config_bencmark_datatrove.yaml --stats`
+
 ## Architecture
 
 MMIRAGE uses a modular architecture:
@@ -336,3 +340,4 @@ mmirage/
 - JMESPath for JSON queries: [link](https://jmespath.org/)
 - SGLang for fast inference: [link](https://github.com/sgl-project/sglang)
 - Performance paper: [link](https://arxiv.org/abs/2408.02442)
+- DataTrove Benchmark: [link](https://github.com/huggingface/datatrove/tree/main/examples/inference/benchmark)

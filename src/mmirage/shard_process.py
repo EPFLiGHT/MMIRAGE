@@ -92,30 +92,30 @@ def main():
     state_dir = _shard_state_dir(shard_id, loading_params.get_state_root())
 
     collect_stats = os.environ.get("MMIRAGE_COLLECT_STATS", "") == "1"
-    # Determine which physical GPU indices SGLang will use so the poller
-    # measures only the active GPU(s) — not all GPUs on the node.
-    # SLURM may allocate more GPUs than tp_size (e.g. gpus=4, tp_size=1).
-    # We take only the first tp_size entries from CUDA_VISIBLE_DEVICES so
-    # nvidia-smi --id receives exactly the GPUs SGLang is using.
-    tp_size = 1
-    for proc_cfg in cfg.processors:
-        tp = getattr(getattr(proc_cfg, "server_args", None), "tp_size", None)
-        if tp and int(tp) > 0:
-            tp_size = int(tp)
-            break
-    cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
-    if cuda_visible and cuda_visible.lower() not in ("all", "nodevfiles"):
-        try:
-            all_visible = [int(x.strip()) for x in cuda_visible.split(",") if x.strip()]
-            gpu_indices_for_polling: Optional[list] = all_visible[:tp_size]
-        except ValueError:
+    if collect_stats:
+        # Determine which physical GPU indices SGLang will use so the poller
+        # measures only the active GPU(s) — not all GPUs on the node.
+        # SLURM may allocate more GPUs than tp_size (e.g. gpus=4, tp_size=1).
+        # We take only the first tp_size entries from CUDA_VISIBLE_DEVICES so
+        # nvidia-smi --id receives exactly the GPUs SGLang is using.
+        tp_size = 1
+        for proc_cfg in cfg.processors:
+            tp = getattr(getattr(proc_cfg, "server_args", None), "tp_size", None)
+            if tp and int(tp) > 0:
+                tp_size = int(tp)
+                break
+        cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+        if cuda_visible and cuda_visible.lower() not in ("all", "nodevfiles"):
+            try:
+                all_visible = [int(x.strip()) for x in cuda_visible.split(",") if x.strip()]
+                gpu_indices_for_polling: Optional[list] = all_visible[:tp_size]
+            except ValueError:
+                gpu_indices_for_polling = list(range(tp_size))
+        else:
             gpu_indices_for_polling = list(range(tp_size))
-    else:
-        gpu_indices_for_polling = list(range(tp_size))
-
-    gpu_poller: GpuUtilizationPoller = GpuUtilizationPoller(
-        interval_seconds=5.0, gpu_indices=gpu_indices_for_polling
-    )
+        gpu_poller: GpuUtilizationPoller = GpuUtilizationPoller(
+            interval_seconds=5.0, gpu_indices=gpu_indices_for_polling
+        )
     try:
         retry_count = _mark_running(state_dir, shard_id, datasets_config)
         logger.info(f"Starting shard {shard_id}/{last_shard_id} (attempt #{retry_count})")
