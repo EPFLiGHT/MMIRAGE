@@ -193,8 +193,14 @@ def main():
         num_gpus: Optional[int] = None
         for proc_cfg in cfg.processors:
             tp = getattr(getattr(proc_cfg, "server_args", None), "tp_size", None)
-            if tp and tp > 0:
-                num_gpus = int(tp)
+            if tp is None:
+                continue
+            try:
+                tp_int = int(tp)
+            except (TypeError, ValueError):
+                continue
+            if tp_int > 0:
+                num_gpus = tp_int
                 break
 
         stats = ShardStats(
