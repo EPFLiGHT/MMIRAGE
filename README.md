@@ -294,7 +294,7 @@ This prints a JSON report with per-shard details and an aggregate summary:
     "max_shard_runtime_human": "2m 13s",
     "overall_throughput_rows_per_sec": 7.52,
     "mean_gpu_util_pct": 86.2,
-    "num_gpus": 1,
+    "num_gpus": 4,
     "total_input_tokens": 146214,
     "total_output_tokens": 1022046,
     "sum_model_load_seconds": 38.272,
