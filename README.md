@@ -315,7 +315,7 @@ Key metrics:
 
 Reference benchmark:
 - [DataTrove Benchmark](https://github.com/huggingface/datatrove/tree/main/examples/inference/benchmark)
-- `mmirage run --config configs/config_bencmark_datatrove.yaml --stats`
+- `mmirage run --config configs/config_benchmark_datatrove.yaml --stats`
 
 ## Architecture
 
