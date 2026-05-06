@@ -28,9 +28,9 @@ def format_duration(seconds: Optional[float]) -> Optional[str]:
 
     Examples::
 
-        _format_duration(45.3)     -> "45s"
-        _format_duration(125.0)    -> "2m 5s"
-        _format_duration(3725.0)   -> "1h 2m 5s"
+        format_duration(45.3)     -> "45s"
+        format_duration(125.0)    -> "2m 5s"
+        format_duration(3725.0)   -> "1h 2m 5s"
     """
     if seconds is None:
         return None
