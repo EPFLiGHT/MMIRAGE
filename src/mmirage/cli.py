@@ -222,6 +222,11 @@ def build_argparser() -> argparse.ArgumentParser:
         help="Submit retries without prompting.",
     )
     check_parser.set_defaults(confirm_mode="prompt")
+    check_parser.add_argument(
+        "--stats",
+        action="store_true",
+        help="Enable GPU utilization and throughput collection on retried compute nodes",
+    )
 
     retry_parser = subparsers.add_parser("retry", help="Submit only failed shards")
     add_shared_arguments(retry_parser)
@@ -234,6 +239,11 @@ def build_argparser() -> argparse.ArgumentParser:
         help="Submit retries without prompting.",
     )
     retry_parser.set_defaults(confirm_mode="prompt")
+    retry_parser.add_argument(
+        "--stats",
+        action="store_true",
+        help="Enable GPU utilization and throughput collection on retried compute nodes",
+    )
 
     run_parser = subparsers.add_parser(
         "run",
@@ -449,6 +459,7 @@ def handle_check(args: argparse.Namespace, cfg: MMirageConfig, config_path: str)
         config_path=config_path,
         failed_shards=failed_shards,
         confirm_mode=args.confirm_mode,
+        collect_stats=args.stats,
     )
 
 
@@ -481,6 +492,7 @@ def handle_retry(args: argparse.Namespace, cfg: MMirageConfig, config_path: str)
         config_path=config_path,
         failed_shards=failed_shards,
         confirm_mode=args.confirm_mode,
+        collect_stats=args.stats,
     )
 
 

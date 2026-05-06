@@ -140,6 +140,7 @@ def submit_failed_shards(
     config_path: str,
     failed_shards: Sequence[int],
     confirm_mode: Literal["prompt", "yes"],
+    collect_stats: bool = False,
 ) -> int:
     """Submit retry jobs for failed shards when requested."""
     if not failed_shards:
@@ -148,7 +149,7 @@ def submit_failed_shards(
     if not confirm_retry(len(failed_shards), confirm_mode):
         return 1
 
-    job_id = submit_slurm_job(cfg, config_path, failed_shards)
+    job_id = submit_slurm_job(cfg, config_path, failed_shards, collect_stats=collect_stats)
     if job_id is None:
         return 1
 
@@ -278,7 +279,7 @@ def collect_bench_stats(cfg: MMirageConfig) -> Dict[str, Any]:
         "num_gpus": num_gpus,
         "total_input_tokens": total_input_tokens if has_token_data else None,
         "total_output_tokens": total_output_tokens if has_token_data else None,
-        "sum_model_load_seconds": round(sum_model_load_seconds, 3) if sum_model_load_seconds else None,
+        "sum_model_load_seconds": round(sum_model_load_seconds, 3) if sum_model_load_seconds > 0 else None,
         "sum_inference_runtime_seconds": round(agg_inference_runtime, 3) if agg_inference_runtime is not None else None,
         "tokens_per_sec_per_gpu": agg_tokens_per_sec_per_gpu,
         "gpu_days_per_billion_tokens": agg_gpu_days_per_billion_tokens,

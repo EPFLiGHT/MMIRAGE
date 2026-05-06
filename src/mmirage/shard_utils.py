@@ -524,15 +524,23 @@ def _mark_success(state_dir: str, stats: Optional[ShardStats] = None):
                 pass
 
         # Derive throughput once we have both rows and runtime.
+        # Use inference_runtime (total minus model loading) so the metric
+        # reflects pure generation speed, consistent with tokens_per_sec_per_gpu.
         if (
             stats.throughput_rows_per_sec is None
             and stats.rows_processed is not None
             and stats.runtime_seconds is not None
             and stats.runtime_seconds > 0
         ):
-            stats.throughput_rows_per_sec = round(
-                stats.rows_processed / stats.runtime_seconds, 2
+            inference_runtime = (
+                max(0.0, stats.runtime_seconds - stats.model_load_seconds)
+                if stats.model_load_seconds is not None
+                else stats.runtime_seconds
             )
+            if inference_runtime > 0:
+                stats.throughput_rows_per_sec = round(
+                    stats.rows_processed / inference_runtime, 2
+                )
 
     prev.stats = stats
     _write_status(state_dir, prev)
