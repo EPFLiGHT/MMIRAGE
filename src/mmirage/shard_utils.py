@@ -23,7 +23,7 @@ from mmirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
 logger = logging.getLogger(__name__)
 
 
-def _format_duration(seconds: Optional[float]) -> Optional[str]:
+def format_duration(seconds: Optional[float]) -> Optional[str]:
     """Format a duration given in seconds as a human-readable string.
 
     Examples::
@@ -125,7 +125,7 @@ class ShardStats:
 
         return {
             "runtime_seconds": self.runtime_seconds,
-            "runtime_human": _format_duration(self.runtime_seconds),
+            "runtime_human": format_duration(self.runtime_seconds),
             "model_load_seconds": round(self.model_load_seconds, 3) if self.model_load_seconds is not None else None,
             "inference_runtime_seconds": round(inference_runtime, 3) if inference_runtime is not None else None,
             "rows_processed": self.rows_processed,
@@ -155,7 +155,7 @@ class GpuUtilizationPoller:
     If ``nvidia-smi`` is unavailable all values are ``None`` and samples is 0.
     """
 
-    def __init__(self, interval_seconds: float = 5.0, gpu_indices: Optional[List[int]] = None) -> None:
+    def __init__(self, interval_seconds: float = 5.0, gpu_indices: Optional[List[str]] = None) -> None:
         self._interval = interval_seconds
         self._samples: List[float] = []
         self._thread: Optional[threading.Thread] = None
@@ -402,7 +402,7 @@ def _dataset_out_dir(shard_idx: int, ds_config: BaseDataLoaderConfig) -> str:
     return os.path.join(ds_config.output_dir, f"shard_{shard_idx}")
 
 
-def _shard_state_dir(shard_idx: int, state_root: str) -> str:
+def shard_state_dir(shard_idx: int, state_root: str) -> str:
     """Get central state directory for a logical shard."""
     return os.path.join(state_root, f"shard_{shard_idx}")
 
@@ -419,7 +419,7 @@ def _status_file(state_dir: str) -> str:
     return os.path.join(state_dir, "status.json")
 
 
-def _read_status(state_dir: str) -> ShardStatus:
+def read_status(state_dir: str) -> ShardStatus:
     """Read status.json if present."""
     path = _status_file(state_dir)
     if not os.path.exists(path):
@@ -470,7 +470,7 @@ def _mark_running(
     datasets_config: List[BaseDataLoaderConfig],
 ) -> int:
     """Mark shard as running and increment retry count."""
-    prev = _read_status(state_dir)
+    prev = read_status(state_dir)
     retry_count = prev.retry_count + 1
 
     payload = ShardStatus(
@@ -508,7 +508,7 @@ def _mark_success(state_dir: str, stats: Optional[ShardStats] = None):
             ``throughput_rows_per_sec`` are computed from the stored timestamps
             when not already set.
     """
-    prev = _read_status(state_dir)
+    prev = read_status(state_dir)
     prev.status = "success"
     now = datetime.now()
     prev.finished_at = now.isoformat()
@@ -550,7 +550,7 @@ def _mark_success(state_dir: str, stats: Optional[ShardStats] = None):
 
 def _mark_failure(state_dir: str, error_msg: str):
     """Mark shard as failed."""
-    prev = _read_status(state_dir)
+    prev = read_status(state_dir)
     prev.status = "failed"
     prev.finished_at = datetime.now().isoformat()
     prev.error = error_msg

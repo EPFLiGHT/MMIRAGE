@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 
 from mmirage.config.config import MMirageConfig
 from mmirage.cli_utils.slurm import submit_slurm_job
-from mmirage.shard_utils import ShardStatus, _format_duration, _read_status, _shard_state_dir
+from mmirage.shard_utils import ShardStatus, format_duration, read_status
 
 
 logger = logging.getLogger(__name__)
@@ -189,8 +189,8 @@ def collect_bench_stats(cfg: MMirageConfig) -> Dict[str, Any]:
     num_gpus: Optional[int] = None  # taken from first shard that has it
 
     for shard_id in range(num_shards):
-        state_dir = _shard_state_dir(shard_id, state_root)
-        status = _read_status(state_dir)
+        state_dir = shard_state_dir(state_root, shard_id)
+        status = read_status(state_dir)
         entry: Dict[str, Any] = status.to_dict()
         per_shard.append(entry)
 
@@ -266,13 +266,13 @@ def collect_bench_stats(cfg: MMirageConfig) -> Dict[str, Any]:
         "completed_shards": sum(1 for e in per_shard if e.get("status") == "success"),
         "total_rows_processed": total_rows if total_rows > 0 else None,
         "wall_clock_runtime_seconds": wall_clock,
-        "wall_clock_runtime_human": _format_duration(wall_clock),
+        "wall_clock_runtime_human": format_duration(wall_clock),
         "sum_shard_runtime_seconds": round(sum_runtime, 3) if runtimes else None,
-        "sum_shard_runtime_human": _format_duration(round(sum_runtime, 3) if runtimes else None),
+        "sum_shard_runtime_human": format_duration(round(sum_runtime, 3) if runtimes else None),
         "min_shard_runtime_seconds": round(min(runtimes), 3) if runtimes else None,
-        "min_shard_runtime_human": _format_duration(round(min(runtimes), 3) if runtimes else None),
+        "min_shard_runtime_human": format_duration(round(min(runtimes), 3) if runtimes else None),
         "max_shard_runtime_seconds": round(max(runtimes), 3) if runtimes else None,
-        "max_shard_runtime_human": _format_duration(round(max(runtimes), 3) if runtimes else None),
+        "max_shard_runtime_human": format_duration(round(max(runtimes), 3) if runtimes else None),
         "overall_throughput_rows_per_sec": overall_throughput,
         "mean_gpu_util_pct": mean_gpu_util,
         # Token-level benchmark metrics (DataTrove-compatible).

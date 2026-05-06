@@ -27,7 +27,7 @@ from mmirage.shard_utils import (
     _remove_columns,
     _save_dataset_atomic,
     _shard_dataset,
-    _shard_state_dir,
+    shard_state_dir,
 )
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ def main():
     if not (0 <= shard_id < num_shards):
         raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
 
-    state_dir = _shard_state_dir(shard_id, loading_params.get_state_root())
+    state_dir = shard_state_dir(shard_id, loading_params.get_state_root())
 
     collect_stats = os.environ.get("MMIRAGE_COLLECT_STATS", "") == "1"
     if collect_stats:
@@ -106,13 +106,10 @@ def main():
                 break
         cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
         if cuda_visible and cuda_visible.lower() not in ("all", "nodevfiles"):
-            try:
-                all_visible = [int(x.strip()) for x in cuda_visible.split(",") if x.strip()]
-                gpu_indices_for_polling: Optional[list] = all_visible[:tp_size]
-            except ValueError:
-                gpu_indices_for_polling = list(range(tp_size))
+            all_visible = [x.strip() for x in cuda_visible.split(",") if x.strip()]
+            gpu_indices_for_polling: Optional[List[str]] = all_visible[:tp_size]
         else:
-            gpu_indices_for_polling = list(range(tp_size))
+            gpu_indices_for_polling = [str(i) for i in range(tp_size)]
         gpu_poller: GpuUtilizationPoller = GpuUtilizationPoller(
             interval_seconds=5.0, gpu_indices=gpu_indices_for_polling
         )
@@ -193,14 +190,8 @@ def main():
         num_gpus: Optional[int] = None
         for proc_cfg in cfg.processors:
             tp = getattr(getattr(proc_cfg, "server_args", None), "tp_size", None)
-            if tp is None:
-                continue
-            try:
-                tp_int = int(tp)
-            except (TypeError, ValueError):
-                continue
-            if tp_int > 0:
-                num_gpus = tp_int
+            if tp and tp > 0:
+                num_gpus = int(tp)
                 break
 
         stats = ShardStats(
