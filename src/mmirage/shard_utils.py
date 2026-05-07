@@ -203,7 +203,11 @@ class GpuUtilizationPoller:
             # dilute utilization by averaging over idle GPUs on the same node.
             # Priority: explicit gpu_indices > CUDA_VISIBLE_DEVICES > all GPUs.
             if self._gpu_indices is not None:
-                cmd += [f"--id={','.join(str(i) for i in self._gpu_indices)}"]
+                if not self._gpu_indices:
+                    # Empty list would produce --id= which is invalid; skip filtering.
+                    pass
+                else:
+                    cmd += [f"--id={','.join(str(i) for i in self._gpu_indices)}"]
             else:
                 cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
                 if cuda_visible and cuda_visible.lower() not in ("all", "nodevfiles"):

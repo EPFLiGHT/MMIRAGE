@@ -107,7 +107,9 @@ def main():
         cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
         if cuda_visible and cuda_visible.lower() not in ("all", "nodevfiles"):
             all_visible = [x.strip() for x in cuda_visible.split(",") if x.strip()]
-            gpu_indices_for_polling: Optional[List[str]] = all_visible[:tp_size]
+            # Fall back to range-based indices if CUDA_VISIBLE_DEVICES was set
+            # but contained only whitespace/empty entries after stripping.
+            gpu_indices_for_polling: Optional[List[str]] = all_visible[:tp_size] if all_visible else [str(i) for i in range(tp_size)]
         else:
             gpu_indices_for_polling = [str(i) for i in range(tp_size)]
         gpu_poller: GpuUtilizationPoller = GpuUtilizationPoller(
