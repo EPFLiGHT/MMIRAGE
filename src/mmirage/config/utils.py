@@ -7,6 +7,7 @@ import os
 
 from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.config.config import MMirageConfig
+from mmirage.core.process.processors.image_gen.config import ImageOutputMode
 from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry, OutputVar
 from mmirage.core.process.batch.provider_resolution import resolve_single_provider_config
 from mmirage.core.loader.base import BaseDataLoaderConfig, DataLoaderRegistry
@@ -101,6 +102,11 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
             return os.path.expandvars(obj)
         else:
             return obj
+        
+    def image_output_mode_hook(value: Any) -> ImageOutputMode:
+      if isinstance(value, ImageOutputMode):
+          return value
+      return ImageOutputMode(value)
 
     def processor_config_hook(data: Dict[str, Any]) -> BaseProcessorConfig:
         clz = ProcessorRegistry.get_config_cls(data["type"])
@@ -120,6 +126,7 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
     cfg = expand_env_vars(cfg)
     config = Config(
         type_hooks={
+            ImageOutputMode: image_output_mode_hook,
             BaseProcessorConfig: processor_config_hook,
             BaseDataLoaderConfig: loader_config_hook,
             OutputVar: output_var_hook,
