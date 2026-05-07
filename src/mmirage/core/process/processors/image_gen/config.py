@@ -248,9 +248,12 @@ class ImageGenOutputVar(OutputVar):
             )
             return False
 
-        if self.output_mode not in set(ImageOutputMode):
+        try:
+            self.output_mode = ImageOutputMode(self.output_mode)
+        except ValueError:
             logger.warning(
-                f"⚠️ Invalid output_mode for {self.name}: {self.output_mode}. Expected one of {[m.value for m in ImageOutputMode]}"
+                f"⚠️ Invalid output_mode for {self.name}: {self.output_mode}. "
+                f"Expected one of {[m.value for m in ImageOutputMode]}"
             )
             return False
 
