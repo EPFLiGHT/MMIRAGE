@@ -101,7 +101,7 @@ def launch_pipeline(
             candidates = sorted(set(failed_shards) | set(runtime_failed))
             retryable_shards: List[int] = []
             for shard_id in candidates:
-                _, state_attempt_count = get_shard_status(shard_state_dir(state_root, shard_id))
+                _, state_attempt_count = get_shard_status(shard_state_dir(shard_id, state_root))
                 memory_attempt_count = attempts_by_shard.get(shard_id, 0)
                 effective_attempt_count = max(state_attempt_count, memory_attempt_count)
 

@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 
 from mmirage.config.config import MMirageConfig
 from mmirage.cli_utils.slurm import submit_slurm_job
-from mmirage.shard_utils import ShardStatus, format_duration, read_status
+from mmirage.shard_utils import ShardStatus, format_duration, read_status, shard_state_dir
 
 
 logger = logging.getLogger(__name__)
@@ -39,11 +39,6 @@ def max_allowed_attempts(max_retries: int) -> int:
 def is_retry_budget_exceeded(attempt_count: int, max_retries: int) -> bool:
     """Return whether a shard has exceeded the retry budget."""
     return attempt_count > max_allowed_attempts(max_retries)
-
-
-def shard_state_dir(state_root: str, shard_id: int) -> str:
-    """Return the state directory for a shard."""
-    return os.path.join(state_root, f"shard_{shard_id}")
 
 
 def get_shard_status(state_dir: str) -> Tuple[str, int]:
@@ -79,7 +74,7 @@ def check_failed_shards(cfg: MMirageConfig) -> Tuple[List[int], ShardSummary]:
     allowed_attempts = max_allowed_attempts(max_retries)
 
     for shard_id in range(num_shards):
-        status, attempt_count = get_shard_status(shard_state_dir(state_root, shard_id))
+        status, attempt_count = get_shard_status(shard_state_dir(shard_id, state_root))
         if status == "success":
             success_count += 1
         elif status == "running":
@@ -189,7 +184,7 @@ def collect_bench_stats(cfg: MMirageConfig) -> Dict[str, Any]:
     num_gpus: Optional[int] = None  # taken from first shard that has it
 
     for shard_id in range(num_shards):
-        state_dir = shard_state_dir(state_root, shard_id)
+        state_dir = shard_state_dir(shard_id, state_root)
         status = read_status(state_dir)
         entry: Dict[str, Any] = status.to_dict()
         per_shard.append(entry)
