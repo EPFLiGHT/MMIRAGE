@@ -77,7 +77,7 @@ execution_params:
   job_name: mmirage-sharded
   nodes: 1
   ntasks_per_node: 1
-  gpus: 4
+  gpus: 1
   cpus_per_task: 288
   time_limit: "11:59:59"
   report_dir: "/users/${USER}/reports"
