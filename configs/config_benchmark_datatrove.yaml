@@ -1,29 +1,5 @@
 # MMIRAGE — DataTrove-compatible throughput benchmark
-#
-# Mirrors the conditions used in the DataTrove inference benchmark
-# (https://github.com/huggingface/datatrove/tree/main/examples/inference/benchmark):
-#
-#   dataset : simplescaling/s1K-1.1  (train split, 1 000 samples)
-#   prompt  : raw `question` field, no system prompt
-#   output  : up to 1 024 tokens per sample
-#   context : 2 048-token model max context
-#   model   : Qwen/Qwen3-4B  (DataTrove baseline: tp=1 on a single GPU)
-#
-# Download the dataset before running:
-#
-#   python -c "
-#   from datasets import load_dataset
-#   ds = load_dataset('simplescaling/s1K-1.1', split='train')
-#   ds.save_to_disk('data/s1K-1.1')
-#   "
-#
-# Then run with stats collection enabled:
-#
-#   mmirage run --config configs/config_benchmark_datatrove.yaml --stats
-#
-# Inspect results:
-#
-#   mmirage stats --config configs/config_benchmark_datatrove.yaml
+# See README.md for setup instructions and benchmark details.
 
 processors:
   - type: llm

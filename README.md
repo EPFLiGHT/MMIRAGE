@@ -315,7 +315,36 @@ Key metrics:
 
 Reference benchmark:
 - [DataTrove Benchmark](https://github.com/huggingface/datatrove/tree/main/examples/inference/benchmark)
-- `mmirage run --config configs/config_benchmark_datatrove.yaml --stats`
+
+The config `configs/config_benchmark_datatrove.yaml` mirrors the DataTrove inference benchmark conditions:
+
+| Setting | Value |
+|---|---|
+| Dataset | `simplescaling/s1K-1.1` (train split, 1 000 samples) |
+| Prompt | raw `question` field, no system prompt |
+| Output | up to 1 024 tokens per sample |
+| Context | 2 048-token model max context |
+| Model | `Qwen/Qwen3-4B` (DataTrove baseline: tp=1 on a single GPU) |
+
+Download the dataset before running:
+
+```python
+from datasets import load_dataset
+ds = load_dataset('simplescaling/s1K-1.1', split='train')
+ds.save_to_disk('data/s1K-1.1')
+```
+
+Then run with stats collection enabled:
+
+```bash
+mmirage run --config configs/config_benchmark_datatrove.yaml --stats
+```
+
+Inspect results:
+
+```bash
+mmirage stats --config configs/config_benchmark_datatrove.yaml
+```
 
 ## Architecture
 

@@ -6,6 +6,7 @@ and file operations used in the MMIRAGE shard processing pipeline.
 
 from datetime import datetime
 from dataclasses import dataclass
+import humanize
 import json
 import logging
 import os
@@ -24,24 +25,10 @@ logger = logging.getLogger(__name__)
 
 
 def format_duration(seconds: Optional[float]) -> Optional[str]:
-    """Format a duration given in seconds as a human-readable string.
-
-    Examples::
-
-        format_duration(45.3)     -> "45s"
-        format_duration(125.0)    -> "2m 5s"
-        format_duration(3725.0)   -> "1h 2m 5s"
-    """
+    """Format a duration given in seconds as a human-readable string."""
     if seconds is None:
         return None
-    total = int(seconds)
-    hours, remainder = divmod(total, 3600)
-    minutes, secs = divmod(remainder, 60)
-    if hours:
-        return f"{hours}h {minutes}m {secs}s"
-    if minutes:
-        return f"{minutes}m {secs}s"
-    return f"{secs}s"
+    return humanize.precisedelta(seconds)
 
 
 @dataclass

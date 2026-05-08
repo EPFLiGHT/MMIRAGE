@@ -109,7 +109,7 @@ def main():
             all_visible = [x.strip() for x in cuda_visible.split(",") if x.strip()]
             # Fall back to range-based indices if CUDA_VISIBLE_DEVICES was set
             # but contained only whitespace/empty entries after stripping.
-            gpu_indices_for_polling: Optional[List[str]] = all_visible[:tp_size] if all_visible else [str(i) for i in range(tp_size)]
+            gpu_indices_for_polling: List[str] = all_visible[:tp_size] if all_visible else [str(i) for i in range(tp_size)]
         else:
             gpu_indices_for_polling = [str(i) for i in range(tp_size)]
         gpu_poller: GpuUtilizationPoller = GpuUtilizationPoller(
@@ -184,8 +184,8 @@ def main():
 
         # Collect token counts accumulated by LLM processor(s).
         token_counts = mapper.get_token_counts()
-        input_tokens = token_counts["input_tokens"] or None
-        output_tokens = token_counts["output_tokens"] or None
+        input_tokens = token_counts.input_tokens or None
+        output_tokens = token_counts.output_tokens or None
         model_load_seconds = mapper.get_load_time() or None
 
         # Resolve num_gpus from the first processor config that exposes tp_size.
