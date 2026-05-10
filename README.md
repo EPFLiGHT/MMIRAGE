@@ -10,10 +10,18 @@ MMIRAGE, which stands for **M**odular **M**ultimodal **I**ntelligent **R**eforma
 
 ## How to install
 
-To install the library, you can clone it from GitHub and then use pip to install it directly. It is recommended to have already installed `torch` and `sglang` to take advantage of GPU acceleration.
+To install the library, clone it from GitHub and install it with pip. The base
+install does not include the local SGLang runtime:
 
 ```bash
 git clone git@github.com:EPFLiGHT/MMIRAGE.git
+pip install -e ./MMIRAGE
+```
+
+Install the GPU extra when using the SGLang-backed `llm` processor for local
+GPU inference:
+
+```bash
 pip install -e './MMIRAGE[gpu]'
 ```
 
@@ -43,9 +51,13 @@ The container requires an NVIDIA GPU. The `docker-compose.yml` is configured to 
 
 Without these host-side prerequisites, `docker compose run` may fail to detect or use the GPU.
 
-### CPU-only (API-based LLMs)
+### CPU-only
 
-For API-based LLMs that do not require a GPU:
+The CPU image installs MMIRAGE without the GPU extra. It is suitable for
+workflows that do not instantiate the SGLang-backed `llm` processor, and is
+intended to support API-backed processors once they are available. Current
+configs that use `type: llm` require the GPU image or an install with the
+`[gpu]` extra.
 
 ```bash
 docker compose run --rm mmirage-cpu --config configs/your_config.yaml

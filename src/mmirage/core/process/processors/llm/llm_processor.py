@@ -63,7 +63,10 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         """
         super().__init__(engine_args, **kwargs)
         if not SGLANG_AVAILABLE:
-            raise RuntimeError("SGLang is not installed. Install with: pip install '.[gpu]'")
+            raise RuntimeError(
+                "SGLang is not installed. Install with: pip install 'mmirage[gpu]' "
+                "or, from a source checkout, pip install -e '.[gpu]'"
+            )
         self.llm = sgl.Engine(**asdict(engine_args.server_args))
         self.tokenizer = AutoTokenizer.from_pretrained(
             engine_args.server_args.model_path,

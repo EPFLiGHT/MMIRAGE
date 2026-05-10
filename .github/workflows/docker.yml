@@ -4,15 +4,14 @@ on:
   push:
     branches:
       - main
-      # - fix/docker-deployment
 
   pull_request:
     branches:
       - main
-  workflow_dispatch: 
+  workflow_dispatch:
 
 env:
-  IMAGE_NAME: fabnemepfl/mmirage
+  IMAGE_NAMESPACE: fabnemepfl
   REGISTRY: docker.io
 
 jobs:
@@ -25,10 +24,6 @@ jobs:
             path: docker/Dockerfile
             tag_base: amd64
             name: mmirage-git
-          - platform: ubuntu-24.04-arm
-            path: docker/Dockerfile
-            tag_base: arm64
-            name: mmirage-git
           - platform: ubuntu-latest
             path: docker/Dockerfile.cpu
             tag_base: amd64
@@ -39,7 +34,7 @@ jobs:
             name: mmirage-git-cpu
 
     runs-on: ${{ matrix.platform }}
-    environment: docker
+    environment: ${{ github.event_name != 'pull_request' && 'docker' || 'docker-ci' }}
 
     steps:
       - name: Free space (ARM)
@@ -89,5 +84,5 @@ jobs:
           file: ${{ matrix.path }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.name }}:latest-${{ matrix.tag_base }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.name }}:${{ github.sha }}-${{ matrix.tag_base }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.name }}:latest-${{ matrix.tag_base }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.name }}:${{ github.sha }}-${{ matrix.tag_base }}

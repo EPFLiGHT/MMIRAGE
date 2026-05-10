@@ -8,4 +8,4 @@ WORKDIR /workspace/MMIRAGE
 
 RUN pip install --no-cache-dir .[gpu]
 
-ENTRYPOINT ["python3", "-c", "import mmirage.core.process, runpy; runpy.run_module('mmirage.shard_process', run_name='__main__')"]
+ENTRYPOINT ["python3", "-m", "mmirage.shard_process"]
