@@ -72,13 +72,25 @@ class BaseProcessor(abc.ABC, Generic[C]):
         """
         raise NotImplementedError()
 
-    @abstract
+    @abc.abstractmethod
     def get_token_counts(self) -> TokenCounts:
         """Get cumulative token counts from this processor.
 
         Returns:
             TokenCounts object containing input and output token counts.
         
+        Raises:
+            NotImplementedError: If not implemented by subclass.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_load_time(self) -> float:
+        """Get the time taken to load any necessary resources (e.g., models).
+
+        Returns:
+            Time in seconds taken to load resources.
+
         Raises:
             NotImplementedError: If not implemented by subclass.
         """

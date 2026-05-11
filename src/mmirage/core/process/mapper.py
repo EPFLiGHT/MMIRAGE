@@ -75,7 +75,7 @@ class MMIRAGEMapper:
     def rewrite_batch(
         self,
         batch: Dict[str, List[Any]],
-        image_base_path: str = None,
+        image_base_path: Optional[str] = None,
     ) -> List[VariableEnvironment]:
         """Transform a batch of samples by computing output variables.
 

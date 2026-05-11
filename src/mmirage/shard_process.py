@@ -37,7 +37,7 @@ def rewrite_batch(
     batch: Dict[str, List[Any]],
     mapper: MMIRAGEMapper,
     renderer: TemplateRenderer,
-    image_base_path: str = None,
+    image_base_path: Optional[str] = None,
 ) -> Dict[str, List[Any]]:
     """Rewrite a batch of samples by applying transformations.
     Args:
@@ -91,6 +91,8 @@ def main():
 
     state_dir = shard_state_dir(shard_id, loading_params.get_state_root())
 
+    gpu_poller: Optional[GpuUtilizationPoller] = None
+
     collect_stats = os.environ.get("MMIRAGE_COLLECT_STATS", "") == "1"
     if collect_stats:
         # Determine which physical GPU indices SGLang will use so the poller
@@ -112,9 +114,11 @@ def main():
             gpu_indices_for_polling: List[str] = all_visible[:tp_size] if all_visible else [str(i) for i in range(tp_size)]
         else:
             gpu_indices_for_polling = [str(i) for i in range(tp_size)]
-        gpu_poller: GpuUtilizationPoller = GpuUtilizationPoller(
+
+        gpu_poller = GpuUtilizationPoller(
             interval_seconds=5.0, gpu_indices=gpu_indices_for_polling
         )
+
     try:
         retry_count = _mark_running(state_dir, shard_id, datasets_config)
         logger.info(f"Starting shard {shard_id}/{last_shard_id} (attempt #{retry_count})")
@@ -144,7 +148,7 @@ def main():
 
         # Start GPU polling after model loading so utilisation samples reflect
         # inference only, not weight transfers during sgl.Engine() init.
-        if collect_stats:
+        if collect_stats and gpu_poller is not None:
             gpu_poller.start()
 
         ds_processed_all: List[DatasetLike] = []
@@ -180,7 +184,7 @@ def main():
             _save_dataset_atomic(ds_processed, out_dir)
             logger.info(f"✅ Saved dataset {ds_idx} shard in: {out_dir}")
 
-        gpu_info = gpu_poller.stop() if collect_stats else {"mean": None, "min": None, "max": None, "samples": 0}
+        gpu_info = gpu_poller.stop() if collect_stats and gpu_poller is not None else {"mean": None, "min": None, "max": None, "samples": 0}
 
         # Collect token counts accumulated by LLM processor(s).
         token_counts = mapper.get_token_counts()
@@ -214,7 +218,7 @@ def main():
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.error(f"❌ Shard {shard_id} failed: {error_msg}")
         logger.error(traceback.format_exc())
-        if collect_stats:
+        if collect_stats and gpu_poller is not None:
             gpu_poller.stop()
         _mark_failure(state_dir, error_msg)
         sys.exit(1)

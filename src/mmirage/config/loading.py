@@ -47,7 +47,7 @@ class LoadingParams:
                 if self.num_shards < 1:
                     raise ValueError()
             except (ValueError, TypeError):
-                if is_unresolved_env_var(self.num_shards):
+                if isinstance(self.num_shards, str) and is_unresolved_env_var(self.num_shards):
                     self.num_shards = 1
                 else:
                     raise ValueError(f"Invalid value for num_shards: {self.num_shards!r}")
@@ -56,7 +56,7 @@ class LoadingParams:
             try:
                 self.shard_id = int(self.shard_id)
             except (ValueError, TypeError):
-                if is_unresolved_env_var(self.shard_id):
+                if isinstance(self.shard_id, str) and is_unresolved_env_var(self.shard_id):
                     self.shard_id = 0
                 else:
                     raise ValueError(f"Invalid value for shard_id: {self.shard_id!r}")
