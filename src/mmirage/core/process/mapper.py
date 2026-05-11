@@ -1,18 +1,11 @@
 """Mapper for orchestrating variable transformations."""
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, cast
+from typing import Any, Dict, List, Optional, cast
 
+from mmirage.core.process.base import AutoProcessor, BaseProcessor, BaseProcessorConfig, TokenCounts
 from mmirage.core.process.variables import BaseVar, InputVar, OutputVar
-from mmirage.core.process.base import AutoProcessor, BaseProcessor, BaseProcessorConfig
 
-
-@dataclass
-class TokenCounts:
-    """Cumulative token counts from LLM processors."""
-
-    input_tokens: int
-    output_tokens: int
 
 import logging
 
@@ -127,8 +120,8 @@ class MMIRAGEMapper:
         for proc in self.processors.values():
             if hasattr(proc, "get_token_counts"):
                 counts = proc.get_token_counts()
-                total_input += counts.get("input_tokens", 0)
-                total_output += counts.get("output_tokens", 0)
+                total_input += counts.input_tokens
+                total_output += counts.output_tokens
         return TokenCounts(input_tokens=total_input, output_tokens=total_output)
 
     def get_load_time(self) -> float:

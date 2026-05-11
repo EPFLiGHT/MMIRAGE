@@ -12,7 +12,7 @@ import jinja2
 import sglang as sgl
 from transformers import AutoTokenizer
 
-from mmirage.core.process.base import BaseProcessor, ProcessorRegistry
+from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCounts
 from mmirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMConfig
 from mmirage.core.process.variables import VariableEnvironment
 
@@ -79,17 +79,16 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         """Return the wall-clock seconds spent initializing the SGLang engine."""
         return self._model_load_seconds
 
-    def get_token_counts(self) -> dict:
+    def get_token_counts(self) -> TokenCounts:
         """Return cumulative token counts for this processor.
 
         Returns:
-            Dict with ``input_tokens`` (prompt tokens) and ``output_tokens``
-            (completion tokens) accumulated since this processor was created.
+            TokenCounts object containing input and output token counts accumulated since this processor was created.
         """
-        return {
-            "input_tokens": self._total_input_tokens,
-            "output_tokens": self._total_output_tokens,
-        }
+        return TokenCounts(
+            input_tokens=self._total_input_tokens,
+            output_tokens=self._total_output_tokens
+        )
 
     def _accumulate_tokens(self, outputs: list) -> None:
         """Add token counts from a list of SGLang generate() outputs."""
