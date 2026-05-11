@@ -477,7 +477,7 @@ def _mark_running(
         slurm_array_task_id=os.environ.get("SLURM_ARRAY_TASK_ID"),
         datasets=[
             {
-                "path": ds_config.path,
+                "image_base_path": ds_config.image_base_path,
                 "output_dir": ds_config.output_dir,
             }
             for ds_config in datasets_config

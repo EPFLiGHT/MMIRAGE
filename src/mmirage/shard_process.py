@@ -161,7 +161,7 @@ def main():
 
             logger.info(
                 f"Processing dataset {ds_idx} for shard {shard_id}: "
-                f"path={ds_config.path}, output_dir={ds_config.output_dir}"
+                f"image_base_path={ds_config.image_base_path}, output_dir={ds_config.output_dir}"
             )
 
             ds_processed = ds_shard.map(
