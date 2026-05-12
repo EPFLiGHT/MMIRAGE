@@ -1,4 +1,4 @@
-FROM lmsysorg/sglang:latest
+FROM lmsysorg/sglang:v0.5.3rc1-cu126
 
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
