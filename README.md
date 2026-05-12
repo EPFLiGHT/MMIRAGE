@@ -33,6 +33,25 @@ For testing and scripts that make use of the library, it is advised to create a 
 
 The `docker-compose.yml` defines two services, `mmirage` (GPU) and `mmirage-cpu`.
 
+### Prebuilt images
+
+Prebuilt images are published to GHCR for each push to `main`:
+
+- `ghcr.io/epflight/mmirage:latest-gpu` (linux/amd64)
+- `ghcr.io/epflight/mmirage:latest-cpu` (linux/amd64, linux/arm64)
+
+How to use them:
+
+```bash
+# GPU
+docker pull ghcr.io/epflight/mmirage:latest-gpu
+docker run --rm -it --gpus all ghcr.io/epflight/mmirage:latest-gpu
+
+# CPU
+docker pull ghcr.io/epflight/mmirage:latest-cpu
+docker run --rm -it ghcr.io/epflight/mmirage:latest-cpu
+```
+
 ### GPU
 
 The container requires an NVIDIA GPU. The `docker-compose.yml` is configured to request GPU access, but the host must have:
