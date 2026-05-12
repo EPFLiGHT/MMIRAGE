@@ -12,7 +12,6 @@ authors = [{ name = "Meditron team" }]
 
 # Core runtime deps for your scripts
 dependencies = [
-  "sglang>=0.5.2",
   "transformers>=4.46.0",
   "pyzmq",
   "uvloop<0.22; platform_system != 'Windows'",
@@ -20,11 +19,8 @@ dependencies = [
   "openai>=1.0.0",
   "partial_json_parser",
   "sentencepiece",
-  "sgl_kernel",
-  "compressed_tensors",
   "msgspec",
   "nest_asyncio",
-  "xgrammar",
   "PyYAML",
   "json-repair",
   "tqdm",
@@ -38,10 +34,17 @@ dependencies = [
   "jmespath",
   "jinja2>=3.0.0",
   "pillow>=9.0.0",
+  "typing_extensions>=4.5.0; python_version < '3.12'",
   "humanize>=4.0.0",
 ]
 
 [project.optional-dependencies]
+gpu = [
+  "sglang>=0.5.2",
+  "sgl_kernel",
+  "xgrammar",
+  "compressed_tensors",
+]
 dev = [
   "ruff>=0.5.0",
   "black>=24.3.0",

@@ -10,16 +10,57 @@ MMIRAGE, which stands for **M**odular **M**ultimodal **I**ntelligent **R**eforma
 
 ## How to install
 
-To install the library, you can clone it from GitHub and then use pip to install it directly. It is recommended to have already installed `torch` and `sglang` to take advantage of GPU acceleration.
+To install the library, clone it from GitHub and install it with pip. The base
+install does not include the local SGLang runtime:
 
 ```bash
 git clone git@github.com:EPFLiGHT/MMIRAGE.git
 pip install -e ./MMIRAGE
 ```
 
+Install the GPU extra when using the SGLang-backed `llm` processor for local
+GPU inference:
+
+```bash
+pip install -e './MMIRAGE[gpu]'
+```
+
 For testing and scripts that make use of the library, it is advised to create a .env file:
 ```bash
 ./scripts/generate_env.sh
+```
+
+## Docker 
+
+### Build
+
+```bash
+docker compose build
+```
+
+### Run
+
+```bash
+docker compose run --rm mmirage --config configs/your_config.yaml
+```
+
+The container requires an NVIDIA GPU. The `docker-compose.yml` is configured to request GPU access, but the host must have:
+- NVIDIA GPU drivers installed
+- NVIDIA Container Toolkit / `nvidia-container-runtime` configured for Docker
+- A recent Docker Engine and Docker Compose version with GPU support enabled
+
+Without these host-side prerequisites, `docker compose run` may fail to detect or use the GPU.
+
+### CPU-only
+
+The CPU image installs MMIRAGE without the GPU extra. It is suitable for
+workflows that do not instantiate the SGLang-backed `llm` processor, and is
+intended to support API-backed processors once they are available. Current
+configs that use `type: llm` require the GPU image or an install with the
+`[gpu]` extra.
+
+```bash
+docker compose run --rm mmirage-cpu --config configs/your_config.yaml
 ```
 
 ## Key features

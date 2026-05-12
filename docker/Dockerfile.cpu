@@ -1,0 +1,8 @@
+FROM python:3.11-slim
+
+COPY . /workspace/MMIRAGE
+WORKDIR /workspace/MMIRAGE
+
+RUN pip install --no-cache-dir .
+
+ENTRYPOINT ["python3", "-m", "mmirage.shard_process"]
