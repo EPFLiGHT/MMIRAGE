@@ -12,6 +12,7 @@ on:
 
 env:
   IMAGE_NAMESPACE: fabnemepfl
+  IMAGE_NAME: mmirage
   REGISTRY: docker.io
 
 jobs:
@@ -22,10 +23,10 @@ jobs:
       matrix:
         include:
           - path: docker/Dockerfile
-            name: mmirage-git
+            suffix: gpu
             platforms: linux/amd64
           - path: docker/Dockerfile.cpu
-            name: mmirage-git-cpu
+            suffix: cpu
             platforms: linux/amd64,linux/arm64
 
     environment: ${{ github.event_name != 'pull_request' && 'docker' || 'docker-ci' }}
@@ -69,5 +70,5 @@ jobs:
           platforms: ${{ matrix.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.name }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.name }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest-${{ matrix.suffix }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-${{ matrix.suffix }}
