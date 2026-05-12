@@ -10,19 +10,18 @@ MMIRAGE, which stands for **M**odular **M**ultimodal **I**ntelligent **R**eforma
 
 ## How to install
 
-To install the library, clone it from GitHub and install it with pip. The base
-install does not include the local SGLang runtime:
+To install the library, clone it from GitHub and install it with pip. The base install does not include the local SGLang runtime:
 
 ```bash
 git clone git@github.com:EPFLiGHT/MMIRAGE.git
-pip install -e ./MMIRAGE
+cd MMIRAGE
+pip install -e .
 ```
 
-Install the GPU extra when using the SGLang-backed `llm` processor for local
-GPU inference:
+Install the GPU extra when using the SGLang-backed `llm` processor for local GPU inference:
 
 ```bash
-pip install -e './MMIRAGE[gpu]'
+pip install -e ".[gpu]"
 ```
 
 For testing and scripts that make use of the library, it is advised to create a .env file:
@@ -32,8 +31,7 @@ For testing and scripts that make use of the library, it is advised to create a 
 
 ## Docker
 
-The `docker-compose.yml` defines two services, `mmirage` (GPU) and
-`mmirage-cpu`.
+The `docker-compose.yml` defines two services, `mmirage` (GPU) and `mmirage-cpu`.
 
 ### GPU
 
@@ -41,8 +39,6 @@ The container requires an NVIDIA GPU. The `docker-compose.yml` is configured to 
 - NVIDIA GPU drivers installed
 - NVIDIA Container Toolkit / `nvidia-container-runtime` configured for Docker
 - A recent Docker Engine and Docker Compose version with GPU support enabled
-
-Without these host-side prerequisites, `docker compose run` may fail to detect or use the GPU.
 
 Commands:
 
@@ -56,9 +52,7 @@ docker compose run --rm -it mmirage
 
 ### CPU-only
 
-The CPU image installs MMIRAGE without the GPU extra. It is suitable for
-workflows that do not instantiate the SGLang-backed `llm` processor, and is
-intended to support API-backed processors once they are available. No CPU-ready configuration files are provided yet.
+The CPU image installs MMIRAGE without the GPU extra. It is suitable for workflows that do not instantiate the SGLang-backed `llm` processor, and is intended to support API-backed processors once they are available. No CPU-ready configuration files are provided yet.
 
 Commands:
 
