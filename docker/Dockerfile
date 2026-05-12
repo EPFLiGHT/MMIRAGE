@@ -7,5 +7,3 @@ COPY . /workspace/MMIRAGE
 WORKDIR /workspace/MMIRAGE
 
 RUN pip install --no-cache-dir .[gpu]
-
-ENTRYPOINT ["python3", "-m", "mmirage.shard_process"]
