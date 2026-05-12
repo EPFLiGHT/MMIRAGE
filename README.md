@@ -30,19 +30,12 @@ For testing and scripts that make use of the library, it is advised to create a 
 ./scripts/generate_env.sh
 ```
 
-## Docker 
+## Docker
 
-### Build
+The `docker-compose.yml` defines two services, `mmirage` (GPU) and
+`mmirage-cpu`.
 
-```bash
-docker compose build
-```
-
-### Run
-
-```bash
-docker compose run --rm mmirage --config configs/your_config.yaml
-```
+### GPU
 
 The container requires an NVIDIA GPU. The `docker-compose.yml` is configured to request GPU access, but the host must have:
 - NVIDIA GPU drivers installed
@@ -51,16 +44,30 @@ The container requires an NVIDIA GPU. The `docker-compose.yml` is configured to 
 
 Without these host-side prerequisites, `docker compose run` may fail to detect or use the GPU.
 
+Commands:
+
+```bash
+# Build
+docker compose build mmirage
+
+# Run
+docker compose run --rm -it mmirage
+```
+
 ### CPU-only
 
 The CPU image installs MMIRAGE without the GPU extra. It is suitable for
 workflows that do not instantiate the SGLang-backed `llm` processor, and is
-intended to support API-backed processors once they are available. Current
-configs that use `type: llm` require the GPU image or an install with the
-`[gpu]` extra.
+intended to support API-backed processors once they are available. No CPU-ready configuration files are provided yet.
+
+Commands:
 
 ```bash
-docker compose run --rm mmirage-cpu --config configs/your_config.yaml
+# Build
+docker compose build mmirage-cpu
+
+# Run
+docker compose run --rm -it mmirage-cpu
 ```
 
 ## Key features
