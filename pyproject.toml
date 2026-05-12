@@ -40,7 +40,7 @@ dependencies = [
 
 [project.optional-dependencies]
 gpu = [
-  "sglang>=0.5.2",
+  "sglang==0.5.10",
   "sgl_kernel",
   "xgrammar",
   "compressed_tensors",
