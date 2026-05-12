@@ -1,9 +1,11 @@
 """Mapper for orchestrating variable transformations."""
 
-from typing import Dict, Any, List, cast
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, cast
 
+from mmirage.core.process.base import AutoProcessor, BaseProcessor, BaseProcessorConfig, TokenCounts
 from mmirage.core.process.variables import BaseVar, InputVar, OutputVar
-from mmirage.core.process.base import AutoProcessor, BaseProcessor, BaseProcessorConfig
+
 
 import logging
 
@@ -73,7 +75,7 @@ class MMIRAGEMapper:
     def rewrite_batch(
         self,
         batch: Dict[str, List[Any]],
-        image_base_path: str = None,
+        image_base_path: Optional[str] = None,
     ) -> List[VariableEnvironment]:
         """Transform a batch of samples by computing output variables.
 
@@ -103,3 +105,29 @@ class MMIRAGEMapper:
             )
 
         return batch_environment
+
+    def get_token_counts(self) -> TokenCounts:
+        """Return cumulative token counts aggregated across all LLM processors.
+
+        Sums ``input_tokens`` and ``output_tokens`` from every processor that
+        exposes a ``get_token_counts()`` method (i.e., ``LLMProcessor``).
+
+        Returns:
+            TokenCounts with ``input_tokens`` and ``output_tokens`` fields.
+        """
+        total_input = 0
+        total_output = 0
+        for proc in self.processors.values():
+            if hasattr(proc, "get_token_counts"):
+                counts = proc.get_token_counts()
+                total_input += counts.input_tokens
+                total_output += counts.output_tokens
+        return TokenCounts(input_tokens=total_input, output_tokens=total_output)
+
+    def get_load_time(self) -> float:
+        """Return total model-loading time (seconds) summed across all LLM processors."""
+        total = 0.0
+        for proc in self.processors.values():
+            if hasattr(proc, "get_load_time"):
+                total += proc.get_load_time()
+        return total

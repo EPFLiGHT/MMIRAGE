@@ -5,9 +5,10 @@ Supports both text-only and multimodal (vision-language) processing.
 
 import argparse
 import logging
+import os
 import sys
 import traceback
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from mmirage.config.utils import load_mmirage_config
 from mmirage.core.loader.base import DatasetLike
@@ -15,6 +16,8 @@ from mmirage.core.loader.utils import load_datasets_from_configs
 from mmirage.core.process.mapper import MMIRAGEMapper
 from mmirage.core.writer.renderer import TemplateRenderer
 from mmirage.shard_utils import (
+    GpuUtilizationPoller,
+    ShardStats,
     _cleanup_old_shard_data,
     _count_rows,
     _dataset_out_dir,
@@ -24,7 +27,7 @@ from mmirage.shard_utils import (
     _remove_columns,
     _save_dataset_atomic,
     _shard_dataset,
-    _shard_state_dir,
+    shard_state_dir,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,7 +37,7 @@ def rewrite_batch(
     batch: Dict[str, List[Any]],
     mapper: MMIRAGEMapper,
     renderer: TemplateRenderer,
-    image_base_path: str = None,
+    image_base_path: Optional[str] = None,
 ) -> Dict[str, List[Any]]:
     """Rewrite a batch of samples by applying transformations.
     Args:
@@ -86,7 +89,35 @@ def main():
     if not (0 <= shard_id < num_shards):
         raise ValueError(f"Invalid shard_id={shard_id}, num_shards={num_shards}")
 
-    state_dir = _shard_state_dir(shard_id, loading_params.get_state_root())
+    state_dir = shard_state_dir(shard_id, loading_params.get_state_root())
+
+    gpu_poller: Optional[GpuUtilizationPoller] = None
+
+    collect_stats = os.environ.get("MMIRAGE_COLLECT_STATS", "") == "1"
+    if collect_stats:
+        # Determine which physical GPU indices SGLang will use so the poller
+        # measures only the active GPU(s) — not all GPUs on the node.
+        # SLURM may allocate more GPUs than tp_size (e.g. gpus=4, tp_size=1).
+        # We take only the first tp_size entries from CUDA_VISIBLE_DEVICES so
+        # nvidia-smi --id receives exactly the GPUs SGLang is using.
+        tp_size = 1
+        for proc_cfg in cfg.processors:
+            tp = getattr(getattr(proc_cfg, "server_args", None), "tp_size", None)
+            if tp and int(tp) > 0:
+                tp_size = int(tp)
+                break
+        cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+        if cuda_visible and cuda_visible.lower() not in ("all", "nodevfiles"):
+            all_visible = [x.strip() for x in cuda_visible.split(",") if x.strip()]
+            # Fall back to range-based indices if CUDA_VISIBLE_DEVICES was set
+            # but contained only whitespace/empty entries after stripping.
+            gpu_indices_for_polling: List[str] = all_visible[:tp_size] if all_visible else [str(i) for i in range(tp_size)]
+        else:
+            gpu_indices_for_polling = [str(i) for i in range(tp_size)]
+
+        gpu_poller = GpuUtilizationPoller(
+            interval_seconds=5.0, gpu_indices=gpu_indices_for_polling
+        )
 
     try:
         retry_count = _mark_running(state_dir, shard_id, datasets_config)
@@ -115,6 +146,11 @@ def main():
         )
         renderer = TemplateRenderer(processing_params.output_schema)
 
+        # Start GPU polling after model loading so utilisation samples reflect
+        # inference only, not weight transfers during sgl.Engine() init.
+        if collect_stats and gpu_poller is not None:
+            gpu_poller.start()
+
         ds_processed_all: List[DatasetLike] = []
         for ds_idx, ds_shard in enumerate(ds_all_shard):
             ds_config = datasets_config[ds_idx]
@@ -125,7 +161,7 @@ def main():
 
             logger.info(
                 f"Processing dataset {ds_idx} for shard {shard_id}: "
-                f"path={ds_config.path}, output_dir={ds_config.output_dir}"
+                f"image_base_path={ds_config.image_base_path}, output_dir={ds_config.output_dir}"
             )
 
             ds_processed = ds_shard.map(
@@ -148,13 +184,42 @@ def main():
             _save_dataset_atomic(ds_processed, out_dir)
             logger.info(f"✅ Saved dataset {ds_idx} shard in: {out_dir}")
 
-        _mark_success(state_dir)
+        gpu_info = gpu_poller.stop() if collect_stats and gpu_poller is not None else {"mean": None, "min": None, "max": None, "samples": 0}
+
+        # Collect token counts accumulated by LLM processor(s).
+        token_counts = mapper.get_token_counts()
+        input_tokens = token_counts.input_tokens or None
+        output_tokens = token_counts.output_tokens or None
+        model_load_seconds = mapper.get_load_time() or None
+
+        # Resolve num_gpus from the first processor config that exposes tp_size.
+        num_gpus: Optional[int] = None
+        for proc_cfg in cfg.processors:
+            tp = getattr(getattr(proc_cfg, "server_args", None), "tp_size", None)
+            if tp and tp > 0:
+                num_gpus = int(tp)
+                break
+
+        stats = ShardStats(
+            rows_processed=shard_rows,
+            gpu_util_mean=gpu_info["mean"],
+            gpu_util_min=gpu_info["min"],
+            gpu_util_max=gpu_info["max"],
+            gpu_util_samples=gpu_info["samples"],
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            num_gpus=num_gpus,
+            model_load_seconds=model_load_seconds,
+        )
+        _mark_success(state_dir, stats=stats)
         logger.info(f"✅ Logical shard {shard_id} completed successfully")
 
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.error(f"❌ Shard {shard_id} failed: {error_msg}")
         logger.error(traceback.format_exc())
+        if collect_stats and gpu_poller is not None:
+            gpu_poller.stop()
         _mark_failure(state_dir, error_msg)
         sys.exit(1)
 

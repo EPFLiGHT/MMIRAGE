@@ -1,0 +1,63 @@
+# MMIRAGE — DataTrove-compatible throughput benchmark
+# See README.md for setup instructions and benchmark details.
+
+processors:
+  - type: llm
+    server_args:
+      model_path: Qwen/Qwen3-4B           # same model family as DataTrove baseline
+      tp_size: 1                           # DataTrove baseline: tp=1
+      trust_remote_code: true
+      disable_custom_all_reduce: true
+      # SGLang engine tuning — equivalents of DataTrove's vLLM mns/mnbt knobs
+      extra_engine_args:
+        max_running_requests: 1000
+    default_sampling_params:
+      temperature: 0.0
+      max_new_tokens: 1024                 # DataTrove: max-tokens=1024
+
+loading_params:
+  state_dir: data/benchmark_s1k/_pipeline_state
+  datasets:
+    - path: data/s1K-1.1                  # save_to_disk() target above
+      type: loadable
+      output_dir: data/benchmark_s1k/output
+  num_shards: 1
+  shard_id: "$SLURM_ARRAY_TASK_ID"
+  batch_size: 1000
+
+processing_params:
+  inputs:
+    - name: question
+      key: question                        # DataTrove: prompt-column=question
+
+  outputs:
+    - name: answer
+      type: llm
+      output_type: plain
+      # Qwen3 thinking is disabled by embedding an empty <think> block in the prompt.
+      # This is equivalent to passing enable_thinking=False to the chat template and
+      # avoids any dependency on SGLang sampling-param support for that flag.
+      prompt: "<|im_start|>user\n{{ question }}\n<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n"
+
+  remove_columns: false
+  output_schema:
+    question: "{{ question }}"
+    answer: "{{ answer }}"
+
+execution_params:
+  mode: slurm
+  retry: false
+  merge: false
+  max_retries: 3
+  account: a127
+  job_name: mmirage-sharded
+  nodes: 1
+  ntasks_per_node: 1
+  gpus: 1
+  cpus_per_task: 288
+  time_limit: "11:59:59"
+  report_dir: "/users/${USER}/reports"
+  hf_home: "/capstor/store/cscs/swissai/a127/homes/${USER}/hf"
+  edf_env: "/users/${USER}/.edf/mmirage.toml"
+  poll_interval_seconds: 30
+  settle_time_seconds: 60

@@ -49,7 +49,7 @@ def _merge_datasetdict(shard_dsets: List[DatasetDict]) -> DatasetDict:
         merged[str(split)] = concatenate_datasets(split_dsets)
     if not merged:
         raise RuntimeError("All splits were empty after merging.")
-    return DatasetDict(merged)
+    return DatasetDict(**merged)
 
 
 def _merge_shards(shard_dsets: List[DatasetLike]) -> DatasetLike:

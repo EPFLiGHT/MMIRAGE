@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 import json
 import logging
+import time
 from typing import Any, List, Tuple
 
 import jinja2
@@ -15,7 +16,7 @@ except ImportError:
     SGLANG_AVAILABLE = False
 from transformers import AutoTokenizer
 
-from mmirage.core.process.base import BaseProcessor, ProcessorRegistry
+from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCounts
 from mmirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMConfig
 from mmirage.core.process.variables import VariableEnvironment
 
@@ -67,13 +68,44 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                 "SGLang is not installed. Install with: pip install 'mmirage[gpu]' "
                 "or, from a source checkout, pip install -e '.[gpu]'"
             )
-        self.llm = sgl.Engine(**asdict(engine_args.server_args))
+
+        server_kwargs = asdict(engine_args.server_args)
+        extra = server_kwargs.pop("extra_engine_args", {}) or {}
+        server_kwargs.update(extra)
+        _load_start = time.monotonic()
+        self.llm = sgl.Engine(**server_kwargs)
+        self._model_load_seconds: float = time.monotonic() - _load_start
         self.tokenizer = AutoTokenizer.from_pretrained(
             engine_args.server_args.model_path,
             trust_remote_code=getattr(engine_args.server_args, "trust_remote_code", False),
         )
         self.sampling_params = engine_args.default_sampling_params
         self.chat_template = engine_args.chat_template
+        # Cumulative token counts across all generate() calls in this processor's lifetime.
+        self._total_input_tokens: int = 0
+        self._total_output_tokens: int = 0
+
+    def get_load_time(self) -> float:
+        """Return the wall-clock seconds spent initializing the SGLang engine."""
+        return self._model_load_seconds
+
+    def get_token_counts(self) -> TokenCounts:
+        """Return cumulative token counts for this processor.
+
+        Returns:
+            TokenCounts object containing input and output token counts accumulated since this processor was created.
+        """
+        return TokenCounts(
+            input_tokens=self._total_input_tokens,
+            output_tokens=self._total_output_tokens
+        )
+
+    def _accumulate_tokens(self, outputs: list) -> None:
+        """Add token counts from a list of SGLang generate() outputs."""
+        for out in outputs:
+            meta = out.get("meta_info") or {}
+            self._total_input_tokens += int(meta.get("prompt_tokens") or 0)
+            self._total_output_tokens += int(meta.get("completion_tokens") or 0)
 
     def build_prompt(
         self, prompt_template: str, vars_samples: List[VariableEnvironment]
@@ -199,6 +231,8 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                         f"{len(text_only_outputs) if isinstance(text_only_outputs, list) else 'non-list'}"
                     )
 
+                self._accumulate_tokens(text_only_outputs)
+
                 for local_idx, global_i in enumerate(text_only_indices):
                     value = text_only_outputs[local_idx].get("text", "").strip()
                     if output_var.output_type == "JSON":
@@ -260,6 +294,8 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                         f"{len(multimodal_prompts)} vs "
                         f"{len(multimodal_outputs) if isinstance(multimodal_outputs, list) else 'non-list'}"
                     )
+
+                self._accumulate_tokens(multimodal_outputs)
 
                 for local_idx, global_i in enumerate(multimodal_indices):
                     value = multimodal_outputs[local_idx].get("text", "").strip()

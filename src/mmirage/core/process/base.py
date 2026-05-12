@@ -24,6 +24,14 @@ class BaseProcessorConfig:
 C = TypeVar("C", bound=OutputVar)
 
 
+@dataclass
+class TokenCounts:
+    """Cumulative token counts from LLM processors."""
+
+    input_tokens: int
+    output_tokens: int
+
+
 class BaseProcessor(abc.ABC, Generic[C]):
     """Abstract base class for data processors.
 
@@ -58,6 +66,30 @@ class BaseProcessor(abc.ABC, Generic[C]):
 
         Returns:
             List of updated variable environments with the new output variable.
+
+        Raises:
+            NotImplementedError: If not implemented by subclass.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_token_counts(self) -> TokenCounts:
+        """Get cumulative token counts from this processor.
+
+        Returns:
+            TokenCounts object containing input and output token counts.
+        
+        Raises:
+            NotImplementedError: If not implemented by subclass.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_load_time(self) -> float:
+        """Get the time taken to load any necessary resources (e.g., models).
+
+        Returns:
+            Time in seconds taken to load resources.
 
         Raises:
             NotImplementedError: If not implemented by subclass.
