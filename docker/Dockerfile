@@ -7,3 +7,5 @@ COPY . /workspace/MMIRAGE
 WORKDIR /workspace/MMIRAGE
 
 RUN pip install --no-cache-dir .[gpu]
+
+ENTRYPOINT ["/bin/bash"]

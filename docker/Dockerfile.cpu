@@ -4,3 +4,5 @@ COPY . /workspace/MMIRAGE
 WORKDIR /workspace/MMIRAGE
 
 RUN pip install --no-cache-dir .
+
+ENTRYPOINT ["/bin/bash"]
