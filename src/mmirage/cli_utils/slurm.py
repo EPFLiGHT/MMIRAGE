@@ -54,7 +54,7 @@ def _shell_path(value: str, project_root: str) -> str:
     return raw
 
 
-def build_sbatch_script(cfg: MMirageConfig, config_path: str) -> str:
+def build_sbatch_script(cfg: MMirageConfig, config_path: str, collect_stats: bool = False) -> str:
     """Build the sbatch payload executed for each array task."""
     project_root = get_project_root(cfg)
     hf_home = _shell_path(cfg.execution_params.hf_home, project_root)
@@ -69,10 +69,14 @@ def build_sbatch_script(cfg: MMirageConfig, config_path: str) -> str:
         f"export SHARD_PROCESS={_bash_double_quote(shard_process_path)}",
         f"export HF_HOME={_bash_double_quote(hf_home)}",
         f"export MMIRAGE_CONFIG={_bash_double_quote(config_path)}",
+    ]
+    if collect_stats:
+        lines.append("export MMIRAGE_COLLECT_STATS=1")
+    lines.extend([
         f"mkdir -p {_bash_double_quote(hf_home)}",
         f"mkdir -p {_bash_double_quote(state_root)}",
         "srun_args=(--cpus-per-task ${SLURM_CPUS_PER_TASK:-1} --wait 60)",
-    ]
+    ])
 
     if cfg.execution_params.edf_env:
         edf_env = expand_path(cfg.execution_params.edf_env, project_root)
@@ -99,6 +103,7 @@ def submit_slurm_job(
     cfg: MMirageConfig,
     config_path: str,
     shard_ids: Optional[Sequence[int]] = None,
+    collect_stats: bool = False,
 ) -> Optional[int]:
     """Submit a SLURM array job and return its job ID."""
     project_root = get_project_root(cfg)
@@ -134,7 +139,7 @@ def submit_slurm_job(
     logger.info("Submitting SLURM job: %s", " ".join(command))
     result = subprocess.run(
         command,
-        input=build_sbatch_script(cfg, config_path),
+        input=build_sbatch_script(cfg, config_path, collect_stats=collect_stats),
         text=True,
         capture_output=True,
         check=False,

@@ -15,6 +15,7 @@ from mmirage.cli_utils.runtime import setup_runtime, validate_edf_env_path
 from mmirage.cli_utils.slurm import require_slurm, submit_slurm_job, wait_for_slurm_job
 from mmirage.cli_utils.status import (
     check_failed_shards,
+    collect_bench_stats,
     is_retry_budget_exceeded,
     shard_state_dir,
     get_shard_status,
@@ -29,12 +30,13 @@ from mmirage.merge_shards import MergeReport, merge_from_config, merge_input_dir
 logger = logging.getLogger(__name__)
 
 
-def run_local(config_path: str, shard_id: Optional[int] = None) -> int:
+def run_local(config_path: str, shard_id: Optional[int] = None, collect_stats: bool = False) -> int:
     """Run one shard in the current Python environment.
 
     Args:
         config_path: Absolute path to the MMIRAGE YAML config file.
         shard_id: Optional shard id to inject via SLURM_ARRAY_TASK_ID.
+        collect_stats: If True, enable GPU utilization polling in the shard process.
 
     Returns:
         Process return code from shard execution.
@@ -43,6 +45,8 @@ def run_local(config_path: str, shard_id: Optional[int] = None) -> int:
     env = os.environ.copy()
     if shard_id is not None:
         env["SLURM_ARRAY_TASK_ID"] = str(shard_id)
+    if collect_stats:
+        env["MMIRAGE_COLLECT_STATS"] = "1"
 
     logger.info("Running local shard processing: %s", " ".join(command))
     result = subprocess.run(command, env=env, check=False)
@@ -54,6 +58,7 @@ def launch_pipeline(
     config_path: str,
     force_retry: bool = False,
     require_completion: bool = False,
+    collect_stats: bool = False,
 ) -> int:
     """Launch the pipeline according to execution mode and retry settings.
 
@@ -63,6 +68,7 @@ def launch_pipeline(
         force_retry: If True, enable retry orchestration regardless of config flag.
         require_completion: If True, wait for completion and verify shard
             status before returning success in SLURM mode when auto-retry is off.
+        collect_stats: If True, enable GPU utilization polling on compute nodes.
 
     Returns:
         Exit code: 0 on success, 1 on failure.
@@ -72,7 +78,7 @@ def launch_pipeline(
     if not cfg.execution_params.is_slurm():
         initial_shard_id = cfg.loading_params.get_shard_id()
         if not auto_retry:
-            exit_code = run_local(config_path, initial_shard_id)
+            exit_code = run_local(config_path, initial_shard_id, collect_stats=collect_stats)
             if exit_code == 0:
                 logger.info("All shards completed successfully")
             return exit_code
@@ -84,7 +90,7 @@ def launch_pipeline(
             run_exit_codes = {}
             for shard_id in shard_ids:
                 attempts_by_shard[shard_id] = attempts_by_shard.get(shard_id, 0) + 1
-                run_exit_codes[shard_id] = run_local(config_path, shard_id)
+                run_exit_codes[shard_id] = run_local(config_path, shard_id, collect_stats=collect_stats)
 
             failed_shards, summary = check_failed_shards(cfg)
             if status_exit_code(failed_shards, summary) == 0:
@@ -95,7 +101,7 @@ def launch_pipeline(
             candidates = sorted(set(failed_shards) | set(runtime_failed))
             retryable_shards: List[int] = []
             for shard_id in candidates:
-                _, state_attempt_count = get_shard_status(shard_state_dir(state_root, shard_id))
+                _, state_attempt_count = get_shard_status(shard_state_dir(shard_id, state_root))
                 memory_attempt_count = attempts_by_shard.get(shard_id, 0)
                 effective_attempt_count = max(state_attempt_count, memory_attempt_count)
 
@@ -115,7 +121,7 @@ def launch_pipeline(
     shard_ids: List[int] = []
 
     while True:
-        job_id = submit_slurm_job(cfg, config_path, shard_ids)
+        job_id = submit_slurm_job(cfg, config_path, shard_ids, collect_stats=collect_stats)
         if job_id is None:
             return 1
 
@@ -192,6 +198,11 @@ def build_argparser() -> argparse.ArgumentParser:
         help="Comma-separated shard ids to submit instead of the full array",
     )
     submit_parser.add_argument("--wait", action="store_true", help="Wait for the submitted job")
+    submit_parser.add_argument(
+        "--stats",
+        action="store_true",
+        help="Enable GPU utilization and throughput collection on compute nodes",
+    )
 
     check_parser = subparsers.add_parser("check", help="Inspect shard status")
     add_shared_arguments(check_parser)
@@ -211,6 +222,11 @@ def build_argparser() -> argparse.ArgumentParser:
         help="Submit retries without prompting.",
     )
     check_parser.set_defaults(confirm_mode="prompt")
+    check_parser.add_argument(
+        "--stats",
+        action="store_true",
+        help="Enable GPU utilization and throughput collection on retried compute nodes",
+    )
 
     retry_parser = subparsers.add_parser("retry", help="Submit only failed shards")
     add_shared_arguments(retry_parser)
@@ -223,6 +239,11 @@ def build_argparser() -> argparse.ArgumentParser:
         help="Submit retries without prompting.",
     )
     retry_parser.set_defaults(confirm_mode="prompt")
+    retry_parser.add_argument(
+        "--stats",
+        action="store_true",
+        help="Enable GPU utilization and throughput collection on retried compute nodes",
+    )
 
     run_parser = subparsers.add_parser(
         "run",
@@ -239,6 +260,11 @@ def build_argparser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         help="Run a single shard locally (overrides execution mode)",
+    )
+    run_parser.add_argument(
+        "--stats",
+        action="store_true",
+        help="Enable GPU utilization and throughput collection during shard execution",
     )
 
     merge_parser = subparsers.add_parser(
@@ -281,6 +307,12 @@ def build_argparser() -> argparse.ArgumentParser:
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Log verbosity",
     )
+
+    stats_parser = subparsers.add_parser(
+        "stats",
+        help="Show per-shard benchmark statistics (runtime, throughput, GPU utilization)",
+    )
+    add_shared_arguments(stats_parser)
 
     return parser
 
@@ -346,13 +378,14 @@ def handle_run(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -
         Exit code for the run operation.
     """
     if args.shard_id is not None:
-        return run_local(config_path, args.shard_id)
+        return run_local(config_path, args.shard_id, collect_stats=args.stats)
 
     exit_code = launch_pipeline(
         cfg,
         config_path,
         force_retry=args.force_retry,
         require_completion=cfg.execution_params.merge,
+        collect_stats=args.stats,
     )
     if exit_code != 0:
         return exit_code
@@ -380,7 +413,7 @@ def handle_submit(args: argparse.Namespace, cfg: MMirageConfig, config_path: str
         return 1
 
     shard_ids = parse_shard_ids(args.shard_ids, cfg.loading_params.get_num_shards())
-    job_id = submit_slurm_job(cfg, config_path, shard_ids)
+    job_id = submit_slurm_job(cfg, config_path, shard_ids, collect_stats=args.stats)
     if job_id is None:
         return 1
 
@@ -426,6 +459,7 @@ def handle_check(args: argparse.Namespace, cfg: MMirageConfig, config_path: str)
         config_path=config_path,
         failed_shards=failed_shards,
         confirm_mode=args.confirm_mode,
+        collect_stats=args.stats,
     )
 
 
@@ -458,7 +492,24 @@ def handle_retry(args: argparse.Namespace, cfg: MMirageConfig, config_path: str)
         config_path=config_path,
         failed_shards=failed_shards,
         confirm_mode=args.confirm_mode,
+        collect_stats=args.stats,
     )
+
+
+def handle_stats(args: argparse.Namespace, cfg: MMirageConfig, _config_path: str) -> int:
+    """Print per-shard benchmark statistics and aggregate totals.
+
+    Args:
+        args: Parsed CLI namespace.
+        cfg: Parsed MMIRAGE configuration object.
+        _config_path: Absolute path to the MMIRAGE YAML config file (not needed here).
+
+    Returns:
+        Exit code: 0 always (stats are informational).
+    """
+    report = collect_bench_stats(cfg)
+    print(json.dumps(report, indent=2))
+    return 0
 
 
 def handle_merge(args: argparse.Namespace, cfg: MMirageConfig, _config_path: str) -> int:
@@ -513,6 +564,7 @@ def main() -> None:
             "check": handle_check,
             "retry": handle_retry,
             "merge": handle_merge,
+            "stats": handle_stats,
         }
         handler = handlers.get(args.command)
         if handler is None:

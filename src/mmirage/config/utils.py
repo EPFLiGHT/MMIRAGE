@@ -5,8 +5,10 @@ from dacite import Config, from_dict
 import yaml
 import os
 
+from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.config.config import MMirageConfig
 from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry, OutputVar
+from mmirage.core.process.batch.provider_resolution import resolve_single_provider_config
 from mmirage.core.loader.base import BaseDataLoaderConfig, DataLoaderRegistry
 
 # Register built-in processors/loaders.
@@ -111,12 +113,16 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
         clz = ProcessorRegistry.get_output_var_cls(data["type"])
         return from_dict(clz, data, config=config)
 
+    def batch_provider_hook(data: Dict[str, Any]) -> BatchProviderConfig:
+      return resolve_single_provider_config(data)
+
     cfg = expand_env_vars(cfg)
     config = Config(
         type_hooks={
             BaseProcessorConfig: processor_config_hook,
             BaseDataLoaderConfig: loader_config_hook,
             OutputVar: output_var_hook,
+        BatchProviderConfig: batch_provider_hook,
         }
     )
     cfg_obj = from_dict(MMirageConfig, cast(dict, cfg), config=config)

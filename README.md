@@ -10,16 +10,77 @@ MMIRAGE, which stands for **M**odular **M**ultimodal **I**ntelligent **R**eforma
 
 ## How to install
 
-To install the library, you can clone it from GitHub and then use pip to install it directly. It is recommended to have already installed `torch` and `sglang` to take advantage of GPU acceleration.
+To install the library, clone it from GitHub and install it with pip. The base install does not include the local SGLang runtime:
 
 ```bash
 git clone git@github.com:EPFLiGHT/MMIRAGE.git
-pip install -e ./MMIRAGE
+cd MMIRAGE
+pip install -e .
+```
+
+Install the GPU extra when using the SGLang-backed `llm` processor for local GPU inference:
+
+```bash
+pip install -e ".[gpu]"
 ```
 
 For testing and scripts that make use of the library, it is advised to create a .env file:
 ```bash
 ./scripts/generate_env.sh
+```
+
+## Docker
+
+The `docker-compose.yml` defines two services, `mmirage` (GPU) and `mmirage-cpu`.
+
+### Prebuilt images
+
+Prebuilt images are published to GHCR for each push to `main`:
+
+- `ghcr.io/epflight/mmirage:latest-gpu` (linux/amd64)
+- `ghcr.io/epflight/mmirage:latest-cpu` (linux/amd64, linux/arm64)
+
+How to use them:
+
+```bash
+# GPU
+docker pull ghcr.io/epflight/mmirage:latest-gpu
+docker run --rm -it --gpus all ghcr.io/epflight/mmirage:latest-gpu
+
+# CPU
+docker pull ghcr.io/epflight/mmirage:latest-cpu
+docker run --rm -it ghcr.io/epflight/mmirage:latest-cpu
+```
+
+### GPU
+
+The container requires an NVIDIA GPU. The `docker-compose.yml` is configured to request GPU access, but the host must have:
+- NVIDIA GPU drivers installed
+- NVIDIA Container Toolkit / `nvidia-container-runtime` configured for Docker
+- A recent Docker Engine and Docker Compose version with GPU support enabled
+
+Commands:
+
+```bash
+# Build
+docker compose build mmirage
+
+# Run
+docker compose run --rm -it mmirage
+```
+
+### CPU-only
+
+The CPU image installs MMIRAGE without the GPU extra. It is suitable for workflows that do not instantiate the SGLang-backed `llm` processor, and is intended to support API-backed processors once they are available. No CPU-ready configuration files are provided yet.
+
+Commands:
+
+```bash
+# Build
+docker compose build mmirage-cpu
+
+# Run
+docker compose run --rm -it mmirage-cpu
 ```
 
 ## Key features
@@ -235,6 +296,117 @@ Key multimodal features:
 - `image_base_path`: Base directory for resolving relative image paths
 - Supports PIL Images, URLs, and file paths
 
+### Benchmarking shard performance
+
+Pass `--stats` to `run` or `submit` to enable per-shard benchmarking. This activates GPU
+utilization polling and throughput tracking on compute nodes — disabled by default to
+avoid unnecessary overhead.
+
+```bash
+# Local run with stats collection
+mmirage run --config configs/config_mock.yaml --stats
+
+```
+
+After the run completes, inspect the results with:
+
+```bash
+mmirage stats --config configs/config_mock.yaml
+```
+
+This prints a JSON report with per-shard details and an aggregate summary:
+
+```json
+{
+  "per_shard": [
+    {
+      "shard_id": 0,
+      "status": "success",
+      "started_at": "2026-04-30T10:00:00",
+      "finished_at": "2026-04-30T10:01:05",
+      "stats": {
+        "runtime_seconds": 65.2,
+        "runtime_human": "1m 5s",
+        "rows_processed": 1024,
+        "throughput_rows_per_sec": 15.7,
+        "gpu_util_mean": 88.4,
+        "gpu_util_min": 72.0,
+        "gpu_util_max": 98.0,
+        "gpu_util_samples": 13,
+        "input_tokens": 512000,
+        "output_tokens": 196608,
+        "num_gpus": 4,
+        "tokens_per_sec_per_gpu": 753.1,
+        "gpu_days_per_billion_tokens": 0.0015
+      }
+    }
+  ],
+  "aggregate": {
+    "total_shards": 1,
+    "completed_shards": 1,
+    "total_rows_processed": 1000,
+    "wall_clock_runtime_seconds": 133.04,
+    "wall_clock_runtime_human": "2m 13s",
+    "sum_shard_runtime_seconds": 133.04,
+    "sum_shard_runtime_human": "2m 13s",
+    "min_shard_runtime_seconds": 133.04,
+    "min_shard_runtime_human": "2m 13s",
+    "max_shard_runtime_seconds": 133.04,
+    "max_shard_runtime_human": "2m 13s",
+    "overall_throughput_rows_per_sec": 7.52,
+    "mean_gpu_util_pct": 86.2,
+    "num_gpus": 4,
+    "total_input_tokens": 146214,
+    "total_output_tokens": 1022046,
+    "sum_model_load_seconds": 38.272,
+    "sum_inference_runtime_seconds": 94.768,
+    "tokens_per_sec_per_gpu": 10784.72,
+    "gpu_days_per_billion_tokens": 1.0732
+  }
+}
+```
+
+Key metrics:
+- **`runtime_seconds`** / **`runtime_human`**: time from when the shard started on the cluster (after dispatch), excluding queue wait time.
+- **`overall_throughput_rows_per_sec`**: total rows / wall-clock time across all shards running in parallel.
+- **`mean_gpu_util_pct`**: mean percentage GPU utilization across shards.
+- **`tokens_per_sec_per_gpu`**: output tokens generated per second per GPU — the primary throughput metric used by frameworks such as [DataTrove](https://github.com/huggingface/datatrove).
+- **`gpu_days_per_billion_tokens`**: total GPU-days consumed to generate 1 billion output tokens — useful for cost and scaling comparisons across different hardware configurations.
+- Token metrics are `null` when no LLM processor was active, and GPU stats are `null` when `nvidia-smi` is unavailable or `--stats` was not passed.
+
+Reference benchmark:
+- [DataTrove Benchmark](https://github.com/huggingface/datatrove/tree/main/examples/inference/benchmark)
+
+The config `configs/config_benchmark_datatrove.yaml` mirrors the DataTrove inference benchmark conditions:
+
+| Setting | Value |
+|---|---|
+| Dataset | `simplescaling/s1K-1.1` (train split, 1 000 samples) |
+| Prompt | raw `question` field, no system prompt |
+| Output | up to 1 024 tokens per sample |
+| Context | 2 048-token model max context |
+| Model | `Qwen/Qwen3-4B` (DataTrove baseline: tp=1 on a single GPU) |
+
+Download the dataset before running:
+
+```python
+from datasets import load_dataset
+ds = load_dataset('simplescaling/s1K-1.1', split='train')
+ds.save_to_disk('data/s1K-1.1')
+```
+
+Then run with stats collection enabled:
+
+```bash
+mmirage run --config configs/config_benchmark_datatrove.yaml --stats
+```
+
+Inspect results:
+
+```bash
+mmirage stats --config configs/config_benchmark_datatrove.yaml
+```
+
 ## Architecture
 
 MMIRAGE uses a modular architecture:
@@ -258,3 +430,4 @@ mmirage/
 - JMESPath for JSON queries: [link](https://jmespath.org/)
 - SGLang for fast inference: [link](https://github.com/sgl-project/sglang)
 - Performance paper: [link](https://arxiv.org/abs/2408.02442)
+- DataTrove Benchmark: [link](https://github.com/huggingface/datatrove/tree/main/examples/inference/benchmark)

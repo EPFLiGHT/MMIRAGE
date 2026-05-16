@@ -6,11 +6,14 @@ and file operations used in the MMIRAGE shard processing pipeline.
 
 from datetime import datetime
 from dataclasses import dataclass
+import humanize
 import json
 import logging
 import os
 import shutil
 import socket
+import subprocess
+import threading
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -19,6 +22,204 @@ from datasets import DatasetDict
 from mmirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
 
 logger = logging.getLogger(__name__)
+
+
+def format_duration(seconds: Optional[float]) -> Optional[str]:
+    """Format a duration given in seconds as a human-readable string."""
+    if seconds is None:
+        return None
+    return humanize.precisedelta(seconds)
+
+
+@dataclass
+class ShardStats:
+    """Per-shard benchmark statistics recorded at completion."""
+
+    runtime_seconds: Optional[float] = None
+    rows_processed: Optional[int] = None
+    throughput_rows_per_sec: Optional[float] = None
+    gpu_util_mean: Optional[float] = None
+    gpu_util_min: Optional[float] = None
+    gpu_util_max: Optional[float] = None
+    gpu_util_samples: Optional[int] = None
+    # Token-level throughput metrics (DataTrove-compatible benchmark format).
+    # input_tokens: total prompt tokens consumed across all LLM calls in this shard.
+    # output_tokens: total completion tokens generated across all LLM calls in this shard.
+    # num_gpus: number of GPUs used (tensor-parallel size from the LLM processor config).
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    num_gpus: Optional[int] = None
+    model_load_seconds: Optional[float] = None
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> Optional["ShardStats"]:
+        """Build a ShardStats from a JSON payload, or return None if data is missing."""
+        if not isinstance(data, dict):
+            return None
+
+        def _opt_float(v: Any) -> Optional[float]:
+            try:
+                return float(v) if v is not None else None
+            except (TypeError, ValueError):
+                return None
+
+        def _opt_int(v: Any) -> Optional[int]:
+            try:
+                return int(v) if v is not None else None
+            except (TypeError, ValueError):
+                return None
+
+        return cls(
+            runtime_seconds=_opt_float(data.get("runtime_seconds")),
+            rows_processed=_opt_int(data.get("rows_processed")),
+            throughput_rows_per_sec=_opt_float(data.get("throughput_rows_per_sec")),
+            gpu_util_mean=_opt_float(data.get("gpu_util_mean")),
+            gpu_util_min=_opt_float(data.get("gpu_util_min")),
+            gpu_util_max=_opt_float(data.get("gpu_util_max")),
+            gpu_util_samples=_opt_int(data.get("gpu_util_samples")),
+            input_tokens=_opt_int(data.get("input_tokens")),
+            output_tokens=_opt_int(data.get("output_tokens")),
+            num_gpus=_opt_int(data.get("num_gpus")),
+            model_load_seconds=_opt_float(data.get("model_load_seconds")),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        # Derived token-throughput metrics (DataTrove-compatible benchmark format).
+        # Use inference_runtime (total minus model loading) so metrics reflect
+        # pure generation speed, excluding one-time model initialisation overhead.
+        tokens_per_sec_per_gpu: Optional[float] = None
+        gpu_days_per_billion_tokens: Optional[float] = None
+        inference_runtime: Optional[float] = None
+        if self.runtime_seconds is not None:
+            if self.model_load_seconds is not None:
+                inference_runtime = max(0.0, self.runtime_seconds - self.model_load_seconds)
+            else:
+                inference_runtime = self.runtime_seconds
+        if (
+            self.output_tokens is not None
+            and self.output_tokens > 0
+            and inference_runtime is not None
+            and inference_runtime > 0
+            and self.num_gpus is not None
+            and self.num_gpus > 0
+        ):
+            tokens_per_sec_per_gpu = round(
+                self.output_tokens / (inference_runtime * self.num_gpus), 2
+            )
+            gpu_days_per_billion_tokens = round(
+                (self.num_gpus * inference_runtime / 86_400) / (self.output_tokens / 1e9), 4
+            )
+
+        return {
+            "runtime_seconds": self.runtime_seconds,
+            "runtime_human": format_duration(self.runtime_seconds),
+            "model_load_seconds": round(self.model_load_seconds, 3) if self.model_load_seconds is not None else None,
+            "inference_runtime_seconds": round(inference_runtime, 3) if inference_runtime is not None else None,
+            "rows_processed": self.rows_processed,
+            "throughput_rows_per_sec": self.throughput_rows_per_sec,
+            "gpu_util_mean": self.gpu_util_mean,
+            "gpu_util_min": self.gpu_util_min,
+            "gpu_util_max": self.gpu_util_max,
+            "gpu_util_samples": self.gpu_util_samples,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "num_gpus": self.num_gpus,
+            "tokens_per_sec_per_gpu": tokens_per_sec_per_gpu,
+            "gpu_days_per_billion_tokens": gpu_days_per_billion_tokens,
+        }
+
+
+class GpuUtilizationPoller:
+    """Polls ``nvidia-smi`` in a background daemon thread.
+
+    Usage::
+
+        poller = GpuUtilizationPoller()
+        poller.start()
+        # ... do work ...
+        gpu_info = poller.stop()  # {"mean": 85.2, "min": 70.0, "max": 98.0, "samples": 24}
+
+    If ``nvidia-smi`` is unavailable all values are ``None`` and samples is 0.
+    """
+
+    def __init__(self, interval_seconds: float = 5.0, gpu_indices: Optional[List[str]] = None) -> None:
+        self._interval = interval_seconds
+        self._samples: List[float] = []
+        self._thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+        # Explicit GPU indices take priority over CUDA_VISIBLE_DEVICES.
+        # Pass the indices SGLang will use (0..tp_size-1 in local mode).
+        self._gpu_indices = gpu_indices
+
+    def start(self) -> None:
+        """Start background polling."""
+        self._stop_event.clear()
+        self._samples = []
+        self._thread = threading.Thread(target=self._poll_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> Dict[str, Any]:
+        """Stop polling and return a summary dict."""
+        self._stop_event.set()
+        if self._thread is not None:
+            self._thread.join(timeout=self._interval + 2.0)
+        samples = self._samples
+        if not samples:
+            return {"mean": None, "min": None, "max": None, "samples": 0}
+        return {
+            "mean": round(sum(samples) / len(samples), 1),
+            "min": float(min(samples)),
+            "max": float(max(samples)),
+            "samples": len(samples),
+        }
+
+    def _poll_loop(self) -> None:
+        while not self._stop_event.wait(timeout=self._interval):
+            util = self._query_gpu_util()
+            if util is not None:
+                self._samples.append(util)
+
+    def _query_gpu_util(self) -> Optional[float]:
+        try:
+            cmd = [
+                "nvidia-smi",
+                "--query-gpu=utilization.gpu",
+                "--format=csv,noheader,nounits",
+            ]
+            # Restrict to the GPUs this process actually uses so we don't
+            # dilute utilization by averaging over idle GPUs on the same node.
+            # Priority: explicit gpu_indices > CUDA_VISIBLE_DEVICES > all GPUs.
+            if self._gpu_indices is not None:
+                if not self._gpu_indices:
+                    # Empty list would produce --id= which is invalid; skip filtering.
+                    pass
+                else:
+                    cmd += [f"--id={','.join(str(i) for i in self._gpu_indices)}"]
+            else:
+                cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+                if cuda_visible and cuda_visible.lower() not in ("all", "nodevfiles"):
+                    cmd += [f"--id={cuda_visible}"]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            if result.returncode == 0:
+                values = []
+                for line in result.stdout.strip().splitlines():
+                    line = line.strip()
+                    if line:
+                        try:
+                            values.append(float(line))
+                        except ValueError:
+                            pass
+                if values:
+                    return sum(values) / len(values)
+        except Exception:
+            pass
+        return None
 
 
 @dataclass
@@ -36,6 +237,7 @@ class ShardStatus:
     slurm_job_id: Optional[str] = None
     slurm_array_task_id: Optional[str] = None
     datasets: Optional[List[Dict[str, Any]]] = None
+    stats: Optional[ShardStats] = None
 
     @classmethod
     def from_dict(cls, payload: Dict[str, Any]) -> "ShardStatus":
@@ -64,6 +266,8 @@ class ShardStatus:
         if not isinstance(datasets, list):
             datasets = None
 
+        stats = ShardStats.from_dict(data.get("stats"))
+
         return cls(
             status=str(data.get("status", "unknown")),
             retry_count=retry_count,
@@ -76,6 +280,7 @@ class ShardStatus:
             slurm_job_id=data.get("slurm_job_id"),
             slurm_array_task_id=data.get("slurm_array_task_id"),
             datasets=datasets,
+            stats=stats,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -92,6 +297,7 @@ class ShardStatus:
             "slurm_job_id": self.slurm_job_id,
             "slurm_array_task_id": self.slurm_array_task_id,
             "datasets": self.datasets,
+            "stats": self.stats.to_dict() if self.stats is not None else None,
         }
 
 
@@ -187,7 +393,7 @@ def _dataset_out_dir(shard_idx: int, ds_config: BaseDataLoaderConfig) -> str:
     return os.path.join(ds_config.output_dir, f"shard_{shard_idx}")
 
 
-def _shard_state_dir(shard_idx: int, state_root: str) -> str:
+def shard_state_dir(shard_idx: int, state_root: str) -> str:
     """Get central state directory for a logical shard."""
     return os.path.join(state_root, f"shard_{shard_idx}")
 
@@ -204,7 +410,7 @@ def _status_file(state_dir: str) -> str:
     return os.path.join(state_dir, "status.json")
 
 
-def _read_status(state_dir: str) -> ShardStatus:
+def read_status(state_dir: str) -> ShardStatus:
     """Read status.json if present."""
     path = _status_file(state_dir)
     if not os.path.exists(path):
@@ -255,7 +461,7 @@ def _mark_running(
     datasets_config: List[BaseDataLoaderConfig],
 ) -> int:
     """Mark shard as running and increment retry count."""
-    prev = _read_status(state_dir)
+    prev = read_status(state_dir)
     retry_count = prev.retry_count + 1
 
     payload = ShardStatus(
@@ -271,7 +477,7 @@ def _mark_running(
         slurm_array_task_id=os.environ.get("SLURM_ARRAY_TASK_ID"),
         datasets=[
             {
-                "path": ds_config.path,
+                "image_base_path": ds_config.image_base_path,
                 "output_dir": ds_config.output_dir,
             }
             for ds_config in datasets_config
@@ -284,12 +490,50 @@ def _mark_running(
     return retry_count
 
 
-def _mark_success(state_dir: str):
-    """Mark shard as successful."""
-    prev = _read_status(state_dir)
+def _mark_success(state_dir: str, stats: Optional[ShardStats] = None):
+    """Mark shard as successful and record benchmark statistics.
+
+    Args:
+        state_dir: Shard state directory.
+        stats: Optional benchmark stats; ``runtime_seconds`` and
+            ``throughput_rows_per_sec`` are computed from the stored timestamps
+            when not already set.
+    """
+    prev = read_status(state_dir)
     prev.status = "success"
-    prev.finished_at = datetime.now().isoformat()
+    now = datetime.now()
+    prev.finished_at = now.isoformat()
     prev.error = None
+
+    if stats is not None:
+        # Derive runtime from stored start timestamp when not already supplied.
+        if stats.runtime_seconds is None and prev.started_at:
+            try:
+                started = datetime.fromisoformat(prev.started_at)
+                stats.runtime_seconds = round((now - started).total_seconds(), 3)
+            except (ValueError, TypeError):
+                pass
+
+        # Derive throughput once we have both rows and runtime.
+        # Use inference_runtime (total minus model loading) so the metric
+        # reflects pure generation speed, consistent with tokens_per_sec_per_gpu.
+        if (
+            stats.throughput_rows_per_sec is None
+            and stats.rows_processed is not None
+            and stats.runtime_seconds is not None
+            and stats.runtime_seconds > 0
+        ):
+            inference_runtime = (
+                max(0.0, stats.runtime_seconds - stats.model_load_seconds)
+                if stats.model_load_seconds is not None
+                else stats.runtime_seconds
+            )
+            if inference_runtime > 0:
+                stats.throughput_rows_per_sec = round(
+                    stats.rows_processed / inference_runtime, 2
+                )
+
+    prev.stats = stats
     _write_status(state_dir, prev)
     _clear_markers(state_dir)
     _touch_marker(state_dir, ".SUCCESS")
@@ -297,7 +541,7 @@ def _mark_success(state_dir: str):
 
 def _mark_failure(state_dir: str, error_msg: str):
     """Mark shard as failed."""
-    prev = _read_status(state_dir)
+    prev = read_status(state_dir)
     prev.status = "failed"
     prev.finished_at = datetime.now().isoformat()
     prev.error = error_msg

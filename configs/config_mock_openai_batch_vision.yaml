@@ -1,0 +1,47 @@
+processors:
+  - type: llm
+    server_args:
+      model_path: Qwen/Qwen3-VL-8B-Instruct
+      tp_size: 1
+      trust_remote_code: true
+    chat_template: qwen2-vl
+    default_sampling_params:
+      temperature: 0.1
+      top_p: 0.9
+      max_new_tokens: 512
+    batch_provider:
+      enabled: true
+      provider: openai
+      model: gpt-4o-mini
+      metadata_output_path: tests/output/batch_metadata.jsonl
+      credentials:
+        api_key: ""
+
+loading_params:
+  datasets:
+    - path: tests/mock_data_vision/data.jsonl
+      type: JSONL
+      output_dir: tests/output/data_openai_batch_vision
+      image_base_path: tests/mock_data_vision
+
+  num_shards: 1
+  shard_id: 0
+  batch_size: 1
+
+processing_params:
+  inputs:
+    - name: image_input
+      key: image
+      type: image
+
+  outputs:
+    - name: caption
+      type: llm
+      output_type: plain
+      prompt: |
+        Describe what you see in this image in one concise sentence.
+
+  remove_columns: false
+  output_schema:
+    image: "{{ image_input }}"
+    caption: "{{ caption }}"
