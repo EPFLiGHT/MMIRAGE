@@ -1,8 +1,10 @@
 # MMIRAGE Documentation
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/EPFLiGHT/MMIRAGE/main/mmirage_logo_with_text.png" alt="MMIRAGE logo" width="480"/>
-</p>
+```{image} _static/logo.svg
+:alt: MMIRAGE logo
+:align: center
+:width: 480px
+```
 
 MMIRAGE is an open-source platform for large-scale dataset processing using large language models (LLMs) and vision-language models (VLMs).
 
