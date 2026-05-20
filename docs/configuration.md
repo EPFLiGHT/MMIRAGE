@@ -31,6 +31,19 @@ processors:
 | `tp_size` | `int` | auto from `SLURM_GPUS_ON_NODE` | Tensor parallelism size |
 | `trust_remote_code` | `bool` | `true` | Allow custom model code from HuggingFace |
 | `disable_custom_all_reduce` | `bool` | `false` | Disable custom all-reduce kernel |
+| `extra_engine_args` | `dict` | `{}` | Additional keyword arguments forwarded verbatim to `sgl.Engine` |
+
+Use `extra_engine_args` to pass SGLang engine options not listed above:
+
+```yaml
+server_args:
+  model_path: Qwen/Qwen3-8B
+  tp_size: 4
+  extra_engine_args:
+    max_running_requests: 1000
+    chunked_prefill_size: 32768
+    mem_fraction_static: 0.88
+```
 
 ### `processors[*].default_sampling_params`
 
@@ -42,9 +55,57 @@ Any key-value pairs accepted by the SGLang sampling API, e.g.:
 | `top_p` | Top-p nucleus sampling |
 | `max_new_tokens` | Maximum tokens to generate |
 
+Additional model-specific options can be passed under `custom_params`:
+
+```yaml
+default_sampling_params:
+  temperature: 0.1
+  top_p: 0.9
+  max_new_tokens: 1024
+  custom_params:
+    chat_template_kwargs:
+      enable_thinking: false   # Qwen3 thinking-mode control
+```
+
 ### `processors[*].chat_template`
 
 Optional. Set to a named template (e.g. `qwen2-vl`, `llava`, `internvl`, `phi3_v`) for vision-language models. Defaults to the tokenizer's built-in template.
+
+### `processors[*].batch_provider` — OpenAI Batch API
+
+Optional. When set, MMIRAGE routes requests through the OpenAI Batch API instead of running a local SGLang server. This is useful for large-scale processing without a local GPU.
+
+```yaml
+processors:
+  - type: llm
+    server_args:
+      model_path: gpt-4o-mini   # Informational; actual model is set in batch_provider.model
+    batch_provider:
+      enabled: true
+      provider: openai
+      model: gpt-4o-mini
+      max_chunk_bytes: 52428800    # 50 MB per batch file
+      metadata_output_path: /path/to/batch_metadata.jsonl
+      credentials:
+        api_key: "sk-..."          # Or leave blank and set OPENAI_API_KEY env var
+```
+
+**`batch_provider` fields:**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `provider` | `str` | — | Provider identifier. Currently `"openai"` is supported |
+| `enabled` | `bool` | `true` | Whether batch mode is active |
+| `model` | `str` | `gpt-4.1-mini` | Model name for chat completion requests |
+| `max_chunk_bytes` | `int` | `52428800` | Max serialized bytes per batch file (50 MB) |
+| `max_requests_per_chunk` | `int` | `null` | Optional hard cap on requests per chunk |
+| `metadata_output_path` | `str` | `""` | Base path for submission receipt files |
+| `completion_window` | `str` | `"24h"` | OpenAI batch completion window |
+| `base_url` | `str` | `null` | Optional base URL for API-compatible gateways |
+| `oversized_request_policy` | `str` | `"isolate"` | `"isolate"` or `"reject"` for requests exceeding `max_chunk_bytes` |
+| `retry_policy.max_attempts` | `int` | `3` | Max retry attempts for transient submission errors |
+| `retry_policy.initial_backoff_seconds` | `float` | `2.0` | Initial retry delay |
+| `retry_policy.backoff_multiplier` | `float` | `2.0` | Multiplicative factor for subsequent retry delays |
 
 ---
 

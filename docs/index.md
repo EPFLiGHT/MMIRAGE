@@ -29,6 +29,18 @@ Full YAML configuration reference for all parameters.
 All `mmirage` subcommands, flags, and examples.
 :::
 
+:::{grid-item-card} 🏗️ Architecture
+:link: architecture
+:link-type: doc
+Package layout, data flow, and design decisions.
+:::
+
+:::{grid-item-card} 🛠️ Developer Guide
+:link: developer
+:link-type: doc
+Testing, linting, adding loaders/processors, and debugging.
+:::
+
 :::{grid-item-card} 📦 API Reference
 :link: api/index
 :link-type: doc
@@ -55,6 +67,8 @@ installation
 quickstart
 configuration
 cli
+architecture
+developer
 ```
 
 ```{toctree}

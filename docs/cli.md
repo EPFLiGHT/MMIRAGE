@@ -42,13 +42,14 @@ mmirage run --config configs/config.yaml [--force-retry] [--shard-id N]
 Submit a single SLURM array job without the retry/merge orchestration loop.
 
 ```bash
-mmirage submit --config configs/config.yaml [--shard-ids 0,2,3] [--wait]
+mmirage submit --config configs/config.yaml [--shard-ids 0,2,3] [--wait] [--stats]
 ```
 
 | Flag | Description |
 |---|---|
 | `--shard-ids N,N,...` | Comma-separated shard IDs to submit instead of the full array |
 | `--wait` | Block until the submitted job finishes |
+| `--stats` | Enable GPU utilization and throughput collection on compute nodes |
 
 ---
 
@@ -57,13 +58,14 @@ mmirage submit --config configs/config.yaml [--shard-ids 0,2,3] [--wait]
 Inspect shard status from the state directory and optionally submit retries.
 
 ```bash
-mmirage check --config configs/config.yaml [--retry] [-y]
+mmirage check --config configs/config.yaml [--retry] [-y] [--stats]
 ```
 
 | Flag | Description |
 |---|---|
 | `--retry` | Submit a retry job for any failed shards |
 | `-y`, `--yes` | Submit retries without prompting for confirmation |
+| `--stats` | Enable GPU utilization and throughput collection on retried compute nodes |
 
 Exits with code `0` if all shards succeeded, `1` otherwise.
 
@@ -74,12 +76,13 @@ Exits with code `0` if all shards succeeded, `1` otherwise.
 Submit a retry job for failed shards without inspecting status interactively.
 
 ```bash
-mmirage retry --config configs/config.yaml [-y]
+mmirage retry --config configs/config.yaml [-y] [--stats]
 ```
 
 | Flag | Description |
 |---|---|
 | `-y`, `--yes` | Submit retries without prompting |
+| `--stats` | Enable GPU utilization and throughput collection on retried compute nodes |
 
 ---
 
@@ -111,6 +114,63 @@ mmirage merge-dir --input-dir /path/to/shards --output-dir /path/to/merged
 | `--output-dir PATH` | Output directory for the merged dataset(s) |
 
 If `shard_*` folders are present **directly** in `--input-dir`, MMIRAGE treats it as a single dataset and merges it there, ignoring nested internal folders such as `_pipeline_state`.
+
+---
+
+## `mmirage stats`
+
+Print per-shard benchmark statistics including runtime, throughput, and GPU utilization.
+
+```bash
+mmirage stats --config configs/config.yaml
+```
+
+Stats are only available for shards that were run with `--stats` enabled (or `MMIRAGE_COLLECT_STATS=1`). Output is a JSON report:
+
+```json
+{
+  "per_shard": [
+    {
+      "shard_id": 0,
+      "status": "success",
+      "started_at": "2026-04-30T10:00:00",
+      "finished_at": "2026-04-30T10:01:05",
+      "stats": {
+        "runtime_seconds": 65.2,
+        "runtime_human": "1m 5s",
+        "rows_processed": 1024,
+        "throughput_rows_per_sec": 15.7,
+        "gpu_util_mean": 88.4,
+        "gpu_util_min": 72.0,
+        "gpu_util_max": 98.0,
+        "tokens_per_sec_per_gpu": 753.1,
+        "gpu_days_per_billion_tokens": 0.0015
+      }
+    }
+  ],
+  "aggregate": {
+    "total_shards": 1,
+    "completed_shards": 1,
+    "total_rows_processed": 1024,
+    "overall_throughput_rows_per_sec": 15.7,
+    "mean_gpu_util_pct": 88.4,
+    "tokens_per_sec_per_gpu": 753.1,
+    "gpu_days_per_billion_tokens": 0.0015
+  }
+}
+```
+
+Key metrics:
+
+| Metric | Description |
+|---|---|
+| `runtime_seconds` | Shard wall-clock time (excludes SLURM queue wait) |
+| `overall_throughput_rows_per_sec` | Total rows / wall-clock time across all parallel shards |
+| `tokens_per_sec_per_gpu` | Output tokens per second per GPU — primary throughput metric |
+| `gpu_days_per_billion_tokens` | GPU-days to generate 1B output tokens — useful for cost comparison |
+| `mean_gpu_util_pct` | Mean GPU utilization across shards |
+
+Token metrics are `null` when no LLM processor was active. GPU stats are `null` when `nvidia-smi` is unavailable or `--stats` was not passed.
 
 ---
 

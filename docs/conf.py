@@ -98,6 +98,9 @@ autodoc_mock_imports = [
     "yaml",
     "numpy",
     "huggingface_hub",
+    "humanize",
+    "json_repair",
+    "tqdm",
 ]
 
 autodoc_default_options = {
@@ -116,10 +119,12 @@ napoleon_attr_annotations = True
 # Suppress noisy-but-benign warnings:
 #  - duplicate member descriptions caused by __init__.py re-exports
 #  - unresolvable forward refs in mocked type annotations
+#  - autodoc.import_object: modules that cannot be imported in doc env
 suppress_warnings = [
     "ref.duplicate",
     "sphinx_autodoc_typehints.forward_reference",
     "myst.header",
+    "autodoc",
 ]
 
 # -- Intersphinx ---------------------------------------------------------------
