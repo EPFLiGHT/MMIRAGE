@@ -1,6 +1,9 @@
-# Developer Guide
+# 🔧 Developer Guide
 
 This page covers everything needed to contribute to or develop MMIRAGE locally.
+
+For a user-facing overview of the pipeline and architecture, see
+[Pipeline](pipeline.md) and [Architecture](architecture.md).
 
 ---
 
@@ -201,3 +204,12 @@ The `submit` command prints the sbatch script to logs at DEBUG level. Use `--log
 | `Invalid value for shard_id` | `$SLURM_ARRAY_TASK_ID` not set locally | Use `mmirage run --shard-id 0` for local testing |
 | Shard marked `failed` after crash | Previous run crashed before writing status | Delete the state dir or run `mmirage check --retry` |
 | `FileNotFoundError` for EDF env | `edf_env` path does not exist | Remove `edf_env` from config or fix the path |
+
+---
+
+## See also
+
+- [Architecture](architecture.md) — internal module layout and design decisions
+- [Pipeline](pipeline.md) — end-to-end data flow
+- [Configuration Reference](configuration.md) — full parameter reference
+- [CLI Reference](cli.md) — all subcommands and flags

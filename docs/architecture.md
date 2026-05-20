@@ -1,6 +1,10 @@
-# Architecture
+# 🏗️ Architecture
 
-This page describes MMIRAGE's internal structure, the data flow through a pipeline, and the design decisions behind each subsystem.
+This page covers MMIRAGE's internal module layout and the key design decisions behind each subsystem.
+It is aimed at contributors and developers who want to understand or modify the codebase.
+
+If you are looking for a user-facing explanation of what happens when you run `mmirage run`,
+read [Pipeline](pipeline.md) instead.
 
 ---
 
@@ -144,3 +148,11 @@ Output shards are first written to a temporary directory with a host+PID+UUID su
 
 ### Separation of config and heavy deps
 The `config/` package has minimal imports (no torch, sglang, transformers). The `core/process/processors/llm/config.py` module is also lightweight — it registers the processor configuration without importing the SGLang engine. The engine is only imported when a shard actually processes data, enabling fast CLI startup and documentation builds.
+
+---
+
+## See also
+
+- [Pipeline](pipeline.md) — user-facing walkthrough of the data flow
+- [Concepts](concepts.md) — vocabulary used throughout the codebase
+- [Developer Guide](developer.md) — adding loaders and processors, running tests

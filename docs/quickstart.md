@@ -156,4 +156,13 @@ Then submit:
 mmirage run --config configs/slurm_config.yaml
 ```
 
-See [CLI Reference](cli.md) for all available subcommands and [Configuration Reference](configuration.md) for a full parameter guide.
+---
+
+## See also
+
+- [Concepts](concepts.md) — understand shards, variables, output schemas, and execution modes
+- [Pipeline](pipeline.md) — step-by-step walkthrough of what MMIRAGE does with your data
+- [Multimodal Processing](multimodal.md) — image inputs and VLM chat templates
+- [SLURM & Cluster Deployment](slurm.md) — running at scale on HPC clusters
+- [Configuration Reference](configuration.md) — full parameter reference
+- [CLI Reference](cli.md) — all subcommands and flags

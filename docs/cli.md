@@ -1,4 +1,9 @@
-# CLI Reference
+# 💻 CLI Reference
+
+This page documents every `mmirage` subcommand and its flags.
+
+For background on what each command does in the context of the pipeline,
+see [Pipeline](pipeline.md) and [SLURM & Cluster Deployment](slurm.md).
 
 All MMIRAGE commands share the pattern:
 
@@ -180,3 +185,12 @@ Token metrics are `null` when no LLM processor was active. GPU stats are `null` 
 |---|---|
 | `0` | All shards completed successfully |
 | `1` | One or more shards failed or exceeded the retry budget |
+
+---
+
+## See also
+
+- [Pipeline](pipeline.md) — understand the stages each command drives
+- [SLURM & Cluster Deployment](slurm.md) — `submit`, `check`, `retry` in context
+- [Benchmarking](benchmarking.md) — `--stats` flag and `mmirage stats` in depth
+- [Configuration Reference](configuration.md) — the YAML config every command reads

@@ -1,6 +1,13 @@
-# Configuration Reference
+# ⚙️ Configuration Reference
 
-MMIRAGE pipelines are configured through a single YAML file split into four top-level sections.
+This page is the complete reference for every parameter in the MMIRAGE YAML configuration file.
+
+A pipeline config is split into four top-level sections: `processors`, `loading_params`,
+`processing_params`, and `execution_params`.
+An optional `batch_provider` section routes inference through the OpenAI Batch API.
+
+If you are new to MMIRAGE, read [Concepts](concepts.md) first to understand the terminology,
+then follow [Quickstart](quickstart.md) for a minimal working example.
 
 ---
 
@@ -274,3 +281,14 @@ execution_params:
 | `merge-dir --input-dir /path --output-dir /out` | `/out/` (single dataset) |
 
 If `shard_*` folders are present **directly** inside `--input-dir`, MMIRAGE merges that dataset and ignores nested subdirectories (e.g. `_pipeline_state`).
+
+---
+
+## See also
+
+- [Concepts](concepts.md) — vocabulary for all parameters on this page
+- [Quickstart](quickstart.md) — minimal working config examples
+- [Multimodal Processing](multimodal.md) — image inputs and `chat_template`
+- [SLURM & Cluster Deployment](slurm.md) — `execution_params` for SLURM mode
+- [Batch API](batch_api.md) — `batch_provider` configuration in depth
+- [CLI Reference](cli.md) — how to run a configured pipeline
