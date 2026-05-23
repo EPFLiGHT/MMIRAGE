@@ -80,14 +80,14 @@ def _discover_required_providers(metadata_records: Sequence[BatchMetadataRecord]
 
 
 def _extract_batch_provider_blocks(cfg: MMirageConfig) -> Dict[str, Dict[str, Any]]:
-    """Collect raw batch_provider blocks keyed by provider.
+    """Collect raw batch blocks keyed by provider.
 
     Raises ValueError on duplicate provider definitions to avoid ambiguous
     config resolution.
     """
     provider_blocks: Dict[str, Dict[str, Any]] = {}
     for processor_cfg in cfg.processors:
-        raw_provider = getattr(processor_cfg, "batch_provider", None)
+        raw_provider = getattr(processor_cfg, "batch", None)
         if raw_provider is None:
             continue
 
@@ -99,13 +99,13 @@ def _extract_batch_provider_blocks(cfg: MMirageConfig) -> Dict[str, Dict[str, An
         if not raw_block:
             continue
 
-        provider = str(raw_block.get("provider", "openai")).strip().lower()
+        provider = str(raw_block.get("provider", "")).strip().lower()
         if not provider:
-            continue
+            raise ValueError("batch config must include a non-empty provider")
 
         if provider in provider_blocks:
             raise ValueError(
-                f"Duplicate batch_provider blocks found for provider '{provider}' in config processors."
+                f"Duplicate batch blocks found for provider '{provider}' in config processors."
             )
 
         provider_blocks[provider] = raw_block
@@ -126,15 +126,15 @@ def _instantiate_provider_config(provider: str, raw_block: Mapping[str, Any]) ->
 
 
 def resolve_single_provider_config(raw_block: Mapping[str, Any]) -> BatchProviderConfig:
-    """Resolve a single provider config from a raw batch_provider block.
+    """Resolve a single provider config from a raw batch block.
 
-    Defaults to the OpenAI provider for backward compatibility and raises
-    ValueError for unknown providers or invalid config payloads.
+    Raises ValueError for missing providers, unknown providers, or invalid
+    config payloads.
     """
     payload = dict(raw_block or {})
-    provider = str(payload.get("provider", "openai")).strip().lower()
+    provider = str(payload.get("provider", "")).strip().lower()
     if not provider:
-        provider = "openai"
+        raise ValueError("batch config must include a non-empty provider")
     payload["provider"] = provider
 
     try:
@@ -151,7 +151,7 @@ def resolve_single_provider_config(raw_block: Mapping[str, Any]) -> BatchProvide
 
 
 def build_all_provider_configs(cfg: "MMirageConfig") -> Dict[str, BatchProviderConfig]:
-    """Build provider configs for every batch_provider block in the YAML.
+    """Build provider configs for every batch block in the YAML.
 
     Raises ValueError when any provider config fails to instantiate.
     """
@@ -198,8 +198,8 @@ def resolve_provider_configs(
     missing = [provider for provider in required_providers if provider not in available_configs]
     if missing:
         raise ValueError(
-            "Metadata references provider(s) missing from YAML batch_provider config: "
-            f"{missing}. Check cfg.processors[*].batch_provider."
+            "Metadata references provider(s) missing from YAML batch config: "
+            f"{missing}. Check cfg.processors[*].batch."
         )
 
     return {provider: available_configs[provider] for provider in required_providers}

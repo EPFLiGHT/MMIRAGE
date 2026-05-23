@@ -1,16 +1,7 @@
 processors:
   - type: llm
-    server_args:
-      model_path: Qwen/Qwen3-VL-8B-Instruct
-      tp_size: 1
-      trust_remote_code: true
-    chat_template: qwen2-vl
-    default_sampling_params:
-      temperature: 0.1
-      top_p: 0.9
-      max_new_tokens: 512
-    batch_provider:
-      enabled: true
+    execution_mode: batch
+    batch:
       provider: openai
       model: gpt-4o-mini
       metadata_output_path: tests/output/batch_metadata.jsonl

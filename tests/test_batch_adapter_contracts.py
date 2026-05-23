@@ -174,11 +174,9 @@ class UnitBatchConfig(BatchProviderConfig):
             raise ValueError("unit_setting must be a non-empty string")
 
 
-def test_resolve_single_provider_config_defaults_to_openai():
-    config = resolve_single_provider_config({})
-
-    assert isinstance(config, OpenAIBatchConfig)
-    assert config.provider == "openai"
+def test_resolve_single_provider_config_raises_for_missing_provider():
+    with pytest.raises(ValueError, match="batch config must include a non-empty provider"):
+        resolve_single_provider_config({})
 
 
 def test_resolve_single_provider_config_resolves_custom_provider():

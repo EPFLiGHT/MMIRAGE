@@ -34,15 +34,17 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
 
     processors:
       - type: llm
-        server_args:
-          model_path: Qwen/Qwen2-VL-7B-Instruct
-          tp_size: 4
-          trust_remote_code: true
-        chat_template: qwen2-vl
-        default_sampling_params:
-          temperature: 0.1
-          top_p: 0.9
-          max_new_tokens: 1024
+        execution_mode: local
+        local:
+          server_args:
+            model_path: Qwen/Qwen2-VL-7B-Instruct
+            tp_size: 4
+            trust_remote_code: true
+          chat_template: qwen2-vl
+          default_sampling_params:
+            temperature: 0.1
+            top_p: 0.9
+            max_new_tokens: 1024
 
     loading_params:
       datasets:

@@ -15,17 +15,18 @@ try:
     SGLANG_AVAILABLE = True
 except ImportError:
     SGLANG_AVAILABLE = False
+
 from transformers import AutoTokenizer
 
 from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCounts
 from mmirage.core.process.batch.orchestrator import BatchSubmissionOrchestrator
 from mmirage.core.process.batch.registry import BatchAdapterFactory
-from mmirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMConfig
+from mmirage.core.process.processors.llm.config import LLMOutputVar, LLMProcessorConfig
 from mmirage.core.process.variables import VariableEnvironment
 
 try:
     from typing import override  # Python 3.12+
-except ImportError:  # pragma: no cover
+except ImportError:  # pragma: no cover  
     from typing_extensions import override  # type: ignore
 
 
@@ -40,7 +41,7 @@ IMAGE_TOKENS = {
 }
 
 
-@ProcessorRegistry.register("llm", SGLangLLMConfig, LLMOutputVar)
+@ProcessorRegistry.register("llm", LLMProcessorConfig, LLMOutputVar)
 class LLMProcessor(BaseProcessor[LLMOutputVar]):
     """LLM processor for generating text using SGLang.
 
@@ -58,44 +59,51 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         sampling_params: Default sampling parameters for generation.
     """
 
-    def __init__(self, engine_args: SGLangLLMConfig, **kwargs) -> None:
+    def __init__(self, engine_args: LLMProcessorConfig, **kwargs) -> None:
         """Initialize the LLM processor.
 
         Args:
-            engine_args: Configuration for SGLang server and sampling parameters.
+            engine_args: Configuration for local runtime or batch submission.
             **kwargs: Additional arguments passed to base class.
         """
         super().__init__(engine_args, **kwargs)
 
-        batch_provider_cfg = engine_args.batch_provider
-        is_provider_batch_enabled = bool(batch_provider_cfg and batch_provider_cfg.enabled)
+        execution_mode = engine_args.execution_mode
+        local_cfg = engine_args.local
+        batch_provider_cfg = engine_args.batch
         self._model_load_seconds: float = 0.0
 
         # In provider-batch mode we only build payloads/metadata and should not
         # initialize GPU-backed SGLang runtime.
-        if is_provider_batch_enabled:
+        if execution_mode == "batch":
+            if batch_provider_cfg is None:
+                raise ValueError("batch config is required when execution_mode='batch'")
+            if not batch_provider_cfg.enabled:
+                raise ValueError("batch config must be enabled when execution_mode='batch'")
             self.llm = None
             self.tokenizer = None
         else:
+            if local_cfg is None:
+                raise ValueError("local config is required when execution_mode='local'")
             if not SGLANG_AVAILABLE:
                 raise RuntimeError(
                     "SGLang is not installed. Install with: pip install 'mmirage[gpu]' "
                     "or, from a source checkout, pip install -e '.[gpu]'"
                 )
 
-            server_kwargs = asdict(engine_args.server_args)
+            server_kwargs = asdict(local_cfg.server_args)
             extra = server_kwargs.pop("extra_engine_args", {}) or {}
             server_kwargs.update(extra)
             _load_start = time.monotonic()
             self.llm = sgl.Engine(**server_kwargs)
             self._model_load_seconds = time.monotonic() - _load_start
             self.tokenizer = AutoTokenizer.from_pretrained(
-                engine_args.server_args.model_path,
-                trust_remote_code=getattr(engine_args.server_args, "trust_remote_code", False),
+                local_cfg.server_args.model_path,
+                trust_remote_code=getattr(local_cfg.server_args, "trust_remote_code", False),
             )
 
-        self.sampling_params = engine_args.default_sampling_params
-        self.chat_template = engine_args.chat_template
+        self.sampling_params = local_cfg.default_sampling_params if execution_mode == "local" else {}
+        self.chat_template = local_cfg.chat_template if execution_mode == "local" else ""
         self._batch_adapter = None
         self._batch_provider_config = None
         self._text_orchestrator: Optional[BatchSubmissionOrchestrator] = None
@@ -109,7 +117,10 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         self._total_output_tokens: int = 0
 
     def _setup_batch_runtime(self) -> None:
-        provider_cfg = self.config.batch_provider
+        if self.config.execution_mode != "batch":
+            return
+
+        provider_cfg = self.config.batch
         if provider_cfg is None:
             return
 
