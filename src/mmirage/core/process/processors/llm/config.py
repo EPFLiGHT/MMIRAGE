@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import logging
 import os
-from typing import Dict, Optional, Sequence, Type, Any, List
+from typing import Dict, Optional, Sequence, Type, Any, List, Literal
 from pydantic import BaseModel, create_model
 
 from mmirage.config.batch_provider import BatchProviderConfig
@@ -84,17 +84,45 @@ class SGLangLLMConfig(BaseProcessorConfig):
     Supports both text-only and multimodal (vision-language) models.
 
     Attributes:
-        type: Type identifier (must be "llm").
         server_args: SGLang server arguments including model path and TP size.
         default_sampling_params: Default sampling parameters for generation.
         chat_template: Chat template name for vision-language models (e.g., "qwen2-vl").
-        batch_provider: Optional provider batch settings for async submission.
     """
 
     server_args: SGLangServerArgs = field(default_factory=SGLangServerArgs)
     default_sampling_params: Dict[str, Any] = field(default_factory=dict)
     chat_template: str = ""  # Empty means use tokenizer's default
-    batch_provider: Optional[BatchProviderConfig] = None
+
+
+@dataclass
+class LLMProcessorConfig(BaseProcessorConfig):
+    """Configuration for LLM processor using SGLang.
+
+    Attributes:
+        type: Type identifier (must be "llm").
+        execution_mode: Selects local inference vs provider batch submission.
+        local: Local SGLang runtime configuration (required for local mode).
+        batch: Provider batch settings (required for batch mode).
+    """
+
+    execution_mode: Literal["local", "batch"] = "local"
+    local: Optional[SGLangLLMConfig] = None
+    batch: Optional[BatchProviderConfig] = None
+    
+
+    def __post_init__(self) -> None:
+        if self.execution_mode == "local":
+            if self.local is None:
+                raise ValueError("local config is required when execution_mode='local'")
+            if self.batch is not None:
+                raise ValueError("batch config must be omitted when execution_mode='local'")
+        elif self.execution_mode == "batch":
+            if self.batch is None:
+                raise ValueError("batch config is required when execution_mode='batch'")
+            if self.local is not None:
+                raise ValueError("local config must be omitted when execution_mode='batch'")
+        else:
+            raise ValueError("execution_mode must be either 'local' or 'batch'")
 
 
 @dataclass
@@ -152,4 +180,4 @@ class LLMOutputVar(OutputVar):
         return True
 
 
-ProcessorRegistry.register_types("llm", SGLangLLMConfig, LLMOutputVar)
+ProcessorRegistry.register_types("llm", LLMProcessorConfig, LLMOutputVar)

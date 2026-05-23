@@ -8,7 +8,7 @@ from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubm
 from mmirage.core.process.batch.provider_resolution import BatchProviderConfigRegistry
 from mmirage.core.process.batch.registry import BatchAdapterRegistry
 from mmirage.core.process.base import ProcessorRegistry
-from mmirage.core.process.processors.llm.config import SGLangLLMConfig, SGLangServerArgs
+from mmirage.core.process.processors.llm.config import LLMProcessorConfig, SGLangLLMConfig, SGLangServerArgs
 
 
 class RecordingAdapter(BatchSubmissionAdapter):
@@ -143,10 +143,10 @@ def test_llm_processor_initializes_with_custom_provider(tmp_path):
     BatchProviderConfigRegistry.register("unit", UnitBatchConfig)
     BatchAdapterRegistry.register("unit", RecordingAdapter)
 
-    config = SGLangLLMConfig(
+    config = LLMProcessorConfig(
         type="llm",
-        server_args=SGLangServerArgs(model_path="dummy-model"),
-        batch_provider=UnitBatchConfig(
+        execution_mode="batch",
+        batch=UnitBatchConfig(
             provider="unit",
             unit_setting="custom",
             metadata_output_path=str(tmp_path / "metadata.jsonl"),
@@ -163,7 +163,7 @@ def test_llm_processor_initializes_with_custom_provider(tmp_path):
     assert isinstance(processor._batch_adapter, RecordingAdapter)
 
 
-def test_llm_processor_skips_batch_setup_when_disabled(monkeypatch):
+def test_llm_processor_rejects_disabled_batch(monkeypatch):
     class FakeEngine:
         def __init__(self, **_kwargs):
             return None
@@ -187,18 +187,15 @@ def test_llm_processor_skips_batch_setup_when_disabled(monkeypatch):
         lambda *args, **kwargs: FakeTokenizer(),
     )
 
-    config = SGLangLLMConfig(
+    config = LLMProcessorConfig(
         type="llm",
-        server_args=SGLangServerArgs(model_path="dummy-model"),
-        batch_provider=BatchProviderConfig(provider="openai", enabled=False),
+        execution_mode="batch",
+        batch=BatchProviderConfig(provider="openai", enabled=False),
     )
 
     processor_cls = ProcessorRegistry.get_processor("llm")
-    processor = processor_cls(config)
-
-    assert processor.batch_mode_enabled is False
-    assert processor._batch_adapter is None
-    assert processor._batch_provider_config is None
+    with pytest.raises(ValueError, match="batch config must be enabled"):
+        processor_cls(config)
 
 
 def test_llm_processor_uses_sync_runtime_when_batch_provider_omitted(monkeypatch):
@@ -225,9 +222,10 @@ def test_llm_processor_uses_sync_runtime_when_batch_provider_omitted(monkeypatch
         lambda *args, **kwargs: FakeTokenizer(),
     )
 
-    config = SGLangLLMConfig(
+    config = LLMProcessorConfig(
         type="llm",
-        server_args=SGLangServerArgs(model_path="dummy-model"),
+        execution_mode="local",
+        local=SGLangLLMConfig(server_args=SGLangServerArgs(model_path="dummy-model")),
     )
 
     processor_cls = ProcessorRegistry.get_processor("llm")

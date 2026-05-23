@@ -1,14 +1,16 @@
 processors:
   - type: llm
-    server_args:
-      model_path: Qwen/Qwen3-VL-8B-Instruct
-      tp_size: 1
-      trust_remote_code: true
-    chat_template: qwen2-vl  # Chat template for vision-language models
-    default_sampling_params:
-      temperature: 0.1
-      top_p: 0.9
-      max_new_tokens: 512
+    execution_mode: local
+    local:
+      server_args:
+        model_path: Qwen/Qwen3-VL-8B-Instruct
+        tp_size: 1
+        trust_remote_code: true
+      chat_template: qwen2-vl  # Chat template for vision-language models
+      default_sampling_params:
+        temperature: 0.1
+        top_p: 0.9
+        max_new_tokens: 512
 
 loading_params:
   state_dir: tests/output/data_vision/_pipeline_state
