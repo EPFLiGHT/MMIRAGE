@@ -23,8 +23,10 @@ class BatchAdapterRegistry:
             return
 
         # Local import avoids import cycles while ensuring built-ins are available.
+        from mmirage.core.process.batch.anthropic_adapter import AnthropicBatchAdapter
         from mmirage.core.process.batch.openai_adapter import OpenAIBatchAdapter
 
+        cls.register("anthropic", AnthropicBatchAdapter)
         cls.register("openai", OpenAIBatchAdapter)
         cls._bootstrapped = True
 

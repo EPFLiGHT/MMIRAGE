@@ -332,6 +332,29 @@ Key multimodal features:
 - `image_base_path`: Base directory for resolving relative image paths
 - Supports PIL Images, URLs, and file paths
 
+### Batch provider mode (OpenAI or Anthropic)
+
+Use `execution_mode: batch` and supply a provider config. The same processor
+prompt/template logic applies, but requests are submitted asynchronously via
+the provider batch API.
+
+```yaml
+processors:
+  - type: llm
+    execution_mode: batch
+    batch:
+      provider: anthropic
+      model: claude-haiku-4-5
+      max_chunk_bytes: 52428800
+      metadata_output_path: tests/output/batch_metadata.jsonl
+      credentials:
+        api_key: ""
+
+...
+```
+
+For OpenAI, set `provider: openai` and use `OPENAI_API_KEY` instead.
+
 ### Benchmarking shard performance
 
 Pass `--stats` to `run` or `submit` to enable per-shard benchmarking. This activates GPU
