@@ -31,8 +31,10 @@ class BatchProviderConfigRegistry:
         if cls._bootstrapped:
             return
 
+        from mmirage.config.anthropic_batch import AnthropicBatchConfig
         from mmirage.config.openai_batch import OpenAIBatchConfig
 
+        cls.register("anthropic", AnthropicBatchConfig)
         cls.register("openai", OpenAIBatchConfig)
         cls._bootstrapped = True
 
