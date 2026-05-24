@@ -73,6 +73,11 @@ def main():
         help="YAML config for MMIRAGE pipeline.",
         required=True,
     )
+    ap.add_argument(
+        "--export-prompts",
+        help="Optional directory for exporting batch prompts instead of submitting them.",
+        default=None,
+    )
     args = ap.parse_args()
 
     cfg = load_mmirage_config(args.config)
@@ -144,6 +149,7 @@ def main():
             cfg.processors,
             processing_params.inputs,
             processing_params.outputs,
+            export_prompts_dir=args.export_prompts,
         )
         renderer = TemplateRenderer(processing_params.output_schema)
 

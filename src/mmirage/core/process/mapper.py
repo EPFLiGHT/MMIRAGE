@@ -31,6 +31,7 @@ class MMIRAGEMapper:
         processor_configs: List[BaseProcessorConfig],
         input_vars: List[InputVar],
         output_vars: List[OutputVar],
+        export_prompts_dir: Optional[str] = None,
     ) -> None:
         """Initialize the MMIRAGE mapper.
 
@@ -46,8 +47,13 @@ class MMIRAGEMapper:
         for config in processor_configs:
             processor_cls = AutoProcessor.from_name(config.type)
             logger.info(f"✅ Successfully loaded processor of type {config.type}")
-
-            self.processors[config.type] = processor_cls(config)
+            if config.type == "llm":
+                self.processors[config.type] = processor_cls(
+                    config,
+                    export_prompts_dir=export_prompts_dir,
+                )
+            else:
+                self.processors[config.type] = processor_cls(config)
 
     def validate_vars(self) -> bool:
         """Validate that all output variables are computable.

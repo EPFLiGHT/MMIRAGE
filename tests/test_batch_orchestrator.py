@@ -128,6 +128,49 @@ def test_orchestrator_writes_provider_neutral_metadata_with_flush_reason(tmp_pat
     assert second["provider_batch_id"].startswith("batch-chunk-")
 
 
+def test_orchestrator_exports_prompts_and_skips_submit(tmp_path):
+    from mmirage.core.process.batch.orchestrator import BatchSubmissionOrchestrator
+
+    export_dir = tmp_path / "export"
+    metadata_path = tmp_path / "batch_metadata.jsonl"
+    adapter = RecordingAdapter()
+    config = BatchProviderConfig(
+        provider="unit",
+        max_chunk_bytes=10,
+        metadata_output_path=str(metadata_path),
+    )
+    orchestrator = BatchSubmissionOrchestrator(
+        adapter=adapter,
+        config=config,
+        export_prompts_dir=str(export_dir),
+    )
+
+    out = orchestrator.add_requests(
+        requests=[
+            {"custom_id": "r1", "size_bytes": 8, "payload": {"text": "hello"}},
+            {"custom_id": "r2", "size_bytes": 8, "payload": {"text": "world"}},
+        ],
+        source_indices=[0, 1],
+        model_params_snapshot={"mode": "dry-run"},
+    )
+
+    assert len(out) == 1
+    assert len(adapter.submissions) == 0
+
+    exported_files = sorted(export_dir.glob("batch_*.jsonl"))
+    assert len(exported_files) == 1
+
+    exported_lines = [json.loads(line) for line in exported_files[0].read_text(encoding="utf-8").splitlines()]
+    assert exported_lines == [
+        {"custom_id": "r1", "size_bytes": 8, "payload": {"text": "hello"}},
+    ]
+
+    result = out[0]
+    assert result.provider_batch_id.startswith("dry-run-")
+    assert result.status == "dry_run"
+    assert orchestrator.pending_count == 1
+
+
 @dataclass
 class UnitBatchConfig(BatchProviderConfig):
     provider: str = "unit"

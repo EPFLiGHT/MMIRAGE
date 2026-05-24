@@ -6,6 +6,7 @@ from dataclasses import asdict, replace
 import json
 import logging
 import time
+import os
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
@@ -15,7 +16,6 @@ try:
     SGLANG_AVAILABLE = True
 except ImportError:
     SGLANG_AVAILABLE = False
-
 from transformers import AutoTokenizer
 
 from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCounts
@@ -59,14 +59,18 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         sampling_params: Default sampling parameters for generation.
     """
 
-    def __init__(self, engine_args: LLMProcessorConfig, **kwargs) -> None:
+    def __init__(
+        self,
+        engine_args: LLMProcessorConfig,
+        export_prompts_dir: Optional[str] = None,
+    ) -> None:
         """Initialize the LLM processor.
 
         Args:
             engine_args: Configuration for local runtime or batch submission.
             **kwargs: Additional arguments passed to base class.
         """
-        super().__init__(engine_args, **kwargs)
+        super().__init__(engine_args)
 
         execution_mode = engine_args.execution_mode
         local_cfg = engine_args.local
@@ -106,6 +110,7 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         self.chat_template = local_cfg.chat_template if execution_mode == "local" else ""
         self._batch_adapter = None
         self._batch_provider_config = None
+        self._export_prompts_dir = export_prompts_dir
         self._text_orchestrator: Optional[BatchSubmissionOrchestrator] = None
         self._multimodal_orchestrator: Optional[BatchSubmissionOrchestrator] = None
         self._batch_request_counter = 0
@@ -128,7 +133,12 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             return
 
         self._batch_provider_config = provider_cfg
-        self._batch_adapter = BatchAdapterFactory.from_config(provider_cfg)
+        # When export_prompts_dir is set we are in dry-run mode and should not
+        # require valid provider credentials because no network calls will be
+        # performed.
+        self._batch_adapter = BatchAdapterFactory.from_config(
+            provider_cfg, allow_missing_credentials=bool(self._export_prompts_dir)
+        )
         run_id = uuid.uuid4().hex[:6]
 
         self._text_orchestrator = BatchSubmissionOrchestrator(
@@ -139,6 +149,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                     provider_cfg.metadata_output_path, "text", run_id
                 ),
             ),
+            export_prompts_dir=self._with_run_suffix(
+                self._export_prompts_dir, "text", run_id
+            ),
         )
         self._multimodal_orchestrator = BatchSubmissionOrchestrator(
             adapter=self._batch_adapter,
@@ -148,6 +161,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                     provider_cfg.metadata_output_path, "multimodal", run_id
                 ),
             ),
+            export_prompts_dir=self._with_run_suffix(
+                self._export_prompts_dir, "multimodal", run_id
+            ),
         )
 
     @staticmethod
@@ -156,6 +172,12 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             return ""
         base_path = path.removesuffix(".jsonl")
         return f"{base_path}.{suffix}.{run_id}.jsonl"
+
+    @staticmethod
+    def _with_run_suffix(path: Optional[str], suffix: str, run_id: str) -> Optional[str]:
+        if not path:
+            return None
+        return os.path.join(path, f"{suffix}.{run_id}")
 
     @property
     def batch_mode_enabled(self) -> bool:

@@ -355,6 +355,44 @@ processors:
 
 For OpenAI, set `provider: openai` and use `OPENAI_API_KEY` instead.
 
+### Dry-run / Export prompts
+
+MMIRAGE supports a simple dry-run mode that exports the provider-ready
+prompt payloads to disk instead of submitting them to the provider. This is
+useful for cost estimation, inspection, and offline review.
+
+- CLI: pass `--export-prompts <dir>` to `src/mmirage/shard_process.py` (or the
+  equivalent `mmirage run` wrapper). When set, MMIRAGE writes one JSONL file
+  per emitted batch chunk and skips all network submission calls.
+- File layout: MMIRAGE creates run-specific subdirectories for text and
+  multimodal streams to avoid collisions, e.g.:
+
+  - `<dir>/text.<run_id>/batch_chunk-000001.jsonl`
+  - `<dir>/multimodal.<run_id>/batch_chunk-000002.jsonl`
+
+- Format: each `batch_*.jsonl` file is plain JSONL where each line is a
+  provider-ready request object built by the adapter (the exact payload that
+  would have been submitted). These are safe to inspect and parse with normal
+  JSONL tools.
+- Credentials: when `--export-prompts` is used, MMIRAGE does not require
+  provider credentials (API keys) because network submission is intentionally
+  skipped. This makes it convenient to export prompts without setting up
+  provider credentials.
+- Metadata: MMIRAGE still writes the standard metadata receipts to
+  `metadata_output_path` as configured in your batch provider block; export
+  mode only short-circuits the submission step.
+
+Example:
+
+```bash
+python src/mmirage/shard_process.py --config configs/config_mock_openai_batch.yaml \
+    --export-prompts /tmp/mmirage_exports
+```
+
+This will create run-specific `text.<run_id>` and `multimodal.<run_id>`
+subdirectories under `/tmp/mmirage_exports` and write one `batch_*.jsonl`
+file per emitted chunk.
+
 ### Benchmarking shard performance
 
 Pass `--stats` to `run` or `submit` to enable per-shard benchmarking. This activates GPU
