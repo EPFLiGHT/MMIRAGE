@@ -39,10 +39,27 @@ dependencies = [
 
 [project.optional-dependencies]
 gpu = [
-  "torch==2.9.1+cu129",
+  "torch==2.9.1",
   "torchvision==0.24.1",
   "torchaudio==2.9.1",
   "triton==3.5.1",
+
+  "nvidia-cublas-cu12==12.9.1.4",
+  "nvidia-cuda-cupti-cu12==12.9.79",
+  "nvidia-cuda-nvrtc-cu12==12.9.86",
+  "nvidia-cuda-runtime-cu12==12.9.79",
+  "nvidia-cudnn-cu12==9.10.2.21",
+  "nvidia-cufft-cu12==11.4.1.4",
+  "nvidia-cufile-cu12==1.14.1.1",
+  "nvidia-curand-cu12==10.3.10.19",
+  "nvidia-cusolver-cu12==11.7.5.82",
+  "nvidia-cusparse-cu12==12.5.10.65",
+  "nvidia-cusparselt-cu12==0.7.1",
+  "nvidia-nccl-cu12==2.27.5",
+  "nvidia-nvjitlink-cu12==12.9.86",
+  "nvidia-nvshmem-cu12==3.3.20",
+  "nvidia-nvtx-cu12==12.9.79",
+
   "sglang==0.5.10",
   "sgl-kernel==0.3.21",
   "xgrammar==0.1.32",
