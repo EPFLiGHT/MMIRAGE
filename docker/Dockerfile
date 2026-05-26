@@ -6,6 +6,6 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 COPY . /workspace/MMIRAGE
 WORKDIR /workspace/MMIRAGE
 
-RUN pip install --no-cache-dir .[gpu]
+RUN pip install --no-cache-dir -e .[gpu]
 
 ENTRYPOINT ["/bin/bash"]

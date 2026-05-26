@@ -3,6 +3,6 @@ FROM python:3.11-slim
 COPY . /workspace/MMIRAGE
 WORKDIR /workspace/MMIRAGE
 
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir -e .
 
 ENTRYPOINT ["/bin/bash"]
