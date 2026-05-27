@@ -151,7 +151,7 @@ Once you know how long a shard takes, you can tighten it.
 If your cluster uses modules, activate them before submitting:
 
 ```bash
-module load python/3.11 cuda/12.4
+module load python/3.12 cuda/12.4
 mmirage run --config configs/slurm_config.yaml
 ```
 
