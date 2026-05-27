@@ -20,16 +20,11 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - path: docker/Dockerfile.api
-            suffix: api
-            platforms: linux/amd64,linux/arm64
-
-          - path: docker/Dockerfile.gpu
+          - path: docker/Dockerfile
             suffix: gpu
-            platforms: linux/amd64,linux/arm64
-
-          - path: docker/Dockerfile.full
-            suffix: full
+            platforms: linux/amd64
+          - path: docker/Dockerfile.cpu
+            suffix: cpu
             platforms: linux/amd64,linux/arm64
 
     environment: ${{ github.event_name != 'pull_request' && 'docker' || 'docker-ci' }}

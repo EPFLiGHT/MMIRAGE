@@ -7,6 +7,6 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 COPY . .
 
-RUN pip install --no-cache-dir ".[api]"
+RUN pip install --no-cache-dir .
 
 ENTRYPOINT ["/bin/bash"]

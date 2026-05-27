@@ -63,29 +63,57 @@ For testing and scripts that make use of the library, it is advised to create a 
 
 ## Docker
 
-MMIRAGE provides three Docker images:
+The `docker-compose.yml` defines two services, `mmirage` (GPU) and `mmirage-cpu`.
 
-- `api`: API-backed processors only, no local SGLang GPU runtime.
-- `gpu`: local SGLang-backed `llm` processor only, no API dependencies.
-- `full`: both API-backed processors and local SGLang GPU runtime.
+### Prebuilt images
 
-### Build
+Prebuilt images are published to GHCR for each push to `main`:
 
-```bash
-docker build -f docker/Dockerfile.api -t mmirage:api .
-docker build -f docker/Dockerfile.gpu -t mmirage:gpu .
-docker build -f docker/Dockerfile.full -t mmirage:full .
-```
+- `ghcr.io/epflight/mmirage:latest-gpu` (linux/amd64)
+- `ghcr.io/epflight/mmirage:latest-cpu` (linux/amd64, linux/arm64)
 
-### Run
+How to use them:
 
 ```bash
-docker run --rm -it mmirage:api
-docker run --rm -it --gpus all mmirage:gpu
-docker run --rm -it --gpus all mmirage:full
+# GPU
+docker pull ghcr.io/epflight/mmirage:latest-gpu
+docker run --rm -it --gpus all ghcr.io/epflight/mmirage:latest-gpu
+
+# CPU
+docker pull ghcr.io/epflight/mmirage:latest-cpu
+docker run --rm -it ghcr.io/epflight/mmirage:latest-cpu
 ```
 
-The GPU and full images install CUDA-enabled PyTorch first, then install the MMIRAGE extras. This mirrors the manual GPU installation instructions.
+### GPU
+
+The container requires an NVIDIA GPU. The `docker-compose.yml` is configured to request GPU access, but the host must have:
+- NVIDIA GPU drivers installed
+- NVIDIA Container Toolkit / `nvidia-container-runtime` configured for Docker
+- A recent Docker Engine and Docker Compose version with GPU support enabled
+
+Commands:
+
+```bash
+# Build
+docker compose build mmirage
+
+# Run
+docker compose run --rm -it mmirage
+```
+
+### CPU-only
+
+The CPU image installs MMIRAGE without the GPU extra. It is suitable for workflows that do not instantiate the SGLang-backed `llm` processor, and is intended to support API-backed processors once they are available. No CPU-ready configuration files are provided yet.
+
+Commands:
+
+```bash
+# Build
+docker compose build mmirage-cpu
+
+# Run
+docker compose run --rm -it mmirage-cpu
+```
 
 ## Key features
 
