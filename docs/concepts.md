@@ -82,7 +82,7 @@ Each output variable specifies:
 
 - a **name** — how it is referenced in the output schema
 - a **type** — always `llm` for the current processor
-- an **output_type** — `plain` for raw text, `json` for parsed JSON
+- an **output_type** — `plain` for raw text, `JSON` for parsed JSON
 - a **prompt** — a Jinja2 template that constructs the message sent to the model
 
 ```yaml
