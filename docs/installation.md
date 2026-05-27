@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.10 or later
+- Python 3.12 or later
 - An NVIDIA GPU with drivers installed (required for local SGLang-backed LLM inference; not needed for OpenAI Batch API mode)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (required only for GPU Docker usage)
 

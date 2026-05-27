@@ -43,7 +43,7 @@ if not hasattr(_typing, "override"):
 
 # -- Project information -------------------------------------------------------
 project = "MMIRAGE"
-copyright = "2024, Meditron team"
+copyright = "2026, Meditron team"
 author = "Meditron team"
 release = "0.1.4"
 
