@@ -118,7 +118,7 @@ For each `OutputVar` in `processing_params.outputs`, MMIRAGE:
 The processor is the SGLang engine (for local inference) or the OpenAI Batch
 API orchestrator (for batch mode).
 
-If `output_type: json`, the response is parsed as JSON before storage.
+If `output_type: JSON`, the response is parsed as JSON before storage.
 
 ### 4c. Render the output schema
 
