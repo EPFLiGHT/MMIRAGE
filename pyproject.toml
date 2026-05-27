@@ -7,7 +7,7 @@ name = "mmirage"
 version = "0.1.4"
 description = "Modular Multimodal Intelligent Reformatting and Augmentation Generation Engine - Advanced platform for processing datasets using generative models including vision-language models."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [{ name = "Meditron team" }]
 
 dependencies = [
