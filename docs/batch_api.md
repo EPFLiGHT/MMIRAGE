@@ -90,8 +90,8 @@ export OPENAI_API_KEY=sk-...
 mmirage run --config configs/batch_config.yaml
 ```
 
-MMIRAGE never reads the key from the config file — always use environment variables
-to avoid accidentally committing credentials.
+MMIRAGE reads the key from either `credentials.api_key` in the config or the `OPENAI_API_KEY` environment variable.
+Prefer environment variables to avoid accidentally committing credentials.
 
 ---
 
