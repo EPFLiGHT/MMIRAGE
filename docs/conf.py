@@ -99,7 +99,6 @@ autodoc_mock_imports = [
     "numpy",
     "huggingface_hub",
     "humanize",
-    "json_repair",
     "tqdm",
 ]
 
