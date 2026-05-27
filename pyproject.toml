@@ -15,7 +15,6 @@ dependencies = [
   "pyzmq==27.1.0",
   "uvloop==0.21.0; platform_system != 'Windows'",
   "fastapi==0.136.1",
-  "openai==2.6.1",
   "partial-json-parser==0.2.1.1.post7",
   "sentencepiece==0.2.1",
   "msgspec==0.21.1",
@@ -38,6 +37,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+api = [
+  "openai==2.6.1",
+]
+
 gpu = [
   "sglang==0.5.10",
   "sgl-kernel==0.3.21",

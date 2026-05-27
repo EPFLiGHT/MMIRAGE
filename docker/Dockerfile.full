@@ -15,11 +15,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 RUN python3.12 -m venv /opt/venv
-
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
 
-COPY . /workspace/MMIRAGE
 WORKDIR /workspace/MMIRAGE
+
+COPY pyproject.toml README.md ./
 
 RUN pip install --no-cache-dir \
     --index-url https://download.pytorch.org/whl/cu129 \
@@ -27,6 +27,8 @@ RUN pip install --no-cache-dir \
     torchvision==0.24.1 \
     torchaudio==2.9.1
 
-RUN pip install --no-cache-dir ".[gpu]"
+COPY . .
+
+RUN pip install --no-cache-dir ".[api,gpu]"
 
 ENTRYPOINT ["/bin/bash"]
