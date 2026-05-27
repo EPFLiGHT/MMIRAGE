@@ -10,7 +10,7 @@ Suppose you have a JSONL dataset where each sample looks like:
 {
     "conversations": [
         {"role": "user", "content": "Describe the image"},
-        {"role": "assistant", "content": "This is a badly formmatted answer"}
+        {"role": "assistant", "content": "This is a badly formatted answer"}
     ],
     "modalities": ["<the images>"]
 }
