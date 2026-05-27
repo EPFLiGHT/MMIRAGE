@@ -4,8 +4,8 @@ This page is the complete reference for every parameter in the MMIRAGE YAML conf
 
 A pipeline config is split into four top-level sections: `processors`, `loading_params`,
 `processing_params`, and `execution_params`.
-An optional `batch_provider` section routes inference through the OpenAI Batch API.
 
+To route inference through the OpenAI Batch API, configure `batch_provider` under your `llm` processor (see `processors[*].batch_provider` below).
 If you are new to MMIRAGE, read [Concepts](concepts.md) first to understand the terminology,
 then follow [Quickstart](quickstart.md) for a minimal working example.
 
