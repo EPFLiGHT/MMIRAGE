@@ -102,8 +102,8 @@ MMIRAGE automatically splits requests into chunks that respect both
 
 For very large prompts (e.g. with long contexts), you may need to reduce
 `max_requests_per_chunk` so that individual chunks stay within the size limit.
-Set `oversized_request_policy: skip` to drop single requests that exceed the
-limit rather than failing the entire batch.
+Set `oversized_request_policy: isolate` to submit oversized requests as a dedicated chunk, or
+`oversized_request_policy: reject` to fail fast on requests exceeding the limit.
 
 ---
 
