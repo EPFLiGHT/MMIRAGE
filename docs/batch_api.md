@@ -38,24 +38,27 @@ This mode is useful when:
 
 ## Configuration
 
-Add a `batch_provider` section to your YAML config:
+Add a `batch_provider` block inside the processor definition in your YAML config:
 
 ```yaml
-batch_provider:
-  provider: openai
-  enabled: true
-  model: gpt-4o-mini
-  max_chunk_bytes: 95000000      # Max bytes per uploaded JSONL file (~95 MB)
-  max_requests_per_chunk: 50000  # Max requests per batch job
-  metadata_output_path: /path/to/batch_metadata.json
-  completion_window: 24h
-  base_url: https://api.openai.com/v1
-  oversized_request_policy: warn  # warn | skip | error
-  retry_policy:
-    max_retries: 3
-    initial_delay: 5.0
-    backoff_factor: 2.0
-    max_delay: 300.0
+processors:
+  - type: llm
+    server_args:
+      model_path: gpt-4o-mini   # Informational; actual model is set in batch_provider.model
+    batch_provider:
+      provider: openai
+      enabled: true
+      model: gpt-4o-mini
+      max_chunk_bytes: 52428800      # Max bytes per uploaded JSONL file (50 MB)
+      max_requests_per_chunk: 50000  # Max requests per batch job
+      metadata_output_path: /path/to/batch_metadata.jsonl
+      completion_window: 24h
+      base_url: https://api.openai.com/v1
+      oversized_request_policy: isolate  # isolate | reject
+      retry_policy:
+        max_attempts: 3
+        initial_backoff_seconds: 2.0
+        backoff_multiplier: 2.0
 ```
 
 ### Field reference
@@ -63,18 +66,17 @@ batch_provider:
 | Field | Type | Description |
 |---|---|---|
 | `provider` | `str` | Always `openai` |
-| `enabled` | `bool` | Enable batch mode (default `false`) |
+| `enabled` | `bool` | Enable batch mode (default `true`) |
 | `model` | `str` | OpenAI model ID (e.g. `gpt-4o-mini`, `gpt-4o`) |
 | `max_chunk_bytes` | `int` | Maximum JSONL file size per batch upload |
 | `max_requests_per_chunk` | `int` | Maximum requests per batch job |
-| `metadata_output_path` | `str` | Path to write batch job metadata JSON |
+| `metadata_output_path` | `str` | Base path for batch job metadata receipt files |
 | `completion_window` | `str` | OpenAI batch window (`24h`) |
 | `base_url` | `str` | OpenAI API base URL |
-| `oversized_request_policy` | `str` | Behaviour for requests exceeding size limits: `warn`, `skip`, or `error` |
-| `retry_policy.max_retries` | `int` | Maximum polling retries on transient errors |
-| `retry_policy.initial_delay` | `float` | Initial polling delay in seconds |
-| `retry_policy.backoff_factor` | `float` | Exponential backoff multiplier |
-| `retry_policy.max_delay` | `float` | Maximum delay between polls in seconds |
+| `oversized_request_policy` | `str` | Behaviour for requests exceeding size limits: `isolate` or `reject` |
+| `retry_policy.max_attempts` | `int` | Maximum retry attempts for transient submission errors |
+| `retry_policy.initial_backoff_seconds` | `float` | Initial retry delay in seconds |
+| `retry_policy.backoff_multiplier` | `float` | Multiplicative factor for subsequent retry delays |
 
 ---
 
@@ -123,22 +125,20 @@ processors:
     default_sampling_params:
       temperature: 0.0
       max_new_tokens: 512
-
-batch_provider:
-  provider: openai
-  enabled: true
-  model: gpt-4o-mini
-  max_chunk_bytes: 95000000
-  max_requests_per_chunk: 50000
-  metadata_output_path: /scratch/batch_meta.json
-  completion_window: 24h
-  base_url: https://api.openai.com/v1
-  oversized_request_policy: warn
-  retry_policy:
-    max_retries: 3
-    initial_delay: 5.0
-    backoff_factor: 2.0
-    max_delay: 300.0
+    batch_provider:
+      provider: openai
+      enabled: true
+      model: gpt-4o-mini
+      max_chunk_bytes: 52428800
+      max_requests_per_chunk: 50000
+      metadata_output_path: /scratch/batch_meta.jsonl
+      completion_window: 24h
+      base_url: https://api.openai.com/v1
+      oversized_request_policy: isolate
+      retry_policy:
+        max_attempts: 3
+        initial_backoff_seconds: 2.0
+        backoff_multiplier: 2.0
 
 loading_params:
   state_dir: /scratch/state

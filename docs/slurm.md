@@ -48,9 +48,6 @@ execution_params:
   gpus: 4                       # GPUs per task (= tp_size)
   cpus_per_task: 64             # CPU cores per task
   time_limit: "11:59:59"        # Wall-clock limit per task
-  mem: "200G"                   # (optional) memory per task
-  partition: gpu                # (optional) SLURM partition
-  qos: normal                   # (optional) QoS class
   retry: true                   # Retry failed shards
   merge: true                   # Merge outputs after success
   max_retries: 3                # Maximum retry attempts per shard
@@ -88,11 +85,6 @@ mmirage check --config configs/slurm_config.yaml
 ```
 
 This reads the state directory and prints a per-shard status table.
-To also print the SLURM job ID and node assignment for running shards:
-
-```bash
-mmirage check --config configs/slurm_config.yaml --verbose
-```
 
 ### 3. Retry
 
