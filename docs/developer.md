@@ -200,9 +200,7 @@ The `submit` command prints the sbatch script to logs at DEBUG level. Use `--log
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `ImportError: No module named 'sglang'` | GPU extra not installed | `pip install -e ".[gpu]"` |
-| `account is required when mode='slurm'` | Missing `execution_params.account` | Add `account: your_account` to config |
-| `Invalid value for shard_id` | `$SLURM_ARRAY_TASK_ID` not set locally | Use `mmirage run --shard-id 0` for local testing |
-| Shard marked `failed` after crash | Previous run crashed before writing status | Delete the state dir or run `mmirage check --retry` |
+| `Only shard 0 runs locally` | `loading_params.shard_id: "$SLURM_ARRAY_TASK_ID"` falls back to `0` when the env var is unset | Set `loading_params.shard_id` explicitly, or run `mmirage run --shard-id N` when testing locally |
 | `FileNotFoundError` for EDF env | `edf_env` path does not exist | Remove `edf_env` from config or fix the path |
 
 ---
