@@ -53,11 +53,14 @@ summary to stdout in JSON format:
 
 ```json
 {
-  "runtime_seconds": 3247.8,
-  "overall_throughput_rows_per_sec": 12.4,
-  "tokens_per_sec_per_gpu": 1850.3,
-  "gpu_days_per_billion_tokens": 0.63,
-  "mean_gpu_util_pct": 91.2
+  "per_shard": [],
+  "aggregate": {
+    "wall_clock_runtime_seconds": 3247.8,
+    "overall_throughput_rows_per_sec": 12.4,
+    "tokens_per_sec_per_gpu": 1850.3,
+    "gpu_days_per_billion_tokens": 0.63,
+    "mean_gpu_util_pct": 91.2
+  }
 }
 ```
 
