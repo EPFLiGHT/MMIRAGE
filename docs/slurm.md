@@ -19,7 +19,7 @@ retries failed shards (if configured), and optionally merges outputs.
 
 ## Prerequisites
 
-- SLURM must be available on your cluster (`sbatch`, `sacct` in `$PATH`).
+- SLURM must be available on your cluster (`sbatch`, `squeue`, `srun` in `$PATH`).
 - Your cluster nodes must have access to the model weights and dataset paths.
 - MMIRAGE and its dependencies (`gpu` extra) must be installed on the nodes.
 
