@@ -68,7 +68,8 @@ summary to stdout in JSON format:
 
 | Metric | Unit | Description |
 |---|---|---|
-| `runtime_seconds` | seconds | Total wall-clock time across all shards |
+| `wall_clock_runtime_seconds` | seconds | Wall-clock time from first shard start to last shard finish |
+| `sum_shard_runtime_seconds` | seconds | Sum of per-shard runtimes (useful even when shards run in parallel) |
 | `overall_throughput_rows_per_sec` | rows/s | Dataset samples processed per second |
 | `tokens_per_sec_per_gpu` | tokens/s/GPU | Token generation throughput normalised per GPU |
 | `gpu_days_per_billion_tokens` | GPU-days | Compute cost estimate: GPU-days needed to generate one billion tokens |
