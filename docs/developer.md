@@ -140,7 +140,7 @@ Build HTML output:
 
 ```bash
 cd docs
-make html
+sphinx-build -b html -j auto . _build/html --keep-going
 ```
 
 The output is written to `docs/_build/html/`. Open `docs/_build/html/index.html` in a browser to preview.
@@ -149,7 +149,8 @@ To clean and rebuild from scratch:
 
 ```bash
 cd docs
-make clean html
+rm -rf _build
+sphinx-build -b html -j auto . _build/html --keep-going
 ```
 
 ---
