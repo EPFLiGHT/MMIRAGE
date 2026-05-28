@@ -172,10 +172,8 @@ The `llm` processor runs a language model via one of two backends:
 
 ## Execution modes
 
-MMIRAGE supports two execution modes, set in `execution_params.mode`:
-
-- **`local`** — all shards are processed in the current Python environment,
-  one after the other (or concurrently if resources allow).
+- **`local`** — runs a single shard in the current Python environment (defaults to shard 0).
+  Use `mmirage run --shard-id N` to select a shard; use `--force-retry` (or `execution_params.retry: true`) to iterate over all shards locally.
 - **`slurm`** — MMIRAGE generates and submits an `sbatch` array job.
   Each array task processes one shard on a dedicated node.
 
