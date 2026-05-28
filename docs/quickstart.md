@@ -36,8 +36,8 @@ loading_params:
     - path: /path/to/dataset.jsonl
       type: JSONL
       output_dir: /path/to/output/shards
-  num_shards: 4
-  shard_id: "$SLURM_ARRAY_TASK_ID"
+  num_shards: 1
+  shard_id: 0
   batch_size: 64
 
 processing_params:
