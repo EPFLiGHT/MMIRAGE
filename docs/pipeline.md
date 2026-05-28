@@ -173,7 +173,7 @@ After all shards have been submitted and finished and if `retry` is set to `true
    runs `merge_shards` to combine all `shard_<id>/` directories into a
    single dataset at `<output_dir>/merged/`.
 
-On SLURM, the orchestrator polls `sacct` to detect job completion before
+On SLURM, the orchestrator polls `squeue` to detect when the job has left the queue before
 reading state files.
 
 ---
