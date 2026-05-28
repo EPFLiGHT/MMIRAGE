@@ -101,8 +101,8 @@ loading_params:
       type: loadable
       output_dir: /path/to/output/shards
       image_base_path: /path/to/images
-  num_shards: 4
-  shard_id: "$SLURM_ARRAY_TASK_ID"
+  num_shards: 1
+  shard_id: 0
   batch_size: 16
 
 processing_params:
@@ -127,8 +127,8 @@ processing_params:
 
 execution_params:
   mode: local
-  retry: true
-  merge: true
+  retry: false
+  merge: false
 ```
 
 ## Running on SLURM

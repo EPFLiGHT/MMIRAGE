@@ -25,7 +25,7 @@ Common flags available on most subcommands:
 Run the pipeline according to `execution_params.mode` and `execution_params.retry`.
 
 ```bash
-mmirage run --config configs/config.yaml [--force-retry] [--shard-id N]
+mmirage run --config configs/config.yaml [--force-retry] [--shard-id N] [--stats]
 ```
 
 | Flag | Description |

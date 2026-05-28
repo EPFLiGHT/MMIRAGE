@@ -165,7 +165,7 @@ This file is read by the orchestrator to determine which shards need retrying.
 
 ## Stage 7 — Orchestration
 
-After all shards have been submitted and finished, the CLI orchestrator:
+After all shards have been submitted and finished and if `retry` is set to `true`, the CLI orchestrator:
 
 1. Reads every `status.json` file.
 2. Resubmits any failed shard (up to `max_retries` attempts).
