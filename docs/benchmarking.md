@@ -15,9 +15,7 @@ MMIRAGE includes built-in benchmarking that measures:
 - GPU utilisation
 - estimated compute cost (GPU-days per billion tokens)
 
-Metrics are collected on each compute node during processing and written to
-a JSON file alongside the shard output.
-
+Metrics are collected on each compute node during processing and recorded in the shard state directory (e.g. `<state_dir>/shard_<id>/status.json` under the `stats` key).
 ---
 
 ## Enabling benchmarking
