@@ -155,7 +155,7 @@ file to `<state_dir>/shard_<id>/`:
 ```json
 {
   "status": "success",
-  "attempt": 1
+  "retry_count": 1
 }
 ```
 
