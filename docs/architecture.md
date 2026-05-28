@@ -120,7 +120,7 @@ src/mmirage/
 
 ### SLURM mode
 
-`launch_pipeline` generates and submits an sbatch array script. Each array task runs `shard_process.py` with `SLURM_ARRAY_TASK_ID` as the shard ID. The orchestrator polls job status via `sacct`, waits for the `settle_time_seconds`, checks `status.json` for each shard, and retries failed shards up to `max_retries`.
+`launch_pipeline` generates and submits an sbatch array script. Each array task runs `shard_process.py` with `SLURM_ARRAY_TASK_ID` as the shard ID. The orchestrator polls job status via `squeue`, waits for the `settle_time_seconds`, checks `status.json` for each shard, and retries failed shards up to `max_retries`.
 
 ### Batch API mode (OpenAI)
 
