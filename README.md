@@ -361,19 +361,18 @@ MMIRAGE supports a simple dry-run mode that exports the provider-ready
 prompt payloads to disk instead of submitting them to the provider. This is
 useful for cost estimation, inspection, and offline review.
 
-- CLI: pass `--export-prompts <dir>` to `src/mmirage/shard_process.py` (or the
-  equivalent `mmirage run` wrapper). When set, MMIRAGE writes one JSONL file
-  per emitted batch chunk and skips all network submission calls.
-- File layout: MMIRAGE creates run-specific subdirectories for text and
-  multimodal streams to avoid collisions, e.g.:
+- CLI: pass `--export-prompts <path>` to `src/mmirage/shard_process.py` (or the
+  equivalent `mmirage run` wrapper). When set, MMIRAGE appends all emitted
+  requests to a single JSONL file and skips all network submission calls.
+- Path behavior:
 
-  - `<dir>/text.<run_id>/batch_chunk-000001.jsonl`
-  - `<dir>/multimodal.<run_id>/batch_chunk-000002.jsonl`
+  - If `<path>` ends with `.jsonl`, that exact file path is used.
+  - Otherwise, MMIRAGE treats `<path>` as a directory and creates one file like
+    `<path>/exported_prompts.<run_id>.jsonl`.
 
-- Format: each `batch_*.jsonl` file is plain JSONL where each line is a
-  provider-ready request object built by the adapter (the exact payload that
-  would have been submitted). These are safe to inspect and parse with normal
-  JSONL tools.
+- Format: each line is a provider-ready request object (the exact payload that
+  would have been submitted) plus a `batch_id` field identifying which emitted
+  batch chunk produced the row.
 - Credentials: when `--export-prompts` is used, MMIRAGE does not require
   provider credentials (API keys) because network submission is intentionally
   skipped. This makes it convenient to export prompts without setting up
@@ -386,12 +385,11 @@ Example:
 
 ```bash
 python src/mmirage/shard_process.py --config configs/config_mock_openai_batch.yaml \
-    --export-prompts /tmp/mmirage_exports
+  --export-prompts /tmp/mmirage_export.jsonl
 ```
 
-This will create run-specific `text.<run_id>` and `multimodal.<run_id>`
-subdirectories under `/tmp/mmirage_exports` and write one `batch_*.jsonl`
-file per emitted chunk.
+This writes all emitted chunks into `/tmp/mmirage_export.jsonl`, with one row
+per request and a `batch_id` field for chunk traceability.
 
 ### Benchmarking shard performance
 

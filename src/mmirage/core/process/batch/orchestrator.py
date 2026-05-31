@@ -27,12 +27,14 @@ class BatchSubmissionOrchestrator:
         self,
         adapter: BatchSubmissionAdapter,
         config: BatchProviderConfig,
-        export_prompts_dir: Optional[str] = None,
+        export_prompts_path: Optional[str] = None,
+        export_batch_prefix: str = "",
     ) -> None:
         self.adapter = adapter
         self.config = config
         self.chunker = BatchRequestChunker(adapter=adapter, config=config)
-        self._export_prompts_dir = export_prompts_dir
+        self._export_prompts_path = export_prompts_path
+        self._export_batch_prefix = export_batch_prefix
         self._pending: List[_PendingRequest] = []
         self._chunk_counter = 0
 
@@ -99,7 +101,7 @@ class BatchSubmissionOrchestrator:
         for chunk_entries, request_chunk in groups_to_submit:
             chunk_id = self._next_chunk_id()
             requests = [entry.request for entry in chunk_entries]
-            if self._export_prompts_dir:
+            if self._export_prompts_path:
                 parsed_result = self._export_chunk_requests(
                     chunk_id=chunk_id,
                     requests=requests,
@@ -131,24 +133,28 @@ class BatchSubmissionOrchestrator:
         chunk_id: str,
         requests: Sequence[Mapping[str, Any]],
     ) -> BatchSubmissionResult:
-        export_dir = self._export_prompts_dir
-        assert export_dir is not None
+        export_path = self._export_prompts_path
+        assert export_path is not None
 
-        os.makedirs(export_dir, exist_ok=True)
-        export_path = os.path.join(export_dir, f"batch_{chunk_id}.jsonl")
+        batch_id = f"{self._export_batch_prefix}{chunk_id}"
 
-        with open(export_path, "w", encoding="utf-8") as f:
+        os.makedirs(os.path.dirname(export_path) or ".", exist_ok=True)
+
+        with open(export_path, "a", encoding="utf-8") as f:
             for request in requests:
-                f.write(json.dumps(dict(request), ensure_ascii=False) + "\n")
+                row = dict(request)
+                row["batch_id"] = batch_id
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
         return BatchSubmissionResult(
-            provider_batch_id=f"dry-run-{chunk_id}",
+            provider_batch_id=f"dry-run-{batch_id}",
             status="dry_run",
             raw_response={
                 "dry_run": True,
                 "chunk_id": chunk_id,
+                "batch_id": batch_id,
                 "export_path": export_path,
-                "request_count": len(list(requests)),
+                "request_count": len(requests),
             },
         )
 

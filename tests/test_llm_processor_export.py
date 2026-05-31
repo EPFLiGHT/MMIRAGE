@@ -1,8 +1,5 @@
 from dataclasses import dataclass
 import json
-import os
-
-from mmirage.core.process.base import ProcessorRegistry
 
 from mmirage.core.process.processors.llm.config import LLMProcessorConfig
 from mmirage.core.process.batch.adapter import BatchSubmissionAdapter
@@ -48,7 +45,7 @@ class UnitBatchConfig(BatchProviderConfig):
             raise ValueError("unit_setting must be a non-empty string")
 
 
-def test_llm_processor_exports_to_text_and_multimodal_subdirs(tmp_path, monkeypatch):
+def test_llm_processor_exports_to_single_file_with_batch_ids(tmp_path, monkeypatch):
     from mmirage.core.process.batch.registry import BatchAdapterRegistry
     from mmirage.core.process.batch.provider_resolution import BatchProviderConfigRegistry
     from mmirage.core.process.base import ProcessorRegistry
@@ -65,16 +62,17 @@ def test_llm_processor_exports_to_text_and_multimodal_subdirs(tmp_path, monkeypa
     )
 
     processor_cls = ProcessorRegistry.get_processor("llm")
-    export_root = tmp_path / "exports"
-    processor = processor_cls(config, export_prompts_dir=str(export_root))
+    export_file = tmp_path / "exports" / "prompts.jsonl"
+    processor = processor_cls(config, export_prompts_dir=str(export_file))
 
     assert processor._text_orchestrator is not None
     assert processor._multimodal_orchestrator is not None
 
-    text_dir = processor._text_orchestrator._export_prompts_dir
-    multi_dir = processor._multimodal_orchestrator._export_prompts_dir
-    assert text_dir is not None and multi_dir is not None
-    assert text_dir != multi_dir
+    text_path = processor._text_orchestrator._export_prompts_path
+    multi_path = processor._multimodal_orchestrator._export_prompts_path
+    assert text_path is not None and multi_path is not None
+    assert text_path == str(export_file)
+    assert multi_path == str(export_file)
 
     # Submit one chunk to each orchestrator
     processor._text_orchestrator.add_requests(
@@ -87,21 +85,12 @@ def test_llm_processor_exports_to_text_and_multimodal_subdirs(tmp_path, monkeypa
         source_indices=[2, 3],
     )
 
-    # Verify export files exist in both subdirectories
-    assert os.path.isdir(text_dir)
-    assert os.path.isdir(multi_dir)
+    assert export_file.exists()
 
-    text_files = [p for p in os.listdir(text_dir) if p.startswith("batch_")]
-    multi_files = [p for p in os.listdir(multi_dir) if p.startswith("batch_")]
-
-    assert len(text_files) >= 1
-    assert len(multi_files) >= 1
-
-    # Verify contents
-    text_content = (os.path.join(text_dir, text_files[0]))
-    lines = [json.loads(l) for l in open(text_content, encoding="utf-8").read().splitlines()]
-    assert any(line.get("custom_id") == "t1" for line in lines)
-
-    multi_content = (os.path.join(multi_dir, multi_files[0]))
-    lines = [json.loads(l) for l in open(multi_content, encoding="utf-8").read().splitlines()]
-    assert any(line.get("custom_id") == "m1" for line in lines)
+    lines = [json.loads(l) for l in export_file.read_text(encoding="utf-8").splitlines()]
+    assert len(lines) == 2
+    assert {line["custom_id"] for line in lines} == {"t1", "m1"}
+    assert {line["batch_id"] for line in lines} == {
+        "text-chunk-000001",
+        "multimodal-chunk-000001",
+    }

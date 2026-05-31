@@ -60,11 +60,15 @@ class BatchAdapterRegistry:
         return cls._registry[provider_key]
 
     @classmethod
-    def create(cls, config: BatchProviderConfig, allow_missing_credentials: bool = False) -> BatchSubmissionAdapter:
+    def create(
+        cls,
+        config: BatchProviderConfig,
+        allow_missing_credentials: bool = False,
+    ) -> BatchSubmissionAdapter:
         """Instantiate an adapter for a provider config with credential checks.
 
-        When `allow_missing_credentials` is True, credential presence is not
-        enforced (useful for dry-run/export mode where network calls are skipped).
+        When ``allow_missing_credentials`` is True, missing credential errors
+        are skipped because submission calls are expected to be bypassed.
         """
         adapter_cls = cls.resolve(config.provider)
 
@@ -87,7 +91,6 @@ class BatchAdapterRegistry:
                 raise ValueError(
                     f"Missing credentials for provider '{config.provider}': {missing_credentials}"
                 )
-
         return adapter_cls()
 
 
@@ -95,13 +98,16 @@ class BatchAdapterFactory:
     """Compatibility alias around registry-based adapter creation."""
 
     @classmethod
-    def from_config(cls, config: BatchProviderConfig, allow_missing_credentials: bool = False) -> BatchSubmissionAdapter:
-        """Create an adapter from provider config via registry resolution.
-
-        Pass `allow_missing_credentials=True` when running in export/dry-run
-        mode so adapters can be created without valid credentials.
-        """
-        return BatchAdapterRegistry.create(config, allow_missing_credentials=allow_missing_credentials)
+    def from_config(
+        cls,
+        config: BatchProviderConfig,
+        allow_missing_credentials: bool = False,
+    ) -> BatchSubmissionAdapter:
+        """Create an adapter from provider config via registry resolution."""
+        return BatchAdapterRegistry.create(
+            config,
+            allow_missing_credentials=allow_missing_credentials,
+        )
 
     @classmethod
     def from_config_with_export(cls, config: BatchProviderConfig, export_dir: Optional[str] = None) -> BatchSubmissionAdapter:

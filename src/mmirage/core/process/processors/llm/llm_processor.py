@@ -140,6 +140,10 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             provider_cfg, allow_missing_credentials=bool(self._export_prompts_dir)
         )
         run_id = uuid.uuid4().hex[:6]
+        export_prompts_path = self._resolve_export_prompts_path(
+            self._export_prompts_dir,
+            run_id,
+        )
 
         self._text_orchestrator = BatchSubmissionOrchestrator(
             adapter=self._batch_adapter,
@@ -149,9 +153,8 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                     provider_cfg.metadata_output_path, "text", run_id
                 ),
             ),
-            export_prompts_dir=self._with_run_suffix(
-                self._export_prompts_dir, "text", run_id
-            ),
+            export_prompts_path=export_prompts_path,
+            export_batch_prefix="text-",
         )
         self._multimodal_orchestrator = BatchSubmissionOrchestrator(
             adapter=self._batch_adapter,
@@ -161,9 +164,8 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                     provider_cfg.metadata_output_path, "multimodal", run_id
                 ),
             ),
-            export_prompts_dir=self._with_run_suffix(
-                self._export_prompts_dir, "multimodal", run_id
-            ),
+            export_prompts_path=export_prompts_path,
+            export_batch_prefix="multimodal-",
         )
 
     @staticmethod
@@ -174,10 +176,12 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         return f"{base_path}.{suffix}.{run_id}.jsonl"
 
     @staticmethod
-    def _with_run_suffix(path: Optional[str], suffix: str, run_id: str) -> Optional[str]:
+    def _resolve_export_prompts_path(path: Optional[str], run_id: str) -> Optional[str]:
         if not path:
             return None
-        return os.path.join(path, f"{suffix}.{run_id}")
+        if path.endswith(".jsonl"):
+            return path
+        return os.path.join(path, f"exported_prompts.{run_id}.jsonl")
 
     @property
     def batch_mode_enabled(self) -> bool:
