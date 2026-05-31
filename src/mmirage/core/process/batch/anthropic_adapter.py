@@ -34,7 +34,16 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         anthropic_config = self._check_anthropic_config(config)
         normalized_custom_id = self._normalize_custom_id(custom_id)
         body = copy.deepcopy(payload)
-        body.pop("expected_schema", None)
+        expected_schema = body.pop("expected_schema", None)
+
+        if expected_schema is not None and (
+            not isinstance(expected_schema, list)
+            or not all(isinstance(key, str) for key in expected_schema)
+        ):
+            raise ValueError(
+                "expected_schema must be a list of strings, "
+                f"got {type(expected_schema).__name__}"
+            )
 
         body.setdefault("model", anthropic_config.model)
         body.setdefault("max_tokens", anthropic_config.max_tokens)
@@ -48,10 +57,27 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         if isinstance(messages, list):
             body["messages"] = self._normalize_messages(messages)
 
-        return {
+        if isinstance(expected_schema, list) and all(isinstance(k, str) for k in expected_schema):
+            properties = {key: {"type": "string"} for key in expected_schema}
+            body["output_config"] = {
+                "format": {
+                    "type": "json_schema",
+                    "schema": {
+                        "type": "object",
+                        "properties": properties,
+                        "required": expected_schema,
+                        "additionalProperties": False,
+                    },
+                }
+            }
+        
+        payload_request = {
             "custom_id": normalized_custom_id,
             "params": body,
         }
+        #for debug :
+        print(f"Built request for custom_id={normalized_custom_id}: {payload_request}")
+        return payload_request
 
     def estimate_request_bytes(self, request: Dict[str, Any]) -> int:
         serialized = json.dumps(request, ensure_ascii=False, separators=(",", ":"))
