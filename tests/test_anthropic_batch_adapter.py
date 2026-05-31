@@ -57,6 +57,44 @@ def test_anthropic_build_request_normalizes_messages_and_images(tmp_path, monkey
     assert base64.b64decode(encoded) == image_bytes
 
 
+def test_anthropic_config_uses_higher_default_max_tokens():
+    config = AnthropicBatchConfig(credentials={"api_key": "k"})
+    assert config.max_tokens == 8192
+
+
+def test_anthropic_build_request_injects_structured_output_format(monkeypatch):
+    class FakeAnthropic:
+        def __init__(self, **kwargs):
+            pass
+
+    AnthropicBatchAdapter = _load_anthropic_adapter(monkeypatch, FakeAnthropic)
+
+    config = AnthropicBatchConfig(credentials={"api_key": "k"})
+    adapter = AnthropicBatchAdapter()
+    payload = {
+        "messages": [{"role": "user", "content": "hello"}],
+        "expected_schema": ["question", "answer"],
+    }
+
+    request = adapter.build_request(custom_id="row-002", payload=payload, config=config)
+
+    assert "expected_schema" not in request["params"]
+    assert request["params"]["output_config"] == {
+        "format": {
+            "type": "json_schema",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string"},
+                    "answer": {"type": "string"},
+                },
+                "required": ["question", "answer"],
+                "additionalProperties": False,
+            },
+        }
+    }
+
+
 def test_anthropic_estimate_request_bytes_matches_utf8_json_size(monkeypatch):
     class FakeAnthropic:
         def __init__(self, **kwargs):
