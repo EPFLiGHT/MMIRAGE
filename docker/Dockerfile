@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     build-essential \
     libnuma1 \
+    libjson-c5 \
   && rm -rf /var/lib/apt/lists/*
 
 RUN python3.12 -m venv /opt/venv
