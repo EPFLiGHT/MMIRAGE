@@ -104,9 +104,9 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
             return obj
         
     def image_output_mode_hook(value: Any) -> ImageOutputMode:
-      if isinstance(value, ImageOutputMode):
-          return value
-      return ImageOutputMode(value)
+        if isinstance(value, ImageOutputMode):
+            return value
+        return ImageOutputMode(value)
 
     def processor_config_hook(data: Dict[str, Any]) -> BaseProcessorConfig:
         clz = ProcessorRegistry.get_config_cls(data["type"])
