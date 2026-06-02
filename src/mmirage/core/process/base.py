@@ -225,6 +225,9 @@ class ProcessorRegistry:
             ValueError: If no processor is registered under the given name.
         """
         if name not in cls._config_registry:
+            cls._maybe_import_processor(name)
+
+        if name not in cls._config_registry:
             raise ValueError(
                 f"Processor {name} not registered. Available processors are {list(cls._config_registry.keys())}"
             )
@@ -244,6 +247,9 @@ class ProcessorRegistry:
         Raises:
             ValueError: If no processor is registered under the given name.
         """
+        if name not in cls._output_var_registry:
+            cls._maybe_import_processor(name)
+
         if name not in cls._output_var_registry:
             raise ValueError(
                 f"Processor {name} not registered. Available processors are {list(cls._output_var_registry.keys())}"
