@@ -8,12 +8,14 @@
 
 ## From Source (recommended)
 
-Clone the repository and install the base package:
+Clone the repository, create a virtual environment with [uv](https://docs.astral.sh/uv/), and install the base package:
 
 ```bash
 git clone git@github.com:EPFLiGHT/MMIRAGE.git
 cd MMIRAGE
-pip install -e .
+uv venv
+source .venv/bin/activate
+uv pip install -e .
 ```
 
 The base install provides all core functionality except local GPU inference.

@@ -22,6 +22,25 @@ The key additions compared to a text-only pipeline are:
 
 ---
 
+## Dataset configuration for images
+
+Add `image_base_path` to the dataset entry in `loading_params.datasets` to
+specify the directory where image files are stored:
+
+```yaml
+loading_params:
+  datasets:
+    - path: /path/to/dataset
+      type: loadable
+      output_dir: /path/to/output/shards
+      image_base_path: /path/to/images
+```
+
+If your dataset already stores absolute paths in the `image_path` field,
+you can omit `image_base_path`.
+
+---
+
 ## Image input variables
 
 Declare image inputs in `processing_params.inputs` by setting `type: image`:
@@ -44,7 +63,7 @@ MMIRAGE resolves it as follows:
 2. The resolved path is loaded as a PIL Image and stored under `name`.
 
 Inside your prompt template, you can reference the image variable by name.
-MMIRAGE automatically places it in the correct position in the multimodal message:
+MMIRAGE places it in the correct position in the multimodal message:
 
 ```yaml
 outputs:
@@ -52,28 +71,10 @@ outputs:
     type: llm
     output_type: plain
     prompt: |
+      {{ image }}
       Answer this question about the image:
       {{ question }}
 ```
-
----
-
-## Dataset configuration for images
-
-Add `image_base_path` to the dataset entry in `loading_params.datasets` to
-specify the directory where image files are stored:
-
-```yaml
-loading_params:
-  datasets:
-    - path: /path/to/dataset
-      type: loadable
-      output_dir: /path/to/output/shards
-      image_base_path: /path/to/images
-```
-
-If your dataset already stores absolute paths in the `image_path` field,
-you can omit `image_base_path`.
 
 ---
 
@@ -148,6 +149,7 @@ processing_params:
       type: llm
       output_type: plain
       prompt: |
+        {{ image }}
         Answer this question about the image:
         {{ question }}
 

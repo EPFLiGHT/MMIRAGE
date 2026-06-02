@@ -54,7 +54,7 @@ execution_params:
   settle_time_seconds: 30       # Seconds to wait after job ends
 ```
 
-The `gpus` value should match `processors[0].server_args.tp_size` so that the
+The `gpus` value should match the `tp_size` set in your LLM processor's `server_args` so that the
 SGLang engine uses all GPUs allocated to the task.
 
 ---
@@ -127,19 +127,23 @@ time, so each array task automatically processes the correct slice of the data.
 
 ## Tips for HPC environments
 
-**Shared filesystem writes**
+**Shared filesystem writes:**
+
 MMIRAGE uses atomic temp-then-rename writes to avoid partial files on shared
 filesystems. No extra configuration is needed.
 
-**Tensor parallelism**
+**Tensor parallelism:**
+
 Match `tp_size` to the number of GPUs per task.
 For large models (70B+), use `tp_size: 8` and request 8 GPUs per task.
 
-**Wall-clock budget**
+**Wall-clock budget:**
+
 Set `time_limit` generously for the first run.
 Once you know how long a shard takes, you can tighten it.
 
-**Environment modules**
+**Environment modules:**
+
 If your cluster uses modules, activate them before submitting:
 
 ```bash

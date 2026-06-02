@@ -21,8 +21,7 @@ The `dev` extra installs:
 
 | Tool | Purpose |
 |---|---|
-| `ruff` | Fast Python linter |
-| `black` | Code formatter |
+| `ruff` | Fast Python linter and formatter |
 | `mypy` | Static type checker |
 | `pytest` | Test runner |
 | `ipykernel` | Jupyter kernel for exploratory notebooks |
@@ -62,10 +61,10 @@ These tests require a functional GPU environment and a working SGLang install (i
 
 ## Code Style
 
-Format code with Black:
+Format code with Ruff:
 
 ```bash
-black src/ tests/
+ruff format src/ tests/
 ```
 
 Lint with Ruff:
