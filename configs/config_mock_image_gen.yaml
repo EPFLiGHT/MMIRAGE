@@ -33,7 +33,7 @@ processing_params:
     - name: generated_image
       type: image_gen
       output_mode: path
-      filename_template: "generated_{{ __shard_id }}_{{ __sample_index }}"
+      filename_template: "generated_{{ __shard_id }}_{{ __sample_index }}_{{ __source_hash }}"
       width: 512
       height: 512
       prompt: |

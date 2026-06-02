@@ -10,10 +10,13 @@ import sys
 import traceback
 from typing import Any, Dict, List, Optional
 
+from datasets import Dataset, DatasetDict, Image as HFImage
+
 from mmirage.config.utils import load_mmirage_config
 from mmirage.core.loader.base import DatasetLike
 from mmirage.core.loader.utils import load_datasets_from_configs
 from mmirage.core.process.mapper import MMIRAGEMapper
+from mmirage.core.process.variables import OutputVar
 from mmirage.core.writer.renderer import TemplateRenderer
 
 from mmirage.shard_utils import (
@@ -32,6 +35,57 @@ from mmirage.shard_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _image_path_schema_cols(
+    output_vars: List[OutputVar],
+    output_schema: Dict[str, Any],
+    renderer: TemplateRenderer,
+) -> List[str]:
+    """Return output-schema column names that map directly to image-path output variables.
+
+    Uses duck typing on ``output_mode`` so no concrete processor import is needed.
+    """
+    image_path_var_names = {
+        v.name
+        for v in output_vars
+        if getattr(v, "output_mode", None) == "path"
+    }
+    return [
+        key
+        for key, tmpl in output_schema.items()
+        if isinstance(tmpl, str)
+        and renderer.is_single_variable_template(tmpl) in image_path_var_names
+    ]
+
+
+def _cast_image_columns(ds: DatasetLike, cols: List[str]) -> DatasetLike:
+    """Cast image-path string columns to the HuggingFace Image feature.
+
+    Empty strings (failure fallbacks) are normalised to ``None`` so that
+    HuggingFace stores them as missing rather than raising a decode error.
+    When ``save_to_disk`` is called, HuggingFace reads each path from disk
+    and embeds the raw bytes in the Arrow file, making the shard portable.
+    """
+    def _normalise_col(batch: Dict[str, Any], col: str) -> Dict[str, Any]:
+        return {col: [v if v else None for v in batch[col]]}
+
+    if isinstance(ds, DatasetDict):
+        for col in cols:
+            for split in list(ds.keys()):
+                if col in ds[split].column_names:
+                    ds[split] = ds[split].map(
+                        _normalise_col, batched=True, fn_kwargs={"col": col}, desc=f"Normalising {col}"
+                    )
+                    ds[split] = ds[split].cast_column(col, HFImage())
+    else:
+        for col in cols:
+            if col in ds.column_names:
+                ds = ds.map(
+                    _normalise_col, batched=True, fn_kwargs={"col": col}, desc=f"Normalising {col}"
+                )
+                ds = ds.cast_column(col, HFImage())
+    return ds
 
 
 def rewrite_batch(
@@ -181,6 +235,16 @@ def main():
             )
             # Drain stateful batch accumulators once this dataset map iteration finishes.
             mapper.finalize_processors()
+
+            image_cols = _image_path_schema_cols(
+                processing_params.outputs,
+                processing_params.output_schema,
+                renderer,
+            )
+            if image_cols:
+                ds_processed = _cast_image_columns(ds_processed, image_cols)
+                logger.info(f"Cast image column(s) to HF Image feature: {image_cols}")
+
             ds_processed_all.append(ds_processed)
 
         for ds_idx, (ds_config, ds_processed) in enumerate(zip(datasets_config, ds_processed_all)):

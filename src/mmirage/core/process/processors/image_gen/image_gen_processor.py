@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
@@ -67,6 +68,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         os.makedirs(self._output_dir, exist_ok=True)
 
         self._shard_id = shard_id
+        self._sample_counter = 0
         run_token = uuid.uuid4().hex[:8]
         self._run_id = f"{socket.gethostname()}.{os.getpid()}.{run_token}"
 
@@ -167,6 +169,12 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
 
         return params
 
+    @staticmethod
+    def _compute_source_hash(env: VariableEnvironment) -> str:
+        """Return an 8-character SHA-256 hex digest of all input variable values."""
+        payload = str(sorted(env.to_dict().items()))
+        return hashlib.sha256(payload.encode()).hexdigest()[:8]
+
     def _render_filename(self, output_var: ImageGenOutputVar, env: VariableEnvironment, sample_index: int) -> str:
         """Render output filename stem from template and context."""
         template = jinja2.Template(output_var.filename_template)
@@ -174,6 +182,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         context["__sample_index"] = sample_index
         context["__output_name"] = output_var.name
         context["__shard_id"] = self._shard_id
+        context["__source_hash"] = self._compute_source_hash(env)
 
         stem = template.render(**context)
         stem = _sanitize_filename(stem)
@@ -255,10 +264,11 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                     output_var,
                     prompt_template,
                     negative_prompt_template,
-                    start_index,
+                    self._sample_counter + start_index,
                 )
             )
 
+        self._sample_counter += len(batch)
         return updated
 
     def _batch_process_sequential(
@@ -271,7 +281,8 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         """Process samples sequentially (legacy behavior)."""
         updated: List[VariableEnvironment] = []
 
-        for sample_index, env in enumerate(batch):
+        for local_index, env in enumerate(batch):
+            sample_index = self._sample_counter + local_index
             try:
                 context = env.to_dict()
                 prompt = prompt_template.render(**context)
@@ -307,6 +318,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                     env.with_variable(output_var.name, fallback_value, is_image=False)
                 )
 
+        self._sample_counter += len(batch)
         return updated
 
     @override
