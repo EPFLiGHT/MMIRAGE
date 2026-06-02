@@ -49,27 +49,32 @@ def _create_backend(config: ImageGenConfig) -> ImageGenerationBackend:
 
     if config.backend == "sglang":
         from mmirage.core.process.processors.image_gen.backends.sglang_backend import (
+            ManagedSGLangConfig,
             SGLangImageBackend,
         )
         assert config.sglang is not None  # validated in __post_init__
         sglang = config.sglang
         if sglang.launch_mode == "managed":
-            return SGLangImageBackend.from_managed_config(
+            managed_cfg = ManagedSGLangConfig(
                 model_path=sglang.model_path,  # type: ignore[arg-type]  # validated non-None
                 port=sglang.port,
                 num_gpus=sglang.num_gpus,
-                dtype=sglang.dtype,
                 api_key=sglang.api_key,
+                request_model=sglang.request_model,
                 timeout_seconds=sglang.timeout_seconds,
                 startup_timeout_seconds=sglang.startup_timeout_seconds,
-                extra_server_args=sglang.extra_server_args,
+                extra_server_args=tuple(sglang.extra_server_args),
+                env=sglang.server_env or None,
+                max_concurrent_requests=sglang.max_concurrent_requests,
             )
+            return SGLangImageBackend.from_managed_config(managed_cfg)
         # launch_mode == "external"
         return SGLangImageBackend(
             base_url=sglang.base_url,
             api_key=sglang.api_key,
             timeout_seconds=sglang.timeout_seconds,
-            model_path=sglang.model_path,
+            request_model=sglang.request_model,
+            max_concurrent_requests=sglang.max_concurrent_requests,
         )
 
     raise ValueError(f"Unknown image_gen backend={config.backend!r}")

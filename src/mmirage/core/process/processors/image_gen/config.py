@@ -73,30 +73,37 @@ class SGLangBackendConfig:
       This requires ``model_path`` and SGLang to be installed.
 
     Attributes:
-        launch_mode: ``"external"`` or ``"managed"``.
+        launch_mode: ``"external"`` or ``"managed"`` (default).
         base_url: Base URL of the server (``http://host:port/v1``).  Ignored
             when ``launch_mode='managed'`` and ``port`` is set; inferred
             automatically in that case.
         api_key: ``Authorization: Bearer`` key.  ``"EMPTY"`` for local servers.
         timeout_seconds: Per-request HTTP timeout in seconds.
-        model_path: HuggingFace model ID or local path forwarded to the server.
-            Required for ``launch_mode='managed'``; optional for ``'external'``
-            (sent as the ``model`` field in each request if supplied).
+        model_path: HuggingFace model ID or local path used to launch the
+            SGLang server.  Required for ``launch_mode='managed'``.
+        request_model: Optional model name sent as ``"model"`` in each image
+            generation request payload.  When ``None`` (default) the field is
+            omitted and the server uses whatever model it is already serving.
         port: Port the managed server should listen on.  Defaults to ``30010``.
-        num_gpus: Tensor-parallelism degree (``--tp``).  Defaults to ``1``.
+        num_gpus: Number of GPUs (``--num-gpus``).  Defaults to ``1``.
         dtype: Model weight dtype forwarded as ``--dtype``.  E.g. ``"float16"``.
         startup_timeout_seconds: Maximum seconds to wait for the managed server
             to become ready before raising an error.
         extra_server_args: Additional CLI arguments appended verbatim to the
-            ``python -m sglang.launch_server`` command, e.g.
-            ``["--mem-fraction-static", "0.9"]``.
+            ``sglang serve`` command.
+        server_env: Extra environment variables forwarded to the SGLang server
+            subprocess.  Use this to set ``HF_HOME``, ``TRITON_CACHE_DIR``,
+            etc., on clusters with non-standard cache layouts.
+        max_concurrent_requests: Maximum number of concurrent HTTP image
+            generation requests sent to the server.  Defaults to ``1``.
     """
 
-    launch_mode: str = "external"
+    launch_mode: str = "managed"
     base_url: str = "http://127.0.0.1:30010/v1"
     api_key: str = "EMPTY"
     timeout_seconds: int = 900
     model_path: Optional[str] = None
+    request_model: Optional[str] = None
 
     # managed-mode fields
     port: int = 30010
@@ -104,6 +111,8 @@ class SGLangBackendConfig:
     dtype: Optional[str] = None
     startup_timeout_seconds: int = 120
     extra_server_args: List[str] = field(default_factory=list)
+    server_env: Dict[str, str] = field(default_factory=dict)
+    max_concurrent_requests: int = 1
 
     def __post_init__(self) -> None:
         if self.launch_mode not in ("external", "managed"):
@@ -116,6 +125,10 @@ class SGLangBackendConfig:
             raise ValueError(
                 "launch_mode='managed' requires model_path to be set so MMIRAGE "
                 "knows which model to pass to the SGLang server."
+            )
+        if self.max_concurrent_requests < 1:
+            raise ValueError(
+                f"max_concurrent_requests must be a positive integer, got {self.max_concurrent_requests!r}."
             )
         if self.launch_mode == "managed":
             # Derive base_url from port so users don't have to repeat it.
