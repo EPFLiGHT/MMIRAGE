@@ -24,6 +24,12 @@ Install the GPU extra when using the SGLang-backed `llm` processor for local GPU
 pip install -e ".[gpu]"
 ```
 
+Install the SGLang diffusion extra when MMIRAGE should launch an image-generation server:
+
+```bash
+pip install -e ".[image_gen]"
+```
+
 For testing and scripts that make use of the library, it is advised to create a .env file:
 ```bash
 ./scripts/generate_env.sh

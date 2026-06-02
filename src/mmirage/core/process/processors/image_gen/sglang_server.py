@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import logging
 import os
@@ -47,6 +48,7 @@ def launch_sglang_server(config: SGLangBackendConfig) -> subprocess.Popen[bytes]
             "Could not find the `sglang` executable. Activate or install an "
             "environment containing SGLang before running MMIRAGE."
         )
+    _require_sglang_diffusion_installation()
 
     cmd = [
         executable,
@@ -78,6 +80,29 @@ def launch_sglang_server(config: SGLangBackendConfig) -> subprocess.Popen[bytes]
     ).start()
     logger.info("Shared SGLang Diffusion server started with pid=%d", proc.pid)
     return proc
+
+
+def _require_sglang_diffusion_installation() -> None:
+    """Raise an actionable error when the active SGLang install lacks diffusion."""
+    try:
+        spec = importlib.util.find_spec("sglang.multimodal_gen")
+    except (AttributeError, ImportError, KeyError, ValueError) as exc:
+        raise RuntimeError(
+            "The active SGLang installation is incomplete or inconsistent: "
+            "`sglang.multimodal_gen` could not be imported. Install the SGLang "
+            "diffusion dependencies in the environment used by the MMIRAGE job "
+            "with `pip install -e '.[image_gen]'`, or directly with "
+            "`uv pip install 'sglang[diffusion]==0.5.10'`."
+        ) from exc
+
+    if spec is None:
+        raise RuntimeError(
+            "The active SGLang installation does not include "
+            "`sglang.multimodal_gen`. Install the SGLang diffusion dependencies "
+            "in the environment used by the MMIRAGE job with "
+            "`pip install -e '.[image_gen]'`, or directly with "
+            "`uv pip install 'sglang[diffusion]==0.5.10'`."
+        )
 
 
 def wait_for_sglang_server(

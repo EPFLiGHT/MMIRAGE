@@ -53,9 +53,7 @@ dev = [
   "pytest",
 ]
 image_gen = [
-  "diffusers>=0.31.0",
-  "accelerate>=0.33.0",
-  "safetensors>=0.4.4",
+  "sglang[diffusion]==0.5.10",
 ]
 
 [project.scripts]
