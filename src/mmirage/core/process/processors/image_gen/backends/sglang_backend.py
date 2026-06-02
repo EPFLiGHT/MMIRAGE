@@ -1,18 +1,11 @@
 """SGLang Diffusion image generation backend.
 
-This backend talks to a local SGLang Diffusion HTTP server using the
+This backend talks to an SGLang Diffusion HTTP server using the
 OpenAI-compatible image generation endpoint:
 
     POST /v1/images/generations
 
-It supports two usage patterns:
-
-1. External mode:
-   The caller starts SGLang separately and passes its base URL.
-
-2. Managed mode:
-   This class starts `sglang serve` as a subprocess, waits until it is ready,
-   and stops it during shutdown.
+The caller owns the server lifecycle and passes its base URL.
 """
 
 from __future__ import annotations
@@ -22,17 +15,10 @@ import binascii
 import io
 import json
 import logging
-import os
-import shutil
-import signal
-import subprocess
-import threading
-import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 try:
     from PIL import Image as PILImage
@@ -43,24 +29,6 @@ logger = logging.getLogger(__name__)
 
 
 JsonDict = Dict[str, Any]
-
-
-@dataclass(frozen=True)
-class ManagedSGLangConfig:
-    """Configuration for a managed SGLang Diffusion server."""
-
-    model_path: str
-    port: int = 30010
-    num_gpus: int = 1
-    server_command: Optional[str] = None
-    backend: Optional[str] = None
-    api_key: str = "EMPTY"
-    request_model: Optional[str] = None
-    timeout_seconds: int = 900
-    startup_timeout_seconds: int = 300
-    max_concurrent_requests: int = 1
-    extra_server_args: Sequence[str] = field(default_factory=tuple)
-    env: Optional[Mapping[str, str]] = None
 
 
 class SGLangImageBackend:
@@ -75,7 +43,6 @@ class SGLangImageBackend:
         request_model: Optional[str] = None,
         validate_server: bool = True,
         max_concurrent_requests: int = 1,
-        managed_process: Optional[subprocess.Popen[bytes]] = None,
     ) -> None:
         if PILImage is None:  # pragma: no cover
             raise RuntimeError(
@@ -88,150 +55,15 @@ class SGLangImageBackend:
         self._api_key = api_key
         self._timeout_seconds = int(timeout_seconds)
         self._request_model = request_model
-        self._max_concurrent_requests = max(1, int(max_concurrent_requests))
-        self._managed_process = managed_process
+        self._max_concurrent_requests = int(max_concurrent_requests)
+        if self._max_concurrent_requests < 1:
+            raise ValueError(
+                "max_concurrent_requests must be a positive integer, "
+                f"got {max_concurrent_requests!r}."
+            )
 
         if validate_server:
             self.validate_server()
-
-    # ---------------------------------------------------------------------
-    # Construction
-    # ---------------------------------------------------------------------
-
-    @classmethod
-    def from_managed_config(cls, config: ManagedSGLangConfig) -> "SGLangImageBackend":
-        """Start `sglang serve`, wait for readiness, and return a backend."""
-        base_url = f"http://127.0.0.1:{config.port}/v1"
-        proc = cls._start_managed_server(config)
-
-        try:
-            cls._wait_for_server(
-                base_url=base_url,
-                api_key=config.api_key,
-                timeout_seconds=config.startup_timeout_seconds,
-                proc=proc,
-            )
-        except Exception:
-            cls._terminate_process(proc, grace_seconds=30)
-            raise
-
-        return cls(
-            base_url=base_url,
-            api_key=config.api_key,
-            timeout_seconds=config.timeout_seconds,
-            request_model=config.request_model,
-            validate_server=False,
-            max_concurrent_requests=config.max_concurrent_requests,
-            managed_process=proc,
-        )
-
-    @staticmethod
-    def _start_managed_server(config: ManagedSGLangConfig) -> subprocess.Popen[bytes]:
-        if not config.model_path:
-            raise ValueError("ManagedSGLangConfig.model_path must be non-empty")
-
-        server_command = config.server_command or shutil.which("sglang")
-        if server_command is None:
-            raise RuntimeError(
-                "Could not find the `sglang` executable. Install `sglang[diffusion]` "
-                "in the active environment or pass ManagedSGLangConfig(server_command=...)."
-            )
-
-        cmd = [
-            server_command,
-            "serve",
-            "--model-path",
-            config.model_path,
-            "--port",
-            str(config.port),
-            "--num-gpus",
-            str(config.num_gpus),
-        ]
-
-        if config.backend:
-            cmd += ["--backend", config.backend]
-
-        cmd += list(config.extra_server_args)
-
-        env = os.environ.copy()
-        if config.env:
-            env.update(dict(config.env))
-
-        logger.info("Starting SGLang Diffusion server: %s", _shell_join(cmd))
-
-        proc: subprocess.Popen[bytes] = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=env,
-            start_new_session=True,
-        )
-
-        threading.Thread(
-            target=SGLangImageBackend._log_process_output,
-            args=(proc,),
-            daemon=True,
-        ).start()
-
-        logger.info("SGLang Diffusion server process started with pid=%d", proc.pid)
-        return proc
-
-    @staticmethod
-    def _log_process_output(proc: subprocess.Popen[bytes]) -> None:
-        if proc.stdout is None:
-            return
-
-        for raw_line in proc.stdout:
-            line = raw_line.decode("utf-8", errors="replace").rstrip()
-            if line:
-                logger.info("[sglang-server] %s", line)
-
-    @staticmethod
-    def _wait_for_server(
-        *,
-        base_url: str,
-        api_key: str,
-        timeout_seconds: int,
-        proc: subprocess.Popen[bytes],
-    ) -> None:
-        server_root, api_base = SGLangImageBackend._normalize_base_url(base_url)
-        candidate_urls = (
-            f"{server_root}/models",
-            f"{api_base}/models",
-            f"{server_root}/health",
-        )
-
-        deadline = time.monotonic() + timeout_seconds
-        last_error = "server did not respond"
-
-        logger.info("Waiting up to %ds for SGLang server readiness", timeout_seconds)
-
-        while time.monotonic() < deadline:
-            retcode = proc.poll()
-            if retcode is not None:
-                raise RuntimeError(
-                    f"SGLang server exited before becoming ready with code {retcode}. "
-                    "Check the [sglang-server] logs above."
-                )
-
-            for url in candidate_urls:
-                try:
-                    SGLangImageBackend._read_json_static(
-                        url=url,
-                        api_key=api_key,
-                        timeout_seconds=5,
-                    )
-                    logger.info("SGLang server is ready at %s", base_url)
-                    return
-                except Exception as exc:  # Keep polling; report the last failure on timeout.
-                    last_error = f"{url}: {exc}"
-
-            time.sleep(2.0)
-
-        raise RuntimeError(
-            f"SGLang server did not become ready within {timeout_seconds}s. "
-            f"Last readiness error: {last_error}"
-        )
 
     # ---------------------------------------------------------------------
     # Public API
@@ -319,16 +151,7 @@ class SGLangImageBackend:
         return self._decode_image_response(result, prompt)
 
     def shutdown(self) -> None:
-        """Stop the managed SGLang process, if this backend started one."""
-        proc = self._managed_process
-        self._managed_process = None
-
-        if proc is None:
-            return
-
-        logger.info("Stopping managed SGLang server with pid=%d", proc.pid)
-        self._terminate_process(proc, grace_seconds=30)
-        logger.info("Managed SGLang server stopped")
+        """Release HTTP backend resources."""
 
     def __enter__(self) -> "SGLangImageBackend":
         return self
@@ -546,54 +369,6 @@ class SGLangImageBackend:
 
         return parsed
 
-    # ---------------------------------------------------------------------
-    # Process helpers
-    # ---------------------------------------------------------------------
-
-    @staticmethod
-    def _terminate_process(proc: subprocess.Popen[bytes], *, grace_seconds: int) -> None:
-        if proc.poll() is not None:
-            return
-
-        try:
-            os.killpg(proc.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            return
-        except Exception:
-            logger.exception("Failed to terminate SGLang process group; trying proc.terminate()")
-            proc.terminate()
-
-        try:
-            proc.wait(timeout=grace_seconds)
-            return
-        except subprocess.TimeoutExpired:
-            logger.warning(
-                "SGLang server pid=%d did not stop within %ds; killing it",
-                proc.pid,
-                grace_seconds,
-            )
-
-        try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            return
-        except Exception:
-            logger.exception("Failed to kill SGLang process group; trying proc.kill()")
-            proc.kill()
-
-        proc.wait()
-
-
 def _prompt_preview(prompt: str, limit: int = 80) -> str:
     compact = " ".join(prompt.split())
     return compact if len(compact) <= limit else compact[: limit - 3] + "..."
-
-
-def _shell_join(parts: Iterable[str]) -> str:
-    """Small fallback for shlex.join on older environments."""
-    try:
-        import shlex
-
-        return shlex.join(list(parts))
-    except Exception:  # pragma: no cover
-        return " ".join(parts)

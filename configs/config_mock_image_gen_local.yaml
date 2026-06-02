@@ -1,11 +1,11 @@
 processors:
   - type: image_gen
-    backend: diffusers
-    pipeline_args:
-      model_path: stable-diffusion-v1-5/stable-diffusion-v1-5
-      torch_dtype: float16
-      device: auto
-      enable_attention_slicing: false
+    backend: external
+    external:
+      base_url: http://127.0.0.1:30010/v1
+      timeout_seconds: 900
+      max_concurrent_requests: 4
+      request_model: null
     default_sampling_params:
       num_inference_steps: 20
       guidance_scale: 7.5

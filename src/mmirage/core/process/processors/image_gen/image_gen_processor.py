@@ -42,50 +42,43 @@ def _sanitize_filename(filename: str) -> str:
 
 def _create_backend(config: ImageGenConfig) -> ImageGenerationBackend:
     """Instantiate the configured image generation backend."""
-    if config.backend == "diffusers":
-        from mmirage.core.process.processors.image_gen.backends.diffusers_backend import (
-            DiffusersImageBackend,
-        )
-        return DiffusersImageBackend(config.pipeline_args)
+    from mmirage.core.process.processors.image_gen.backends.sglang_backend import (
+        SGLangImageBackend,
+    )
 
-    if config.backend == "sglang":
-        from mmirage.core.process.processors.image_gen.backends.sglang_backend import (
-            ManagedSGLangConfig,
-            SGLangImageBackend,
+    if config.backend == "external":
+        assert config.external is not None  # validated in __post_init__
+        client = config.external
+    elif config.backend == "sglang":
+        from mmirage.core.process.processors.image_gen.sglang_server import (
+            MMIRAGE_SGLANG_BASE_URL,
         )
+
         assert config.sglang is not None  # validated in __post_init__
-        sglang = config.sglang
-        if sglang.launch_mode == "managed":
-            managed_cfg = ManagedSGLangConfig(
-                model_path=sglang.model_path,  # type: ignore[arg-type]  # validated non-None
-                port=sglang.port,
-                num_gpus=sglang.num_gpus,
-                api_key=sglang.api_key,
-                request_model=sglang.request_model,
-                timeout_seconds=sglang.timeout_seconds,
-                startup_timeout_seconds=sglang.startup_timeout_seconds,
-                extra_server_args=tuple(sglang.extra_server_args),
-                max_concurrent_requests=sglang.max_concurrent_requests,
+        client = config.sglang
+        base_url = os.environ.get(MMIRAGE_SGLANG_BASE_URL)
+        if not base_url:
+            raise RuntimeError(
+                "backend='sglang' requires the MMIRAGE runner to launch the "
+                "shared SGLang server first. No MMIRAGE_SGLANG_BASE_URL was provided."
             )
-            return SGLangImageBackend.from_managed_config(managed_cfg)
-        # launch_mode == "external"
-        return SGLangImageBackend(
-            base_url=sglang.base_url,
-            api_key=sglang.api_key,
-            timeout_seconds=sglang.timeout_seconds,
-            request_model=sglang.request_model,
-            max_concurrent_requests=sglang.max_concurrent_requests,
-        )
+    else:
+        raise ValueError(f"Unknown image_gen backend={config.backend!r}")
 
-    raise ValueError(f"Unknown image_gen backend={config.backend!r}")
+    return SGLangImageBackend(
+        base_url=client.base_url if config.backend == "external" else base_url,
+        api_key=client.api_key,
+        timeout_seconds=client.timeout_seconds,
+        request_model=client.request_model,
+        max_concurrent_requests=client.max_concurrent_requests,
+    )
 
 
 @ProcessorRegistry.register("image_gen", ImageGenConfig, ImageGenOutputVar)
 class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
     """Processor that generates images from prompts using a pluggable backend.
 
-    Supported backends: ``diffusers`` (in-process Diffusers pipeline) and
-    ``sglang`` (local SGLang Diffusion server over HTTP).
+    Supported backends: ``external`` and ``sglang`` HTTP servers.
 
     Responsibilities of this processor:
     - Render Jinja2 prompt and filename templates.

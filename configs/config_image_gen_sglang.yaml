@@ -1,16 +1,14 @@
 # SGLang Diffusion server image generation example
 #
-# Two launch modes are available:
+# Two HTTP execution modes are available:
 #
-#   launch_mode: managed   (recommended)
-#     MMIRAGE automatically starts a SGLang server on each worker node,
-#     waits until it is ready, runs the pipeline, and shuts it down afterwards.
-#     No manual server management is needed.
+#   backend: sglang
+#     MMIRAGE starts one shared SGLang server for the run, waits until it is
+#     ready, runs all shard workers against it, and shuts it down afterwards.
 #
-#   launch_mode: external
-#     You are responsible for starting the SGLang server before the pipeline
-#     runs.  Use this if you want to reuse a long-running server or need
-#     fine-grained control over server startup.
+#   backend: external
+#     You provide an already-running HTTP image generation server URL in an
+#     external: block.
 #
 # MMIRAGE handles all dataset sharding, prompt rendering, filename rendering,
 # and result saving.  The SGLang server is only responsible for generating
@@ -20,14 +18,13 @@ processors:
   - type: image_gen
     backend: sglang
     sglang:
-      launch_mode: managed                       # MMIRAGE starts/stops the server automatically
       model_path: Qwen/Qwen-Image
       port: 30010
       num_gpus: 1
       # dtype: float16                           # optional: --dtype flag
       startup_timeout_seconds: 900               # seconds to wait for the server to become ready
       timeout_seconds: 900
-      max_concurrent_requests: 1
+      max_concurrent_requests: 4
       # request_model: Qwen/Qwen-Image           # optional: send "model" field in generation requests
       # extra_server_args:                       # additional flags appended to sglang serve
       #   - "--mem-fraction-static"
@@ -37,7 +34,7 @@ processors:
       num_inference_steps: 30
       guidance_scale: 4.0
     parallel_inference: true
-    parallel_chunk_size: 1
+    parallel_chunk_size: 4
     output_dir: /users/qchapp/meditron/MIRAGE/tests/output/image_gen/generated_images
     file_format: png
 
@@ -47,7 +44,7 @@ loading_params:
     - path: /users/qchapp/meditron/MIRAGE/tests/mock_data_image_gen/data.jsonl
       type: JSONL
       output_dir: /users/qchapp/meditron/MIRAGE/tests/output/image_gen
-  num_shards: 4  # each Slurm task starts its own server on localhost
+  num_shards: 4  # shard workers share one MMIRAGE-launched localhost server
   shard_id: ${SLURM_ARRAY_TASK_ID}
   batch_size: 64
 

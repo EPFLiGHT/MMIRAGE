@@ -292,16 +292,17 @@ execution_params:
 
 ### Image generation: Text-to-image pipeline
 
-MMIRAGE also supports image generation with Diffusers models:
+MMIRAGE supports image generation through an already-running HTTP server:
 
 ```yaml
 processors:
   - type: image_gen
-    pipeline_args:
-      model_path: stable-diffusion-v1-5/stable-diffusion-v1-5
-      torch_dtype: float16
-      device: auto
-      enable_attention_slicing: true
+    backend: external
+    external:
+      base_url: http://127.0.0.1:30010/v1
+      timeout_seconds: 900
+      max_concurrent_requests: 4
+      request_model: null
     default_sampling_params:
       num_inference_steps: 20
       guidance_scale: 7.5

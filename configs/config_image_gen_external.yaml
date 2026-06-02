@@ -1,19 +1,19 @@
-# Local Diffusers image generation example
-# Runs an in-process Diffusers pipeline from a local model path.
+# External HTTP image generation server example
+# The server is already running; MMIRAGE only sends image-generation requests.
 
 processors:
   - type: image_gen
-    backend: diffusers
-    pipeline_args:
-      model_path: stable-diffusion-v1-5/stable-diffusion-v1-5
-      device: auto                 # auto: multi-GPU via device_map, single GPU, or CPU
-      torch_dtype: float16
-      enable_attention_slicing: false
+    backend: external
+    external:
+      base_url: http://127.0.0.1:30010/v1
+      timeout_seconds: 900
+      max_concurrent_requests: 4
+      request_model: null
     default_sampling_params:
       num_inference_steps: 30
       guidance_scale: 4.0
     parallel_inference: true
-    parallel_chunk_size: 4        # samples per batched GPU call
+    parallel_chunk_size: 4        # prompts grouped per processor call
     output_dir: /users/qchapp/meditron/MIRAGE/tests/output/image_gen/generated_images
     file_format: png
 

@@ -24,112 +24,53 @@ class ImageOutputMode(str, Enum):
 
 
 @dataclass
-class DiffusersPipelineArgs:
-    """Runtime arguments used to initialize a Diffusers pipeline.
+class ExternalImageBackendConfig:
+    """HTTP client configuration for an already-running image server."""
 
-    Attributes:
-        model_path: Hugging Face model id or local path.
-        revision: Optional model revision (branch / tag / commit SHA).
-        variant: Optional file variant, e.g. ``"fp16"`` for ``*.fp16.safetensors``.
-        torch_dtype: Torch dtype as string. Common values: ``"float16"``,
-            ``"bfloat16"``, ``"float32"``, ``"auto"``.
-        device: Target device: ``"auto"``, ``"cuda"``, ``"cpu"``, or an
-            explicit device string such as ``"cuda:1"``.
-            ``"auto"`` distributes across all available GPUs when more than
-            one is present (via ``device_map='auto'``), or falls back to CPU.
-        enable_attention_slicing: Enable attention slicing to reduce VRAM
-            usage.  Defaults to ``False`` because it can slow down modern
-            CUDA setups; enable only when VRAM is constrained.
-        local_files_only: If ``True``, only load from local cache; never
-            contact the HuggingFace Hub.  Useful for air-gapped clusters.
-        cache_dir: Override the HuggingFace cache directory.
-        trust_remote_code: Allow custom model code from the Hub repository.
-        custom_pipeline: Custom pipeline module name forwarded to
-            ``from_pretrained``.
-    """
+    base_url: str
+    api_key: str = "EMPTY"
+    timeout_seconds: int = 900
+    request_model: Optional[str] = None
+    max_concurrent_requests: int = 1
 
-    model_path: str = "stable-diffusion-v1-5/stable-diffusion-v1-5"
-    revision: Optional[str] = None
-    variant: Optional[str] = None
-    torch_dtype: str = "float16"
-    device: str = "auto"
-    enable_attention_slicing: bool = False
-    local_files_only: bool = False
-    cache_dir: Optional[str] = None
-    trust_remote_code: bool = False
-    custom_pipeline: Optional[str] = None
+    def __post_init__(self) -> None:
+        if not self.base_url.strip():
+            raise ValueError("external.base_url must be non-empty")
+        if self.max_concurrent_requests < 1:
+            raise ValueError(
+                f"max_concurrent_requests must be a positive integer, got {self.max_concurrent_requests!r}."
+            )
 
 
 @dataclass
 class SGLangBackendConfig:
-    """Configuration for the SGLang Diffusion server backend.
-
-    Two launch modes are supported:
-
-    - ``external`` — MMIRAGE connects to an already-running SGLang server.
-      The user is responsible for starting it before the pipeline runs.
-    - ``managed`` — MMIRAGE spawns a local SGLang server as a subprocess,
-      waits for it to become ready, and shuts it down when the shard finishes.
-      This requires ``model_path`` and SGLang to be installed.
-
-    Attributes:
-        launch_mode: ``"managed"`` (default) or ``"external"``.
-        base_url: Base URL of the server (``http://host:port/v1``).  Ignored
-            when ``launch_mode='managed'`` and ``port`` is set; inferred
-            automatically in that case.
-        api_key: ``Authorization: Bearer`` key.  ``"EMPTY"`` for local servers.
-        timeout_seconds: Per-request HTTP timeout in seconds.
-        model_path: HuggingFace model ID or local path used to launch the
-            SGLang server.  Required for ``launch_mode='managed'``.
-        request_model: Optional model name sent as ``"model"`` in each image
-            generation request payload.  When ``None`` (default) the field is
-            omitted; the server uses whatever model it is already serving.
-        port: Port the managed server should listen on.  Defaults to ``30010``.
-        num_gpus: Number of GPUs passed as ``--num-gpus`` to ``sglang serve``.
-            Defaults to ``1``.
-        dtype: Model weight dtype forwarded as ``--dtype``.  E.g. ``"float16"``.
-        startup_timeout_seconds: Maximum seconds to wait for the managed server
-            to become ready before raising an error.
-        extra_server_args: Additional CLI arguments appended verbatim to the
-            ``sglang serve`` command.
-        max_concurrent_requests: Maximum concurrent HTTP image-generation
-            requests sent to the server.  Defaults to ``1``.
-    """
-
-    launch_mode: str = "managed"
-    base_url: str = "http://127.0.0.1:30010/v1"
+    """Configuration for one MMIRAGE-launched shared SGLang server."""
     api_key: str = "EMPTY"
     timeout_seconds: int = 900
-    model_path: Optional[str] = None
+    model_path: str = ""
     request_model: Optional[str] = None
 
-    # managed-mode fields
     port: int = 30010
     num_gpus: int = 1
     dtype: Optional[str] = None
-    startup_timeout_seconds: int = 120
+    startup_timeout_seconds: int = 900
     extra_server_args: List[str] = field(default_factory=list)
     max_concurrent_requests: int = 1
 
     def __post_init__(self) -> None:
-        if self.launch_mode not in ("external", "managed"):
+        if not self.model_path:
             raise ValueError(
-                f"Unsupported SGLang launch_mode={self.launch_mode!r}. "
-                "Choose 'external' (server already running) or "
-                "'managed' (MMIRAGE starts the server automatically)."
-            )
-        if self.launch_mode == "managed" and not self.model_path:
-            raise ValueError(
-                "launch_mode='managed' requires model_path to be set so MMIRAGE "
+                "backend='sglang' requires model_path to be set so MMIRAGE "
                 "knows which model to pass to the SGLang server."
             )
         if self.max_concurrent_requests < 1:
             raise ValueError(
                 f"max_concurrent_requests must be a positive integer, got {self.max_concurrent_requests!r}."
             )
-        if self.launch_mode == "managed":
-            # Derive base_url from port so users don't have to repeat it.
-            self.base_url = f"http://127.0.0.1:{self.port}/v1"
+
+    def resolved_base_url(self) -> str:
+        """Return the HTTP client URL for the shared local server."""
+        return f"http://127.0.0.1:{self.port}/v1"
 
 
 @dataclass
@@ -137,18 +78,16 @@ class ImageGenConfig(BaseProcessorConfig):
     """Configuration for the backend-neutral image generation processor.
 
     Attributes:
-        backend: Image generation backend to use.  One of ``"diffusers"``
-            (in-process Diffusers pipeline) or ``"sglang"`` (local SGLang
-            Diffusion server).
-        pipeline_args: Diffusers pipeline arguments (used when
-            ``backend="diffusers"``).
+        backend: Image generation backend to use.  One of ``"external"`` or
+            ``"sglang"``.
+        external: HTTP client configuration for ``backend="external"``.
         sglang: SGLang server configuration (used when ``backend="sglang"``).
         default_sampling_params: Default generation kwargs forwarded to every
             pipeline/server call (e.g. ``num_inference_steps``,
             ``guidance_scale``).
         parallel_inference: If ``True``, generate a full chunk of prompts in a
-            single batched pipeline call (Diffusers backend) or concurrent
-            server calls.  Chunks that fail are retried sample-by-sample.
+            concurrent server calls. Chunks that fail are retried
+            sample-by-sample.
         parallel_chunk_size: Maximum number of samples per batched call.
             ``None`` means use the full mapper batch size.
         output_dir: Directory where generated images are written when
@@ -157,8 +96,8 @@ class ImageGenConfig(BaseProcessorConfig):
             ``"jpg"``).
     """
 
-    backend: str = "diffusers"
-    pipeline_args: DiffusersPipelineArgs = field(default_factory=DiffusersPipelineArgs)
+    backend: str = "external"
+    external: Optional[ExternalImageBackendConfig] = None
     sglang: Optional[SGLangBackendConfig] = None
     default_sampling_params: Dict[str, Any] = field(default_factory=dict)
     parallel_inference: bool = True
@@ -168,10 +107,14 @@ class ImageGenConfig(BaseProcessorConfig):
 
     def __post_init__(self) -> None:
         """Validate configuration."""
-        if self.backend not in ("diffusers", "sglang"):
+        if self.backend not in ("external", "sglang"):
             raise ValueError(
                 f"Unsupported image_gen backend={self.backend!r}. "
-                "Choose 'diffusers' or 'sglang'."
+                "Choose 'external' or 'sglang'."
+            )
+        if self.backend == "external" and self.external is None:
+            raise ValueError(
+                "backend='external' requires an 'external:' configuration block."
             )
         if self.backend == "sglang" and self.sglang is None:
             raise ValueError(
@@ -189,13 +132,6 @@ class ImageGenConfig(BaseProcessorConfig):
     def get_output_dir(self) -> str:
         """Return the normalised absolute output directory path."""
         return os.path.abspath(os.path.expanduser(self.output_dir))
-
-
-# ---------------------------------------------------------------------------
-# Backward-compatibility alias
-# ---------------------------------------------------------------------------
-#: ``DiffusersImageGenConfig`` is a legacy alias for :class:`ImageGenConfig`.
-DiffusersImageGenConfig = ImageGenConfig
 
 
 @dataclass
