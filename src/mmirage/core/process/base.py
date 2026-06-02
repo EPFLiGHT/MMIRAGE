@@ -185,6 +185,7 @@ class ProcessorRegistry:
             cls._registry[name] = clazz
             cls._config_registry[name] = config_cls
             cls._output_var_registry[name] = output_var_cls
+            return clazz
 
         return inner_register
 
