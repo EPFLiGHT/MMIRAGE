@@ -68,7 +68,15 @@ def _cast_image_columns(ds: DatasetLike, cols: List[str]) -> DatasetLike:
     and embeds the raw bytes in the Arrow file, making the shard portable.
     """
     def _normalise_col(batch: Dict[str, Any], col: str) -> Dict[str, Any]:
-        return {col: [v if v else None for v in batch[col]]}
+        normalized: List[Any] = []
+        for v in batch[col]:
+            if v is None:
+                normalized.append(None)
+            elif isinstance(v, str) and v.strip() in ("", "None"):
+                normalized.append(None)
+            else:
+                normalized.append(v)
+        return {col: normalized}
 
     if isinstance(ds, DatasetDict):
         for col in cols:
