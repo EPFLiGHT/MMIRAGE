@@ -30,7 +30,7 @@ loading_params:
 processing_params:
   inputs:
     - name: text
-      key: caption
+      key: text
 
   outputs:
     - name: generated_image

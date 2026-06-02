@@ -7,8 +7,11 @@ import logging
 import os
 import subprocess
 import sys
+from contextlib import ExitStack
+from pathlib import Path
 from typing import List
 
+from mmirage.cli_utils.runtime import expand_path, get_project_root
 from mmirage.config.utils import load_mmirage_config
 from mmirage.core.process.processors.image_gen.sglang_server import (
     get_sglang_server_config,
@@ -31,6 +34,10 @@ def _parse_shard_ids(raw_value: str, num_shards: int) -> List[int]:
 
 def main() -> None:
     """Launch one shared server and run all requested shard workers against it."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     ap = argparse.ArgumentParser("Run shared-SGLang MMIRAGE shard workers.")
     ap.add_argument("--config", required=True)
     ap.add_argument("--shard-ids", default="")
@@ -43,13 +50,28 @@ def main() -> None:
 
     shard_ids = _parse_shard_ids(args.shard_ids, cfg.loading_params.get_num_shards())
     processes: List[subprocess.Popen[bytes]] = []
-    with shared_sglang_server(sglang):
+    report_dir = Path(expand_path(cfg.execution_params.report_dir, get_project_root(cfg)))
+    report_dir.mkdir(parents=True, exist_ok=True)
+    job_id = os.environ.get("SLURM_JOB_ID", "local")
+    log_prefix = f"R-{cfg.execution_params.job_name}.{job_id}"
+
+    with shared_sglang_server(sglang), ExitStack() as stack:
         for shard_id in shard_ids:
             env = os.environ.copy()
             env["SLURM_ARRAY_TASK_ID"] = str(shard_id)
             command = [sys.executable, "-m", "mmirage.shard_process", "--config", args.config]
-            logger.info("Starting shard worker %d: %s", shard_id, " ".join(command))
-            processes.append(subprocess.Popen(command, env=env))
+            stdout_path = report_dir / f"{log_prefix}_{shard_id}.out"
+            stderr_path = report_dir / f"{log_prefix}_{shard_id}.err"
+            stdout = stack.enter_context(stdout_path.open("w", encoding="utf-8"))
+            stderr = stack.enter_context(stderr_path.open("w", encoding="utf-8"))
+            logger.info(
+                "Starting shard worker %d: %s (stdout=%s, stderr=%s)",
+                shard_id,
+                " ".join(command),
+                stdout_path,
+                stderr_path,
+            )
+            processes.append(subprocess.Popen(command, env=env, stdout=stdout, stderr=stderr))
 
         return_codes = [proc.wait() for proc in processes]
 
