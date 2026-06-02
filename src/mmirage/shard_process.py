@@ -50,6 +50,7 @@ def _image_path_schema_cols(
         v.name
         for v in output_vars
         if getattr(v, "output_mode", None) == "path"
+        or getattr(getattr(v, "output_mode", None), "value", None) == "path"
     }
     return [
         key
