@@ -204,88 +204,12 @@ def main():
         )
         renderer = TemplateRenderer(processing_params.output_schema)
 
-<<<<<<< HEAD
-        # Start GPU polling after model loading so utilisation samples reflect
-        # inference only, not weight transfers during sgl.Engine() init.
-        if collect_stats and gpu_poller is not None:
-            gpu_poller.start()
-
-        ds_processed_all: List[DatasetLike] = []
-        for ds_idx, ds_shard in enumerate(ds_all_shard):
-            ds_config = datasets_config[ds_idx]
-            if processing_params.remove_columns:
-                remove_columns = _remove_columns(ds_shard)
-            else:
-                remove_columns = []
-
-            logger.info(
-                f"Processing dataset {ds_idx} for shard {shard_id}: "
-                f"image_base_path={ds_config.image_base_path}, output_dir={ds_config.output_dir}"
-            )
-
-            ds_processed = ds_shard.map(
-                rewrite_batch,
-                batched=True,
-                batch_size=loading_params.get_batch_size(),
-                load_from_cache_file=False,
-                desc=f"Shard {shard_id}/{last_shard_id} dataset {ds_idx}",
-                fn_kwargs={
-                    "mapper": mapper,
-                    "renderer": renderer,
-                    "image_base_path": ds_config.image_base_path,
-                },
-                remove_columns=remove_columns,
-            )
-            # Drain stateful batch accumulators once this dataset map iteration finishes.
-            mapper.finalize_processors()
-
-            image_cols = _image_path_schema_cols(
-                processing_params.outputs,
-                processing_params.output_schema,
-                renderer,
-            )
-            if image_cols:
-                ds_processed = _cast_image_columns(ds_processed, image_cols)
-                logger.info(f"Cast image column(s) to HF Image feature: {image_cols}")
-
-            ds_processed_all.append(ds_processed)
-
-        for ds_idx, (ds_config, ds_processed) in enumerate(zip(datasets_config, ds_processed_all)):
-            out_dir = _dataset_out_dir(shard_id, ds_config)
-            _save_dataset_atomic(ds_processed, out_dir)
-            logger.info(f"✅ Saved dataset {ds_idx} shard in: {out_dir}")
-
-        gpu_info = gpu_poller.stop() if collect_stats and gpu_poller is not None else {"mean": None, "min": None, "max": None, "samples": 0}
-
-        # Collect token counts accumulated by LLM processor(s).
-        token_counts = mapper.get_token_counts()
-        input_tokens = token_counts.input_tokens or None
-        output_tokens = token_counts.output_tokens or None
-        model_load_seconds = mapper.get_load_time() or None
-
-        # Resolve num_gpus from the first processor config that exposes tp_size.
-        num_gpus: Optional[int] = None
-        for proc_cfg in cfg.processors:
-            tp = getattr(getattr(proc_cfg, "server_args", None), "tp_size", None)
-            if tp and tp > 0:
-                num_gpus = int(tp)
-                break
-
-        stats = ShardStats(
-            rows_processed=shard_rows,
-            gpu_util_mean=gpu_info["mean"],
-            gpu_util_min=gpu_info["min"],
-            gpu_util_max=gpu_info["max"],
-            gpu_util_samples=gpu_info["samples"],
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            num_gpus=num_gpus,
-            model_load_seconds=model_load_seconds,
-        )
-        _mark_success(state_dir, stats=stats)
-        logger.info(f"✅ Logical shard {shard_id} completed successfully")
-=======
         try:
+            # Start GPU polling after model loading so utilisation samples reflect
+            # inference only, not weight transfers during sgl.Engine() init.
+            if collect_stats and gpu_poller is not None:
+                gpu_poller.start()
+
             ds_processed_all: List[DatasetLike] = []
             for ds_idx, ds_shard in enumerate(ds_all_shard):
                 ds_config = datasets_config[ds_idx]
@@ -296,7 +220,7 @@ def main():
 
                 logger.info(
                     f"Processing dataset {ds_idx} for shard {shard_id}: "
-                    f"path={ds_config.path}, output_dir={ds_config.output_dir}"
+                    f"image_base_path={ds_config.image_base_path}, output_dir={ds_config.output_dir}"
                 )
 
                 ds_processed = ds_shard.map(
@@ -312,6 +236,8 @@ def main():
                     },
                     remove_columns=remove_columns,
                 )
+                # Drain stateful batch accumulators once this dataset map iteration finishes.
+                mapper.finalize_processors()
 
                 image_cols = _image_path_schema_cols(
                     processing_params.outputs,
@@ -329,13 +255,39 @@ def main():
                 _save_dataset_atomic(ds_processed, out_dir)
                 logger.info(f"✅ Saved dataset {ds_idx} shard in: {out_dir}")
 
-            _mark_success(state_dir)
+            gpu_info = gpu_poller.stop() if collect_stats and gpu_poller is not None else {"mean": None, "min": None, "max": None, "samples": 0}
+
+            # Collect token counts accumulated by LLM processor(s).
+            token_counts = mapper.get_token_counts()
+            input_tokens = token_counts.input_tokens or None
+            output_tokens = token_counts.output_tokens or None
+            model_load_seconds = mapper.get_load_time() or None
+
+            # Resolve num_gpus from the first processor config that exposes tp_size.
+            num_gpus: Optional[int] = None
+            for proc_cfg in cfg.processors:
+                tp = getattr(getattr(proc_cfg, "server_args", None), "tp_size", None)
+                if tp and tp > 0:
+                    num_gpus = int(tp)
+                    break
+
+            stats = ShardStats(
+                rows_processed=shard_rows,
+                gpu_util_mean=gpu_info["mean"],
+                gpu_util_min=gpu_info["min"],
+                gpu_util_max=gpu_info["max"],
+                gpu_util_samples=gpu_info["samples"],
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                num_gpus=num_gpus,
+                model_load_seconds=model_load_seconds,
+            )
+            _mark_success(state_dir, stats=stats)
             logger.info(f"✅ Logical shard {shard_id} completed successfully")
 
         finally:
             mapper.shutdown()
             logger.info("Processors shut down.")
->>>>>>> e0481ae (new backends to test on cluster)
 
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
