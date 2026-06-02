@@ -9,11 +9,12 @@ import re
 import socket
 import tempfile
 import uuid
+import time
 from typing import Any, Dict, List, Optional
 
 import jinja2
 
-from mmirage.core.process.base import BaseProcessor, ProcessorRegistry
+from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCounts
 from mmirage.core.process.processors.image_gen.backends.base import ImageGenerationBackend
 from mmirage.core.process.processors.image_gen.config import (
     ImageGenConfig,
@@ -98,7 +99,9 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
     def __init__(self, config: ImageGenConfig, shard_id: int = 0, **kwargs) -> None:
         super().__init__(config, shard_id=shard_id, **kwargs)
 
+        _load_start = time.monotonic()
         self._backend: ImageGenerationBackend = _create_backend(config)
+        self._model_load_seconds = time.monotonic() - _load_start
         self._default_sampling_params = dict(config.default_sampling_params)
         self._parallel_inference = config.parallel_inference
         self._parallel_chunk_size = config.parallel_chunk_size
@@ -421,6 +424,20 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
             negative_prompt_template,
             filename_template,
         )
+    
+    @override
+    def get_token_counts(self) -> TokenCounts:
+        """Return token counts for this processor.
+
+        Image generation does not produce LLM token accounting, so this
+        processor always reports zero tokens.
+        """
+        return TokenCounts(input_tokens=0, output_tokens=0)
+
+    @override
+    def get_load_time(self) -> float:
+        """Return the time spent initializing the image generation backend."""
+        return self._model_load_seconds
 
     @override
     def shutdown(self) -> None:
