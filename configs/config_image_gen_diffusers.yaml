@@ -107,7 +107,7 @@ execution_params:
   hf_home: "/capstor/store/cscs/swissai/a127/homes/${USER}/hf"
 
   # EDF environment file path for cluster-specific setup
-  edf_env: "/users/${USER}/.edf/sglang.toml"
+  edf_env: "/users/${USER}/.edf/mmirage.toml"
 
   # ==========================================================================
   # JOB MONITORING (for "submit" and retry orchestration)
