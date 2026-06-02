@@ -114,6 +114,13 @@ class BaseProcessor(abc.ABC, Generic[C]):
         """
         raise NotImplementedError()
 
+    def shutdown(self) -> None:
+        """Release any resources held by this processor.
+
+        Override in subclasses that hold GPU memory, open file handles, or
+        network connections.  The default implementation is a no-op.
+        """
+
 
 class ProcessorRegistry:
     """Registry for managing and accessing available processors.

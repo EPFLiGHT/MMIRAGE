@@ -204,6 +204,7 @@ def main():
         )
         renderer = TemplateRenderer(processing_params.output_schema)
 
+<<<<<<< HEAD
         # Start GPU polling after model loading so utilisation samples reflect
         # inference only, not weight transfers during sgl.Engine() init.
         if collect_stats and gpu_poller is not None:
@@ -283,6 +284,58 @@ def main():
         )
         _mark_success(state_dir, stats=stats)
         logger.info(f"✅ Logical shard {shard_id} completed successfully")
+=======
+        try:
+            ds_processed_all: List[DatasetLike] = []
+            for ds_idx, ds_shard in enumerate(ds_all_shard):
+                ds_config = datasets_config[ds_idx]
+                if processing_params.remove_columns:
+                    remove_columns = _remove_columns(ds_shard)
+                else:
+                    remove_columns = []
+
+                logger.info(
+                    f"Processing dataset {ds_idx} for shard {shard_id}: "
+                    f"path={ds_config.path}, output_dir={ds_config.output_dir}"
+                )
+
+                ds_processed = ds_shard.map(
+                    rewrite_batch,
+                    batched=True,
+                    batch_size=loading_params.get_batch_size(),
+                    load_from_cache_file=False,
+                    desc=f"Shard {shard_id}/{last_shard_id} dataset {ds_idx}",
+                    fn_kwargs={
+                        "mapper": mapper,
+                        "renderer": renderer,
+                        "image_base_path": ds_config.image_base_path,
+                    },
+                    remove_columns=remove_columns,
+                )
+
+                image_cols = _image_path_schema_cols(
+                    processing_params.outputs,
+                    processing_params.output_schema,
+                    renderer,
+                )
+                if image_cols:
+                    ds_processed = _cast_image_columns(ds_processed, image_cols)
+                    logger.info(f"Cast image column(s) to HF Image feature: {image_cols}")
+
+                ds_processed_all.append(ds_processed)
+
+            for ds_idx, (ds_config, ds_processed) in enumerate(zip(datasets_config, ds_processed_all)):
+                out_dir = _dataset_out_dir(shard_id, ds_config)
+                _save_dataset_atomic(ds_processed, out_dir)
+                logger.info(f"✅ Saved dataset {ds_idx} shard in: {out_dir}")
+
+            _mark_success(state_dir)
+            logger.info(f"✅ Logical shard {shard_id} completed successfully")
+
+        finally:
+            mapper.shutdown()
+            logger.info("Processors shut down.")
+>>>>>>> e0481ae (new backends to test on cluster)
 
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"

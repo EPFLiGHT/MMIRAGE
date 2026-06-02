@@ -108,6 +108,7 @@ class MMIRAGEMapper:
 
         return batch_environment
 
+<<<<<<< HEAD
     def get_token_counts(self) -> TokenCounts:
         """Return cumulative token counts aggregated across all LLM processors.
 
@@ -138,3 +139,9 @@ class MMIRAGEMapper:
         """Finalize processors that expose a finalize lifecycle hook."""
         for processor in self.processors.values():
             processor.finalize()
+=======
+    def shutdown(self) -> None:
+        """Shut down all processors and release their resources."""
+        for processor in self.processors.values():
+            processor.shutdown()
+>>>>>>> e0481ae (new backends to test on cluster)

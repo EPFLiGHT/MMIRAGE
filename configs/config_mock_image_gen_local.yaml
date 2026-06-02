@@ -1,10 +1,11 @@
 processors:
   - type: image_gen
+    backend: diffusers
     pipeline_args:
       model_path: stable-diffusion-v1-5/stable-diffusion-v1-5
       torch_dtype: float16
       device: auto
-      enable_attention_slicing: true
+      enable_attention_slicing: false
     default_sampling_params:
       num_inference_steps: 20
       guidance_scale: 7.5
