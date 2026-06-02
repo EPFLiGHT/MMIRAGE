@@ -64,7 +64,6 @@ def _create_backend(config: ImageGenConfig) -> ImageGenerationBackend:
                 timeout_seconds=sglang.timeout_seconds,
                 startup_timeout_seconds=sglang.startup_timeout_seconds,
                 extra_server_args=tuple(sglang.extra_server_args),
-                env=sglang.server_env or None,
                 max_concurrent_requests=sglang.max_concurrent_requests,
             )
             return SGLangImageBackend.from_managed_config(managed_cfg)

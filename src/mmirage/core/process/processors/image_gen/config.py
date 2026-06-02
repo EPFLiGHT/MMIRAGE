@@ -73,7 +73,7 @@ class SGLangBackendConfig:
       This requires ``model_path`` and SGLang to be installed.
 
     Attributes:
-        launch_mode: ``"external"`` or ``"managed"`` (default).
+        launch_mode: ``"managed"`` (default) or ``"external"``.
         base_url: Base URL of the server (``http://host:port/v1``).  Ignored
             when ``launch_mode='managed'`` and ``port`` is set; inferred
             automatically in that case.
@@ -83,19 +83,17 @@ class SGLangBackendConfig:
             SGLang server.  Required for ``launch_mode='managed'``.
         request_model: Optional model name sent as ``"model"`` in each image
             generation request payload.  When ``None`` (default) the field is
-            omitted and the server uses whatever model it is already serving.
+            omitted; the server uses whatever model it is already serving.
         port: Port the managed server should listen on.  Defaults to ``30010``.
-        num_gpus: Number of GPUs (``--num-gpus``).  Defaults to ``1``.
+        num_gpus: Number of GPUs passed as ``--num-gpus`` to ``sglang serve``.
+            Defaults to ``1``.
         dtype: Model weight dtype forwarded as ``--dtype``.  E.g. ``"float16"``.
         startup_timeout_seconds: Maximum seconds to wait for the managed server
             to become ready before raising an error.
         extra_server_args: Additional CLI arguments appended verbatim to the
             ``sglang serve`` command.
-        server_env: Extra environment variables forwarded to the SGLang server
-            subprocess.  Use this to set ``HF_HOME``, ``TRITON_CACHE_DIR``,
-            etc., on clusters with non-standard cache layouts.
-        max_concurrent_requests: Maximum number of concurrent HTTP image
-            generation requests sent to the server.  Defaults to ``1``.
+        max_concurrent_requests: Maximum concurrent HTTP image-generation
+            requests sent to the server.  Defaults to ``1``.
     """
 
     launch_mode: str = "managed"
@@ -111,7 +109,6 @@ class SGLangBackendConfig:
     dtype: Optional[str] = None
     startup_timeout_seconds: int = 120
     extra_server_args: List[str] = field(default_factory=list)
-    server_env: Dict[str, str] = field(default_factory=dict)
     max_concurrent_requests: int = 1
 
     def __post_init__(self) -> None:

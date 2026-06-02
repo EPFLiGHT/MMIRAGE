@@ -28,26 +28,16 @@ processors:
       startup_timeout_seconds: 900               # seconds to wait for the server to become ready
       timeout_seconds: 900
       max_concurrent_requests: 1
-      # request_model: Qwen/Qwen-Image           # optional: include "model" in generation requests
-      # extra_server_args:                       # any additional --flags for sglang serve
+      # request_model: Qwen/Qwen-Image           # optional: send "model" field in generation requests
+      # extra_server_args:                       # additional flags appended to sglang serve
       #   - "--mem-fraction-static"
       #   - "0.9"
       api_key: EMPTY                             # unauthenticated local server
-
-      # Cluster-specific cache paths — avoids SGLang/Triton/HF falling back to
-      # /users/... which is read-only on Clariden.  Edit for your cluster.
-      server_env:
-        HOME: /capstor/store/cscs/swissai/a127/homes/qchapp/runtime_home
-        HF_HOME: /capstor/store/cscs/swissai/a127/homes/qchapp/hf
-        XDG_CACHE_HOME: /capstor/store/cscs/swissai/a127/homes/qchapp/runtime_home/.cache
-        TRITON_CACHE_DIR: /capstor/store/cscs/swissai/a127/homes/qchapp/runtime_home/.cache/triton
-        TORCH_EXTENSIONS_DIR: /capstor/store/cscs/swissai/a127/homes/qchapp/runtime_home/.cache/torch_extensions
-
     default_sampling_params:
       num_inference_steps: 30
       guidance_scale: 4.0
     parallel_inference: true
-    parallel_chunk_size: 1        # increase to 4 once single-prompt tests pass; set max_concurrent_requests: 4 too
+    parallel_chunk_size: 1
     output_dir: /users/qchapp/meditron/MIRAGE/tests/output/image_gen/generated_images
     file_format: png
 
@@ -57,12 +47,9 @@ loading_params:
     - path: /users/qchapp/meditron/MIRAGE/tests/mock_data_image_gen/data.jsonl
       type: JSONL
       output_dir: /users/qchapp/meditron/MIRAGE/tests/output/image_gen
-  num_shards: 1  # start with 1 shard; each shard launches its own server on port 30010
+  num_shards: 4  # each Slurm task starts its own server on localhost
   shard_id: ${SLURM_ARRAY_TASK_ID}
   batch_size: 64
-  # NOTE: if running multiple shards on the same node, set distinct ports to avoid collisions, e.g.:
-  #   export MMIRAGE_SGLANG_PORT=$((30010 + SLURM_ARRAY_TASK_ID))
-  # and reference it in sglang.port: ${MMIRAGE_SGLANG_PORT}
 
 processing_params:
   inputs:
