@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import logging
 import os
 import shutil
 import signal
 import subprocess
+import sys
 import threading
 import time
 import urllib.error
@@ -84,24 +84,24 @@ def launch_sglang_server(config: SGLangBackendConfig) -> subprocess.Popen[bytes]
 
 def _require_sglang_diffusion_installation() -> None:
     """Raise an actionable error when the active SGLang install lacks diffusion."""
-    try:
-        spec = importlib.util.find_spec("sglang.multimodal_gen")
-    except (AttributeError, ImportError, KeyError, ValueError) as exc:
+    command = [
+        sys.executable,
+        "-c",
+        "import sglang.multimodal_gen.runtime.entrypoints.cli.serve",
+    ]
+    result = subprocess.run(
+        command,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
         raise RuntimeError(
-            "The active SGLang installation is incomplete or inconsistent: "
-            "`sglang.multimodal_gen` could not be imported. Install the SGLang "
-            "diffusion dependencies in the environment used by the MMIRAGE job "
-            "with `pip install -e '.[image_gen]'`, or directly with "
-            "`uv pip install 'sglang[diffusion]==0.5.10'`."
-        ) from exc
-
-    if spec is None:
-        raise RuntimeError(
-            "The active SGLang installation does not include "
-            "`sglang.multimodal_gen`. Install the SGLang diffusion dependencies "
-            "in the environment used by the MMIRAGE job with "
-            "`pip install -e '.[image_gen]'`, or directly with "
-            "`uv pip install 'sglang[diffusion]==0.5.10'`."
+            "The active SGLang 0.5.10 installation cannot import its diffusion "
+            "server. Rebuild the EDF environment with a consistent "
+            "`sglang[diffusion]==0.5.10` installation and verify it with "
+            "`python -c \"import sglang.multimodal_gen.runtime.entrypoints.cli.serve\"`. "
+            f"Import check output:\n{result.stderr.strip()}"
         )
 
 
