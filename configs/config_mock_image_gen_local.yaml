@@ -50,5 +50,5 @@ execution_params:
   mode: local
   retry: false
   merge: false
-  report_dir: ~/reports
-  hf_home: ~/hf
+  report_dir: "/users/${USER}/reports"
+  hf_home: "/capstor/store/cscs/swissai/a127/homes/${USER}/hf"

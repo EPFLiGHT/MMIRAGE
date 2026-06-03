@@ -14,15 +14,15 @@ processors:
       guidance_scale: 4.0
     parallel_inference: true
     parallel_chunk_size: 4        # prompts grouped per processor call
-    output_dir: /users/qchapp/meditron/MIRAGE/tests/output/image_gen/generated_images
+    output_dir: tests/output/image_gen/generated_images
     file_format: png
 
 loading_params:
-  state_dir: /users/qchapp/meditron/MIRAGE/tests/output/image_gen/_pipeline_state
+  state_dir: tests/output/image_gen/_pipeline_state
   datasets:
-    - path: /users/qchapp/meditron/MIRAGE/tests/mock_data_image_gen/data.jsonl
+    - path: tests/mock_data_image_gen/data.jsonl
       type: JSONL
-      output_dir: /users/qchapp/meditron/MIRAGE/tests/output/image_gen
+      output_dir: tests/output/image_gen
   num_shards: 4  # set by Slurm array job
   shard_id: ${SLURM_ARRAY_TASK_ID}       # set by Slurm array job
   batch_size: 64
