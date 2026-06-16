@@ -188,7 +188,6 @@ class ProcessorRegistry:
             return clazz
 
 
-
         return inner_register
 
     @classmethod
