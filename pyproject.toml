@@ -7,44 +7,44 @@ name = "mmirage"
 version = "0.1.4"
 description = "Modular Multimodal Intelligent Reformatting and Augmentation Generation Engine - Advanced platform for processing datasets using generative models including vision-language models."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [{ name = "Meditron team" }]
 
-# Core runtime deps for your scripts
 dependencies = [
-  "transformers>=4.46.0",
-  "pyzmq",
-  "uvloop<0.22; platform_system != 'Windows'",
-  "fastapi",
-  "openai>=1.0.0",
-  "partial_json_parser",
-  "sentencepiece",
-  "msgspec",
-  "nest_asyncio",
-  "PyYAML",
-  "json-repair",
-  "tqdm",
-  "datasets>=3.0.0",
-  "pyarrow>=12",
-  "huggingface_hub>=0.24",
-  "numpy",
-  "fsspec",
-  "dacite>=1.6.0",
-  "pydantic>=2.12",
-  "jmespath",
-  "jinja2>=3.0.0",
-  "pillow>=9.0.0",
-  "typing_extensions>=4.5.0; python_version < '3.12'",
-  "humanize>=4.0.0",
+  "transformers==5.3.0",
+  "pyzmq==27.1.0",
+  "uvloop==0.21.0; platform_system != 'Windows'",
+  "fastapi==0.136.1",
+  "partial-json-parser==0.2.1.1.post7",
+  "sentencepiece==0.2.1",
+  "msgspec==0.21.1",
+  "nest-asyncio==1.6.0",
+  "pyyaml==6.0.3",
+  "json-repair==0.59.8",
+  "tqdm==4.67.3",
+  "datasets==4.8.5",
+  "pyarrow==24.0.0",
+  "huggingface-hub==1.14.0",
+  "numpy==2.3.5",
+  "fsspec==2026.2.0",
+  "dacite==1.9.2",
+  "pydantic==2.13.4",
+  "jmespath==1.1.0",
+  "jinja2==3.1.6",
+  "pillow==12.1.1",
+  "typing-extensions==4.15.0",
+  "humanize==4.15.0",
+  "openai==2.6.1",
 ]
 
 [project.optional-dependencies]
 gpu = [
   "sglang==0.5.10",
-  "sgl_kernel",
-  "xgrammar",
-  "compressed_tensors",
+  "sgl-kernel==0.3.21",
+  "xgrammar==0.1.32",
+  "compressed-tensors==0.15.0.1",
 ]
+
 dev = [
   "ruff>=0.5.0",
   "black>=24.3.0",
