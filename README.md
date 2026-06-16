@@ -10,7 +10,11 @@ MMIRAGE, which stands for **M**odular **M**ultimodal **I**ntelligent **R**eforma
 
 ## How to install
 
-To install the library, clone it from GitHub and install it with pip. The base install does not include the local SGLang runtime:
+To install the library, clone it from GitHub and install it with pip.
+
+### Base install
+
+The base install does **not** include the local SGLang runtime:
 
 ```bash
 git clone git@github.com:EPFLiGHT/MMIRAGE.git
@@ -18,7 +22,30 @@ cd MMIRAGE
 pip install -e .
 ```
 
-Install the GPU extra when using the SGLang-backed `llm` processor for local GPU inference:
+### GPU install (SGLang-backed `llm` processor)
+
+MMIRAGE requires a **CUDA-enabled PyTorch installation** before installing the GPU extra.
+
+Install a PyTorch build matching your CUDA runtime (example for CUDA 12.9):
+
+```bash
+pip install --index-url https://download.pytorch.org/whl/cu129 \
+  torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1
+```
+
+Verify CUDA is available:
+
+```bash
+python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
+```
+
+Expected output should include:
+
+- `+cu129`
+- `12.9`
+- `True` (when run on a GPU node)
+
+Then install MMIRAGE GPU support:
 
 ```bash
 pip install -e ".[gpu]"
@@ -30,7 +57,12 @@ Install the SGLang diffusion extra when MMIRAGE should launch an image-generatio
 pip install -e ".[image_gen]"
 ```
 
-For testing and scripts that make use of the library, it is advised to create a .env file:
+> **Note:** On some platforms (e.g. clusters or ARM/aarch64), `pip install -e ".[gpu]"` alone may resolve to a CPU-only PyTorch build.
+
+### Environment file
+
+For testing and scripts that make use of the library, it is advised to create a `.env` file:
+
 ```bash
 ./scripts/generate_env.sh
 ```
