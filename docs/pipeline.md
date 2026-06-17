@@ -183,7 +183,7 @@ reading state files.
 | Mode | How shards run | Orchestrator |
 |---|---|---|
 | `local` | Runs a single shard locally (defaults to shard 0; select with `--shard-id`) | Python CLI loop |
-| `slurm` | sbatch array, one task per shard on dedicated nodes | Polls `sacct` |
+| `slurm` | sbatch array, one task per shard on dedicated nodes | Polls `squeue` |
 
 ---
 
