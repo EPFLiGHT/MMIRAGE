@@ -95,7 +95,7 @@ class SGLangImageBackend:
         self,
         prompts: Sequence[str],
         negative_prompts: Optional[Sequence[Optional[str]]] = None,
-        params: Optional[Mapping[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
         seeds: Optional[Sequence[Optional[int]]] = None,
     ) -> List[Any]:
         """Generate one image per prompt and return PIL Images."""
