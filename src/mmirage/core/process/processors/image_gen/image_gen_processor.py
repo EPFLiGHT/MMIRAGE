@@ -409,14 +409,14 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                 negative_prompt_template,
                 filename_template,
             )
-
-        return self._batch_process_sequential(
-            batch,
-            output_var,
-            prompt_template,
-            negative_prompt_template,
-            filename_template,
-        )
+        else:
+            return self._batch_process_sequential(
+                batch,
+                output_var,
+                prompt_template,
+                negative_prompt_template,
+                filename_template,
+            )
     
     @override
     def get_token_counts(self) -> TokenCounts:
