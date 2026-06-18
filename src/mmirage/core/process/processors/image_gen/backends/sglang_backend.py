@@ -242,7 +242,7 @@ class SGLangImageBackend:
         return payload
 
     @staticmethod
-    def _extract_size(params: Mapping[str, Any]) -> Optional[str]:
+    def _extract_size(params: Dict[str, Any]) -> Optional[str]:
         if params.get("size"):
             return str(params["size"])
 
