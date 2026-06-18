@@ -168,7 +168,7 @@ class SGLangImageBackend:
         *,
         prompt: str,
         negative_prompt: Optional[str],
-        params: Mapping[str, Any],
+        params: Dict[str, Any],
         seed: Optional[int],
     ) -> JsonDict:
         if not prompt or not prompt.strip():
