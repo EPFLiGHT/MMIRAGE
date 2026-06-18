@@ -50,7 +50,7 @@ class SGLangBackendConfig:
     model_path: str = ""
     request_model: Optional[str] = None
 
-    port: int = 30010
+    port: Optional[int] = None
     num_gpus: int = 1
     dtype: Optional[str] = None
     startup_timeout_seconds: int = 900
@@ -70,6 +70,8 @@ class SGLangBackendConfig:
 
     def resolved_base_url(self) -> str:
         """Return the HTTP client URL for the shared local server."""
+        if self.port is None:
+            raise RuntimeError("SGLang server port has not been resolved yet.")
         return f"http://127.0.0.1:{self.port}/v1"
 
 

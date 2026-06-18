@@ -4,7 +4,9 @@
 #
 #   backend: sglang
 #     MMIRAGE starts one shared SGLang server for the run, waits until it is
-#     ready, runs all shard workers against it, and shuts it down afterwards.
+#     ready, publishes the local base URL internally, runs all shard workers
+#     against it, and shuts it down afterwards. The localhost port is selected
+#     automatically; MMIRAGE skips occupied ports.
 #
 #   backend: external
 #     You provide an already-running HTTP image generation server URL in an
@@ -19,7 +21,6 @@ processors:
     backend: sglang
     sglang:
       model_path: Qwen/Qwen-Image
-      port: 30010
       num_gpus: 1
       # dtype: float16                           # optional: --dtype flag
       startup_timeout_seconds: 900               # seconds to wait for the server to become ready

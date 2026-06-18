@@ -7,6 +7,7 @@ import logging
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -23,6 +24,8 @@ from mmirage.core.process.processors.image_gen.config import SGLangBackendConfig
 logger = logging.getLogger(__name__)
 
 MMIRAGE_SGLANG_BASE_URL = "MMIRAGE_SGLANG_BASE_URL"
+DEFAULT_SGLANG_PORT = 30010
+SGLANG_PORT_SEARCH_ATTEMPTS = 100
 
 
 def get_sglang_server_config(cfg: Any) -> Optional[SGLangBackendConfig]:
@@ -42,6 +45,8 @@ def get_sglang_server_config(cfg: Any) -> Optional[SGLangBackendConfig]:
 
 def launch_sglang_server(config: SGLangBackendConfig) -> subprocess.Popen[bytes]:
     """Launch the shared SGLang Diffusion server."""
+    if config.port is None:
+        raise RuntimeError("SGLang server port must be resolved before launch.")
     executable = shutil.which("sglang")
     if executable is None:
         raise RuntimeError(
@@ -110,6 +115,8 @@ def wait_for_sglang_server(
     config: SGLangBackendConfig,
 ) -> None:
     """Wait until the shared SGLang server reports readiness."""
+    if config.port is None:
+        raise RuntimeError("SGLang server port must be resolved before readiness checks.")
     server_root = f"http://127.0.0.1:{config.port}"
     candidate_urls = (
         f"{server_root}/models",
@@ -188,18 +195,93 @@ def shared_sglang_server(config: Optional[SGLangBackendConfig]) -> Iterator[None
         yield
         return
 
-    proc = launch_sglang_server(config)
     previous_base_url = os.environ.get(MMIRAGE_SGLANG_BASE_URL)
+    previous_port = config.port
+    attempted_ports: set[int] = set()
+    last_error: Optional[BaseException] = None
+
     try:
-        wait_for_sglang_server(proc, config)
-        os.environ[MMIRAGE_SGLANG_BASE_URL] = config.resolved_base_url()
-        yield
+        while len(attempted_ports) < SGLANG_PORT_SEARCH_ATTEMPTS:
+            port = _next_available_port(config, attempted_ports)
+            config.port = port
+            attempted_ports.add(port)
+
+            proc = launch_sglang_server(config)
+            try:
+                wait_for_sglang_server(proc, config)
+                os.environ[MMIRAGE_SGLANG_BASE_URL] = config.resolved_base_url()
+                yield
+                return
+            except RuntimeError as exc:
+                last_error = exc
+                if _is_address_in_use_failure(proc, port, exc):
+                    logger.warning(
+                        "SGLang port %d became unavailable during startup; trying another port",
+                        port,
+                    )
+                    continue
+                raise
+            finally:
+                if previous_base_url is None:
+                    os.environ.pop(MMIRAGE_SGLANG_BASE_URL, None)
+                else:
+                    os.environ[MMIRAGE_SGLANG_BASE_URL] = previous_base_url
+                stop_sglang_server(proc)
+
+        raise RuntimeError(
+            "Could not find an available localhost port for the shared SGLang "
+            f"server after {SGLANG_PORT_SEARCH_ATTEMPTS} attempts starting at "
+            f"{previous_port or DEFAULT_SGLANG_PORT}."
+        ) from last_error
     finally:
-        if previous_base_url is None:
-            os.environ.pop(MMIRAGE_SGLANG_BASE_URL, None)
-        else:
-            os.environ[MMIRAGE_SGLANG_BASE_URL] = previous_base_url
-        stop_sglang_server(proc)
+        config.port = previous_port
+
+
+def _next_available_port(
+    config: SGLangBackendConfig,
+    attempted_ports: set[int],
+) -> int:
+    start_port = config.port or DEFAULT_SGLANG_PORT
+    for offset in range(SGLANG_PORT_SEARCH_ATTEMPTS):
+        port = start_port + offset
+        if port in attempted_ports:
+            continue
+        if _is_port_available(port):
+            if port != start_port:
+                logger.info(
+                    "SGLang port %d is unavailable; using port %d instead",
+                    start_port,
+                    port,
+                )
+            return port
+
+    raise RuntimeError(
+        "Could not find an available localhost port for the shared SGLang "
+        f"server after checking {SGLANG_PORT_SEARCH_ATTEMPTS} ports from {start_port}."
+    )
+
+
+def _is_port_available(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
+
+
+def _is_address_in_use_failure(
+    proc: subprocess.Popen[bytes],
+    port: int,
+    exc: BaseException,
+) -> bool:
+    message = f"{exc}\n{_format_output_tail(proc)}".lower()
+    return (
+        "address already in use" in message
+        or "port is already in use" in message
+        or "errno 98" in message
+    )
 
 
 def _log_process_output(proc: subprocess.Popen[bytes], output_tail: Deque[str]) -> None:
