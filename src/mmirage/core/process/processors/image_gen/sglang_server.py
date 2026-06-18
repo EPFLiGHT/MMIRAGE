@@ -35,9 +35,10 @@ def get_sglang_server_config(cfg: Any) -> Optional[SGLangBackendConfig]:
     ]
     if not configs:
         return None
-    if len(configs) > 1:
+    elif len(configs) > 1:
         raise ValueError("Only one backend='sglang' image_gen processor is supported per run")
-    return configs[0]
+    else:
+        return configs[0]
 
 
 def launch_sglang_server(config: SGLangBackendConfig) -> subprocess.Popen[bytes]:
