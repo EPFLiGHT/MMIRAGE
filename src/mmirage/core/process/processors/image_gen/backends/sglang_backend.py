@@ -326,7 +326,7 @@ class SGLangImageBackend:
         *,
         url: str,
         api_key: str,
-        payload: Optional[Mapping[str, Any]] = None,
+        payload: Optional[Dict[str, Any]] = None,
         timeout_seconds: int,
     ) -> JsonDict:
         body = None if payload is None else json.dumps(payload).encode("utf-8")
