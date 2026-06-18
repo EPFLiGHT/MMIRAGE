@@ -311,7 +311,7 @@ class SGLangImageBackend:
         self,
         url: str,
         *,
-        payload: Optional[Mapping[str, Any]] = None,
+        payload: Optional[Dict[str, Any]] = None,
         timeout_seconds: Optional[int] = None,
     ) -> JsonDict:
         return self._read_json_static(
