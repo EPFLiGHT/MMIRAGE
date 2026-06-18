@@ -8,8 +8,7 @@ import os
 from typing import Any, Dict, List, Optional, Sequence
 from jinja2 import Environment, meta
 
-from mmirage.core.process.base import BaseProcessorConfig
-from mmirage.core.process.base import ProcessorRegistry
+from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry
 from mmirage.core.process.variables import BaseVar, OutputVar
 
 logger = logging.getLogger(__name__)

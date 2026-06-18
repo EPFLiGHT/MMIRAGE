@@ -52,11 +52,8 @@ loading_params:
 
 processing_params:
   inputs:
-
     - name: text
-
       key: text
-
 
   outputs:
     - name: generated_image

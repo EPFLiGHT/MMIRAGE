@@ -95,7 +95,7 @@ class SGLangImageBackend:
         self,
         prompts: Sequence[str],
         negative_prompts: Optional[Sequence[Optional[str]]] = None,
-        params: Optional[Mapping[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
         seeds: Optional[Sequence[Optional[int]]] = None,
     ) -> List[Any]:
         """Generate one image per prompt and return PIL Images."""
@@ -168,7 +168,7 @@ class SGLangImageBackend:
         *,
         prompt: str,
         negative_prompt: Optional[str],
-        params: Mapping[str, Any],
+        params: Dict[str, Any],
         seed: Optional[int],
     ) -> JsonDict:
         if not prompt or not prompt.strip():
@@ -242,7 +242,7 @@ class SGLangImageBackend:
         return payload
 
     @staticmethod
-    def _extract_size(params: Mapping[str, Any]) -> Optional[str]:
+    def _extract_size(params: Dict[str, Any]) -> Optional[str]:
         if params.get("size"):
             return str(params["size"])
 
@@ -254,7 +254,7 @@ class SGLangImageBackend:
         return f"{int(width)}x{int(height)}"
 
     @staticmethod
-    def _decode_image_response(result: Mapping[str, Any], prompt: str) -> Any:
+    def _decode_image_response(result: Dict[str, Any], prompt: str) -> PILImage:
         try:
             data = result["data"]
             if not isinstance(data, list) or not data:
@@ -311,7 +311,7 @@ class SGLangImageBackend:
         self,
         url: str,
         *,
-        payload: Optional[Mapping[str, Any]] = None,
+        payload: Optional[Dict[str, Any]] = None,
         timeout_seconds: Optional[int] = None,
     ) -> JsonDict:
         return self._read_json_static(
@@ -326,7 +326,7 @@ class SGLangImageBackend:
         *,
         url: str,
         api_key: str,
-        payload: Optional[Mapping[str, Any]] = None,
+        payload: Optional[Dict[str, Any]] = None,
         timeout_seconds: int,
     ) -> JsonDict:
         body = None if payload is None else json.dumps(payload).encode("utf-8")
