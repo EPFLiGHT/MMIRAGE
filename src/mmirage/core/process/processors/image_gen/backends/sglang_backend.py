@@ -254,7 +254,7 @@ class SGLangImageBackend:
         return f"{int(width)}x{int(height)}"
 
     @staticmethod
-    def _decode_image_response(result: Mapping[str, Any], prompt: str) -> Any:
+    def _decode_image_response(result: Dict[str, Any], prompt: str) -> PILImage:
         try:
             data = result["data"]
             if not isinstance(data, list) or not data:
