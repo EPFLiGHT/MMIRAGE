@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 MMIRAGE_SGLANG_BASE_URL = "MMIRAGE_SGLANG_BASE_URL"
 DEFAULT_SGLANG_PORT = 30010
 SGLANG_PORT_SEARCH_ATTEMPTS = 100
+SGLANG_READINESS_POLL_SECONDS = 2.0
 
 
 def get_sglang_server_config(cfg: Any) -> Optional[SGLangBackendConfig]:
@@ -146,7 +147,7 @@ def wait_for_sglang_server(
                 return
             except Exception as exc:
                 last_error = f"{url}: {exc}"
-        time.sleep(2.0)
+        time.sleep(SGLANG_READINESS_POLL_SECONDS)
 
     raise RuntimeError(
         "SGLang server did not become ready within "
@@ -300,14 +301,12 @@ def _format_output_tail(proc: subprocess.Popen[bytes]) -> str:
     return "\n".join(output_tail) or "(no server output captured)"
 
 
-def _read_json(url: str, api_key: str) -> None:
-    req = urllib.request.Request(
-        url,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Accept": "application/json",
-        },
-    )
+def _read_json(url: str, api_key: Optional[str]) -> None:
+    headers = {"Accept": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
             json.loads(resp.read().decode("utf-8"))

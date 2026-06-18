@@ -5,7 +5,7 @@ from enum import Enum
 
 import logging
 import os
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Literal, Optional, Sequence
 from jinja2 import Environment, meta
 
 from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry
@@ -27,7 +27,7 @@ class ExternalImageBackendConfig:
     """HTTP client configuration for an already-running image server."""
 
     base_url: str
-    api_key: str = "EMPTY"
+    api_key: Optional[str] = None
     timeout_seconds: int = 900
     request_model: Optional[str] = None
     max_concurrent_requests: int = 1
@@ -44,7 +44,7 @@ class ExternalImageBackendConfig:
 @dataclass
 class SGLangBackendConfig:
     """Configuration for one MMIRAGE-launched shared SGLang server."""
-    api_key: str = "EMPTY"
+    api_key: Optional[str] = None
     timeout_seconds: int = 900
     model_path: str = ""
     request_model: Optional[str] = None
@@ -97,7 +97,7 @@ class ImageGenConfig(BaseProcessorConfig):
             ``"jpg"``).
     """
 
-    backend: str = "external"
+    backend: Literal["external", "sglang"] = "external"
     external: Optional[ExternalImageBackendConfig] = None
     sglang: Optional[SGLangBackendConfig] = None
     default_sampling_params: Dict[str, Any] = field(default_factory=dict)

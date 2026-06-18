@@ -278,17 +278,12 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                     if output_var.seed is not None
                     else None
                 )
-                images = self._backend.generate_batch(
-                    [prompt],
-                    [neg] if neg is not None else None,
-                    params,
-                    [seed_val],
+                image = self._backend.generate_one(
+                    prompt=prompt,
+                    negative_prompt=neg,
+                    params=params,
+                    seed=seed_val,
                 )
-                if len(images) != 1:
-                    raise RuntimeError(
-                        f"Expected 1 image from backend in sequential mode, got {len(images)}"
-                    )
-                image = images[0]
                 if output_var.output_mode == ImageOutputMode.PIL:
                     value = image
                 else:

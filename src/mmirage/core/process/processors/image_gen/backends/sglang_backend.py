@@ -38,7 +38,7 @@ class SGLangImageBackend:
         self,
         base_url: str,
         *,
-        api_key: str = "EMPTY",
+        api_key: Optional[str] = None,
         timeout_seconds: int = 900,
         request_model: Optional[str] = None,
         validate_server: bool = True,
@@ -97,7 +97,7 @@ class SGLangImageBackend:
         negative_prompts: Optional[Sequence[Optional[str]]] = None,
         params: Optional[Dict[str, Any]] = None,
         seeds: Optional[Sequence[Optional[int]]] = None,
-    ) -> List[Any]:
+    ) -> List[PILImage]:
         """Generate one image per prompt and return PIL Images."""
         params = params or {}
         prompts = list(prompts)
@@ -109,7 +109,7 @@ class SGLangImageBackend:
         if seeds is not None and len(seeds) != len(prompts):
             raise ValueError(f"Expected {len(prompts)} seeds, got {len(seeds)}")
 
-        def generate_one(index: int) -> Any:
+        def generate_one(index: int) -> PILImage:
             negative_prompt = (
                 negative_prompts[index] if negative_prompts is not None else None
             )
@@ -135,7 +135,7 @@ class SGLangImageBackend:
         negative_prompt: Optional[str] = None,
         params: Optional[Mapping[str, Any]] = None,
         seed: Optional[int] = None,
-    ) -> Any:
+    ) -> PILImage:
         """Generate a single image and return a PIL Image."""
         payload = self._build_payload(
             prompt=prompt,
@@ -325,15 +325,14 @@ class SGLangImageBackend:
     def _read_json_static(
         *,
         url: str,
-        api_key: str,
+        api_key: Optional[str],
         payload: Optional[Dict[str, Any]] = None,
         timeout_seconds: int,
     ) -> JsonDict:
         body = None if payload is None else json.dumps(payload).encode("utf-8")
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Accept": "application/json",
-        }
+        headers = {"Accept": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
         if body is not None:
             headers["Content-Type"] = "application/json"
 

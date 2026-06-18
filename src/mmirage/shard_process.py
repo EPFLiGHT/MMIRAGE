@@ -73,29 +73,31 @@ def _cast_image_columns(ds: DatasetLike, cols: List[str]) -> DatasetLike:
         for v in batch[col]:
             if v is None:
                 normalized.append(None)
-            elif isinstance(v, str) and v.strip() in ("", "None"):
+            elif isinstance(v, str) and v.strip().lower() in ("", "none"):
                 normalized.append(None)
             else:
                 normalized.append(v)
         return {col: normalized}
 
+    def _cast_column(dataset: DatasetLike, col: str) -> DatasetLike:
+        dataset = dataset.map(
+            _normalise_col,
+            batched=True,
+            fn_kwargs={"col": col},
+            desc=f"Normalising {col}",
+            load_from_cache_file=False,
+        )
+        return dataset.cast_column(col, HFImage())
+
     if isinstance(ds, DatasetDict):
         for col in cols:
             for split in list(ds.keys()):
                 if col in ds[split].column_names:
-                    ds[split] = ds[split].map(
-                        _normalise_col, batched=True, fn_kwargs={"col": col}, desc=f"Normalising {col}",
-                        load_from_cache_file=False,
-                    )
-                    ds[split] = ds[split].cast_column(col, HFImage())
+                    ds[split] = _cast_column(ds[split], col)
     else:
         for col in cols:
             if col in ds.column_names:
-                ds = ds.map(
-                    _normalise_col, batched=True, fn_kwargs={"col": col}, desc=f"Normalising {col}",
-                    load_from_cache_file=False,
-                )
-                ds = ds.cast_column(col, HFImage())
+                ds = _cast_column(ds, col)
     return ds
 
 

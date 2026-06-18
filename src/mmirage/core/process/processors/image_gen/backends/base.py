@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
+
+from PIL.Image import Image as PILImage
 
 try:
     from typing import Protocol, runtime_checkable
@@ -26,7 +28,7 @@ class ImageGenerationBackend(Protocol):
         negative_prompts: Optional[List[Optional[str]]],
         params: Dict[str, Any],
         seeds: List[Optional[int]],
-    ) -> List[Any]:
+    ) -> List[PILImage]:
         """Generate one image per prompt.
 
         Args:
@@ -44,6 +46,17 @@ class ImageGenerationBackend(Protocol):
         Returns:
             List of ``PIL.Image`` objects, one per prompt, in the same order.
         """
+        ...
+
+    def generate_one(
+        self,
+        *,
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        params: Optional[Mapping[str, Any]] = None,
+        seed: Optional[int] = None,
+    ) -> PILImage:
+        """Generate a single image for one prompt."""
         ...
 
     def shutdown(self) -> None:

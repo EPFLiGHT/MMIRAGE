@@ -19,7 +19,7 @@ _CONFIG_MODULE = types.ModuleType(
 
 @dataclass
 class SGLangBackendConfig:
-    api_key: str = "EMPTY"
+    api_key: Optional[str] = None
     timeout_seconds: int = 900
     model_path: str = "Qwen/Qwen-Image"
     request_model: Optional[str] = None
@@ -42,7 +42,7 @@ sys.modules.setdefault(
     _CONFIG_MODULE,
 )
 
-from mmirage.core.process.processors.image_gen import sglang_server
+from mmirage.core.process.processors.image_gen import sglang_server  # noqa: E402
 
 
 def _bind_localhost(port: int) -> socket.socket:
@@ -141,3 +141,28 @@ def test_address_in_use_detection_does_not_retry_generic_readiness_errors():
     finally:
         proc.terminate()
         proc.wait(timeout=5)
+
+
+def test_read_json_omits_authorization_header_without_api_key(monkeypatch):
+    requests = []
+
+    class StubResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def read(self):
+            return b"{}"
+
+    def fake_urlopen(request, timeout):
+        requests.append(request)
+        return StubResponse()
+
+    monkeypatch.setattr(sglang_server.urllib.request, "urlopen", fake_urlopen)
+
+    sglang_server._read_json("http://127.0.0.1:30010/health", api_key=None)
+
+    assert "Authorization" not in requests[0].headers
+    assert requests[0].headers["Accept"] == "application/json"

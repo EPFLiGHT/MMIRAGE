@@ -105,6 +105,27 @@ def test_generate_one_posts_expected_payload_and_decodes_image(monkeypatch):
     }
 
 
+def test_generate_one_omits_authorization_header_without_api_key(monkeypatch):
+    requests = []
+
+    def fake_urlopen(request, timeout):
+        requests.append(request)
+        return json_response({"data": [{"b64_json": png_b64()}]})
+
+    install_urlopen_stub(monkeypatch, fake_urlopen)
+
+    backend = SGLangImageBackend(
+        "http://localhost:30000/v1",
+        api_key=None,
+        validate_server=False,
+    )
+
+    backend.generate_one(prompt="a small lighthouse")
+
+    assert "Authorization" not in requests[0].headers
+    assert requests[0].headers["Accept"] == "application/json"
+
+
 def test_generate_batch_sends_prompt_specific_negative_prompts_and_seeds(monkeypatch):
     payloads = []
 
