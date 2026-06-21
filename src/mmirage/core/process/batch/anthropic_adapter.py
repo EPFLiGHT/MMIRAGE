@@ -75,8 +75,6 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
             "custom_id": normalized_custom_id,
             "params": body,
         }
-        #for debug :
-        print(f"Built request for custom_id={normalized_custom_id}: {payload_request}")
         return payload_request
 
     def estimate_request_bytes(self, request: Dict[str, Any]) -> int:
