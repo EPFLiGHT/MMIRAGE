@@ -59,14 +59,13 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         sampling_params: Default sampling parameters for generation.
     """
 
-    def __init__(self, engine_args: LLMProcessorConfig, **kwargs) -> None:
+    def __init__(self, engine_args: LLMProcessorConfig) -> None:
         """Initialize the LLM processor.
 
         Args:
             engine_args: Configuration for local runtime or batch submission.
-            **kwargs: Additional arguments passed to base class.
         """
-        super().__init__(engine_args, **kwargs)
+        super().__init__(engine_args)
 
         execution_mode = engine_args.execution_mode
         local_cfg = engine_args.local
