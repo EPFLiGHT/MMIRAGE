@@ -4,7 +4,7 @@ from pathlib import Path
 from datasets import load_dataset
 
 from mmirage.config.openai_batch import OpenAIBatchConfig
-from mmirage.core.process import LLMProcessor  # Ensures processor registration.
+from mmirage.core.process.processors.llm.llm_processor import LLMProcessor  # Ensures processor registration.
 from mmirage.core.process.mapper import MMIRAGEMapper
 from mmirage.core.process.processors.llm.config import LLMOutputVar, LLMProcessorConfig
 from mmirage.core.process.variables import InputVar

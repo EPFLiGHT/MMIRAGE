@@ -15,7 +15,10 @@ try:
     SGLANG_AVAILABLE = True
 except ImportError:
     SGLANG_AVAILABLE = False
-
+    class DummySGL:
+        class Engine:
+            pass
+    sgl = DummySGL
 from transformers import AutoTokenizer
 
 from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCounts

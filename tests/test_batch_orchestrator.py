@@ -186,6 +186,10 @@ def test_llm_processor_rejects_disabled_batch(monkeypatch):
         "mmirage.core.process.processors.llm.llm_processor.AutoTokenizer.from_pretrained",
         lambda *args, **kwargs: FakeTokenizer(),
     )
+    monkeypatch.setattr(
+        "mmirage.core.process.processors.llm.llm_processor.SGLANG_AVAILABLE",
+        True,
+    )
 
     config = LLMProcessorConfig(
         type="llm",
@@ -220,6 +224,10 @@ def test_llm_processor_uses_sync_runtime_when_batch_provider_omitted(monkeypatch
     monkeypatch.setattr(
         "mmirage.core.process.processors.llm.llm_processor.AutoTokenizer.from_pretrained",
         lambda *args, **kwargs: FakeTokenizer(),
+    )
+    monkeypatch.setattr(
+        "mmirage.core.process.processors.llm.llm_processor.SGLANG_AVAILABLE",
+        True,
     )
 
     config = LLMProcessorConfig(
