@@ -26,7 +26,7 @@ from mmirage.core.process.variables import VariableEnvironment
 
 try:
     from typing import override  # Python 3.12+
-except ImportError:  # pragma: no cover  
+except ImportError:  # pragma: no cover
     from typing_extensions import override  # type: ignore
 
 
