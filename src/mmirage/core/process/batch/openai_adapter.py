@@ -22,6 +22,14 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
     """Provider adapter for OpenAI Batch API."""
 
     required_credentials = ("api_key",)
+    def __init__(self):
+        self._client_cache = {}
+
+    def _get_or_create_client(self, config: OpenAIBatchConfig) -> OpenAI:
+        config_key = id(config)
+        if config_key not in self._client_cache:
+            self._client_cache[config_key] = self._create_client(config)
+        return self._client_cache[config_key]
 
     def build_request(
         self,
@@ -108,7 +116,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         config: BatchProviderConfig,
     ) -> Dict[str, Any]:
         openai_config = self._check_openai_config(config)
-        client = self._create_client(openai_config)
+        client = self._get_or_create_client(openai_config)
 
         jsonl_lines = [
             json.dumps(req, ensure_ascii=False, separators=(",", ":")) for req in requests
@@ -144,7 +152,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         config: BatchProviderConfig,
     ) -> BatchSubmissionResult:
         openai_config = self._check_openai_config(config)
-        client = self._create_client(openai_config)
+        client = self._get_or_create_client(openai_config)
         retrieved = client.batches.retrieve(provider_batch_id)
         return self.parse_submission_result(raw_result=retrieved)
 
@@ -160,7 +168,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         before returning rows to the provider-agnostic collector.
         """
         openai_config = self._check_openai_config(config)
-        client = self._create_client(openai_config)
+        client = self._get_or_create_client(openai_config)
 
         retrieved = client.batches.retrieve(provider_batch_id)
         status = getattr(retrieved, "status", None) or "unknown"
