@@ -35,8 +35,8 @@ def initialize_worker(script_path: str, function_name: str) -> None:
     if not os.path.exists(abs_script_path):
         raise FileNotFoundError(f"Custom script not found at: {abs_script_path}")
 
-    module_name = os.path.splitext(os.path.basename(abs_script_path))[0]
-
+    module_name = f"mmirage_custom_worker_{uuid.uuid4().hex}" #ensure uniqueness in sys.modules
+    
     try:
         #load the module
         spec = importlib.util.spec_from_file_location(module_name, abs_script_path)
@@ -44,7 +44,8 @@ def initialize_worker(script_path: str, function_name: str) -> None:
             raise RuntimeError(f"Could not load module spec from {abs_script_path}")
             
         module = importlib.util.module_from_spec(spec)
-        
+        sys.modules[module_name] = module
+
         # Add the module's directory to sys.path so the user script can 
         # seamlessly import other local files relative to its location
         script_dir = os.path.dirname(abs_script_path)
@@ -54,8 +55,7 @@ def initialize_worker(script_path: str, function_name: str) -> None:
         spec.loader.exec_module(module)
         
     except Exception as e:
-        raise RuntimeError(f"Failed to load custom module from {abs_script_path}: {e}")
-
+        raise RuntimeError(f"Failed to load or execute custom module from {abs_script_path}") from e
     # get the callable user function
     if not hasattr(module, function_name):
         raise AttributeError(
