@@ -25,14 +25,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
 
     required_credentials = ("api_key",)
 
-    def __init__(self):
-        self._client_cache = {}
 
-    def _get_or_create_client(self, config: AnthropicBatchConfig) -> Anthropic:
-        config_key = id(config)  # Use config object identity
-        if config_key not in self._client_cache:
-            self._client_cache[config_key] = self._create_client(config)
-        return self._client_cache[config_key]
 
     def build_request(
         self,
@@ -98,7 +91,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         config: BatchProviderConfig,
     ) -> Dict[str, Any]:
         anthropic_config = self._check_anthropic_config(config)
-        client = self._get_or_create_client(anthropic_config)
+        client = self._create_client(anthropic_config)
         batches_client = self._resolve_batches_client(client)
 
         metadata = dict(anthropic_config.metadata)
@@ -139,7 +132,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         config: BatchProviderConfig,
     ) -> BatchSubmissionResult:
         anthropic_config = self._check_anthropic_config(config)
-        client = self._get_or_create_client(anthropic_config)
+        client = self._create_client(anthropic_config)
         batches_client = self._resolve_batches_client(client)
         retrieved = batches_client.retrieve(provider_batch_id)
         return self.parse_submission_result(raw_result=retrieved)
@@ -151,7 +144,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
     ) -> Sequence[Dict[str, Any]]:
         """Download completed Anthropic batch rows and normalize text into ``generated_text``."""
         anthropic_config = self._check_anthropic_config(config)
-        client = self._get_or_create_client(anthropic_config)
+        client = self._create_client(anthropic_config)
         batches_client = self._resolve_batches_client(client)
 
         retrieved = batches_client.retrieve(provider_batch_id)
