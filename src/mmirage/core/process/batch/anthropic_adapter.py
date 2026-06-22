@@ -56,11 +56,12 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
 
         body.setdefault("model", anthropic_config.model)
         body.setdefault("max_tokens", anthropic_config.max_tokens)
-        body.setdefault("temperature", anthropic_config.temperature)
-        if anthropic_config.top_p is not None:
+
+        # Either temperature or top_p can be set, but not both, prioritize temperature if both are set
+        if anthropic_config.temperature is not None:
+            body.setdefault("temperature", anthropic_config.temperature)
+        elif anthropic_config.top_p is not None:
             body.setdefault("top_p", anthropic_config.top_p)
-        if "temperature" in body and "top_p" in body:
-            body.pop("top_p", None)
 
         messages = body.get("messages")
         if isinstance(messages, list):

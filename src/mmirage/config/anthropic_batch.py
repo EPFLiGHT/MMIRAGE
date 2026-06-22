@@ -24,7 +24,7 @@ class AnthropicBatchConfig(BatchProviderConfig):
     provider: str = "anthropic"
     model: str = "claude-haiku-4.5"
     max_tokens: int = 8192
-    temperature: float = 0.0
+    temperature: Optional[float] = None
     top_p: Optional[float] = None
     base_url: Optional[str] = None
     timeout_seconds: Optional[float] = None
@@ -37,22 +37,17 @@ class AnthropicBatchConfig(BatchProviderConfig):
             raise ValueError("model must be a non-empty string")
         if self.max_tokens < 1:
             raise ValueError("max_tokens must be >= 1")
-        if self.temperature < 0:
+        if self.temperature is not None and self.temperature < 0:
             raise ValueError("temperature must be >= 0")
         if self.top_p is not None and not (0 < self.top_p <= 1):
             raise ValueError("top_p must be in the range (0, 1] when provided")
         if self.timeout_seconds is not None and self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be > 0 when provided")
 
-        # Mirror Anthropic-specific fields into generic extras for provider-neutral consumers.
-        self.extras.setdefault("model", self.model)
-        self.extras.setdefault("max_tokens", self.max_tokens)
-        self.extras.setdefault("temperature", self.temperature)
-        if self.top_p is not None:
-            self.extras.setdefault("top_p", self.top_p)
-        if self.base_url:
-            self.extras.setdefault("base_url", self.base_url)
-        if self.timeout_seconds is not None:
-            self.extras.setdefault("timeout_seconds", self.timeout_seconds)
-        if self.metadata:
-            self.extras.setdefault("metadata", dict(self.metadata))
+        # Either temperature or top_p can be set or both can be None, but not both can be set, raise error if both are set
+        if self.temperature is not None and self.top_p is not None:
+            raise ValueError(
+                            "Both temperature and top_p are set in batch configuration, temperature and top_p are mutually exclusive parameters. Please set only one of them."
+                        )
+        if self.temperature is None and self.top_p is None:
+            self.temperature = 0.0
