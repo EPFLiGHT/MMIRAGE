@@ -29,7 +29,7 @@ def test_anthropic_build_request_normalizes_messages_and_images(tmp_path, monkey
 
     AnthropicBatchAdapter = _load_anthropic_adapter(monkeypatch, FakeAnthropic)
 
-    config = AnthropicBatchConfig(model="claude-haiku-4.5", credentials={"api_key": "k"})
+    config = AnthropicBatchConfig(model="claude-haiku-4-5", credentials={"api_key": "k"})
     adapter = AnthropicBatchAdapter()
     payload = {
         "messages": [
@@ -46,7 +46,7 @@ def test_anthropic_build_request_normalizes_messages_and_images(tmp_path, monkey
     request = adapter.build_request(custom_id="vision-1", payload=payload, config=config)
 
     assert request["custom_id"] == "vision-1"
-    assert request["params"]["model"] == "claude-haiku-4.5"
+    assert request["params"]["model"] == "claude-haiku-4-5"
     assert request["params"]["max_tokens"] == config.max_tokens
 
     content = request["params"]["messages"][0]["content"]

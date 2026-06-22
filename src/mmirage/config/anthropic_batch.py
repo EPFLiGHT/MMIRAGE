@@ -22,7 +22,7 @@ class AnthropicBatchConfig(BatchProviderConfig):
     """
 
     provider: str = "anthropic"
-    model: str = "claude-haiku-4.5"
+    model: str = "claude-haiku-4-5"
     max_tokens: int = 8192
     temperature: Optional[float] = None
     top_p: Optional[float] = None
