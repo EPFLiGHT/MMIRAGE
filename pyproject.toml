@@ -36,6 +36,7 @@ dependencies = [
   "pillow>=9.0.0",
   "typing_extensions>=4.5.0; python_version < '3.12'",
   "humanize>=4.0.0",
+  "anthropic>=0.111.0,<1.0",
 ]
 
 [project.optional-dependencies]
