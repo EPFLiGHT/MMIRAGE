@@ -124,11 +124,11 @@ src/mmirage/
 
 ### Batch API mode (OpenAI)
 
-When `batch_provider` is configured, the `LLMProcessor` delegates to the batch orchestrator:
-1. Requests are serialized to JSONL chunks respecting `max_chunk_bytes`.
-2. Each chunk is uploaded and submitted as an OpenAI batch job.
-3. The orchestrator polls job status until all batches complete.
-4. Responses are collected, validated, and returned to the mapper.
+When `batch_provider` is configured, the `LLMProcessor` delegates request submission to the batch orchestrator:
+1. Requests are serialized to JSONL chunks respecting `max_chunk_bytes` / `max_requests_per_chunk`.
+2. Each chunk is uploaded/submitted and a metadata receipt is written.
+3. The mapper writes `__BATCH_SUBMITTED__:<custom_id>` placeholders into the output shards.
+4. Results are later checked/collected via `mmirage.core.process.batch.status_checker` and `mmirage.core.process.batch.collector`.
 
 ---
 
