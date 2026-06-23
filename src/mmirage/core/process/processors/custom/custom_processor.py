@@ -3,9 +3,11 @@
 import concurrent.futures
 import logging
 import time
+import os
+import copy
 from typing import Any, List
 
-from pebble import ProcessPool
+from pebble import ProcessPool, ProcessExpired
 
 from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCounts
 from mmirage.core.process.variables import VariableEnvironment
@@ -15,7 +17,6 @@ from mmirage.core.process.processors.custom.worker import execute_custom_functio
 logger = logging.getLogger(__name__)
 
 
-@ProcessorRegistry.register("custom", CustomProcessorConfig, CustomOutputVar)
 class CustomProcessor(BaseProcessor[CustomOutputVar]):
     """Processor that runs user-provided Python scripts in a persistent, isolated process pool.
     
@@ -68,7 +69,7 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
         #to guarantee strict input ordering
         results: List[Any] = [None] * len(batch)
         
-        row_dicts = [env.to_dict() for env in batch]
+        row_dicts = [dict(env.to_dict()) for env in batch]
         
         timeout_seconds = self.config.timeout_ms / 1000.0
         future_to_index = {}
@@ -105,10 +106,11 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
                 if self._error_count >= self.config.max_errors:
                     self._trip_circuit_breaker("Max errors reached. Tripping circuit breaker and shutting down pool.")
 
+        updated_batch = []
         for i, env in enumerate(batch):
-            env.set_var(output_var.name, results[i])
+            updated_batch.append(env.with_variable(output_var.name, results[i]))
             
-        return batch
+        return updated_batch
 
     def finalize(self) -> None:
         """shut down the persistent worker pool."""
@@ -132,3 +134,5 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
         """Return the time taken to initialize the processor and its pool."""
         return self._load_time
 
+
+ProcessorRegistry.register("custom", CustomProcessorConfig, CustomOutputVar)(CustomProcessor)

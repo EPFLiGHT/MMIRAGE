@@ -8,6 +8,7 @@ to avoid PicklingError when passing complex objects across process boundaries.
 import importlib.util
 import os
 import sys
+import uuid
 from typing import Any, Callable, Dict
 
 #global state within the isolated worker process
