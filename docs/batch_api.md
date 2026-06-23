@@ -25,10 +25,10 @@ This mode is useful when:
 
 | Criterion | Local (SGLang) | Batch API |
 |---|---|---|
-| Latency | Low (minutes per shard) | High (up to 24 h) |
-| Cost | GPU compute cost | ~50 % lower per token |
+| Latency | Low | High (up to 24 h) |
+| Cost | GPU compute cost | batch API price |
 | GPU requirement | Required | Not required |
-| Vision / multimodal | ✓ | Depends on model |
+| Vision / multimodal | Depends on model | Depends on model |
 | Streaming output | ✓ | ✗ |
 
 ---
@@ -169,8 +169,8 @@ MMIRAGE's batch processing system is designed to be provider-agnostic. While it 
 
 To integrate a new provider, you need to implement two classes:
 
-1. **Provider Config Subclass**: Defines the configuration schema. Must inherit from `BatchProviderConfig` ([BatchProviderConfig](file:///home/jean/Desktop/pro/LIGHT/MMIRAGE/src/mmirage/config/batch_provider.py#L43)).
-2. **Submission Adapter Subclass**: Implements request construction, size estimation, chunk submission, status checking, and result retrieval. Must inherit from `BatchSubmissionAdapter` ([BatchSubmissionAdapter](file:///home/jean/Desktop/pro/LIGHT/MMIRAGE/src/mmirage/core/process/batch/adapter.py#L29)).
+1. **Provider Config Subclass**: Defines the configuration schema. Must inherit from `BatchProviderConfig` ([BatchProviderConfig](../src/mmirage/config/batch_provider.py)).
+2. **Submission Adapter Subclass**: Implements request construction, size estimation, chunk submission, status checking, and result retrieval. Must inherit from `BatchSubmissionAdapter` ([BatchSubmissionAdapter](../src/mmirage/core/process/batch/adapter.py#L29)).
 
 #### 1. Custom Provider Config
 
