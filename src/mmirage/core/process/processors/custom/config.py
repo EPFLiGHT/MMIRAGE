@@ -17,6 +17,7 @@ class CustomProcessorConfig(BaseProcessorConfig):
     max_workers: int = 1
     timeout_ms: int = 1000
     max_timeouts: int = 1
+    max_errors: int = 1
     fallback_value: Any = None
 
     def __post_init__(self) -> None:
@@ -38,7 +39,8 @@ class CustomProcessorConfig(BaseProcessorConfig):
             raise ValueError("timeout_ms must be >= 1")
         if self.max_timeouts < 1:
             raise ValueError("max_timeouts must be >= 1")
-
+        if self.max_errors < 1:
+            raise ValueError("max_errors must be >= 1")
 
 @dataclass
 class CustomOutputVar(OutputVar):

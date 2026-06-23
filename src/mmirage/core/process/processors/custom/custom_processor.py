@@ -28,13 +28,19 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
         start_time = time.time()
         super().__init__(config)
         self.config: CustomProcessorConfig = config
-        
+        self._error_count = 0
         self._timeout_count = 0
         self._is_broken = False
-        
+
+        #check user script file existence
+        if not os.path.exists(self.config.script_path):
+            raise FileNotFoundError(
+                f"CustomProcessor failed to boot: script_path '{self.config.script_path}' does not exist."
+            )
+
         self._pool = ProcessPool(
             max_workers=self.config.max_workers,
-            context="spawn",
+            context="spawn", # use 'spawn' context for safe and memory-efficient execution (but slower than 'fork')
             initializer=initialize_worker,
             initargs=(self.config.script_path, self.config.function_name)
         )
@@ -87,19 +93,17 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
                 results[index] = self.config.fallback_value
                 
                 if self._timeout_count >= self.config.max_timeouts:
-                    self._is_broken = True
-                    logger.error("Max timeouts reached. Tripping circuit breaker and shutting down pool.")
-                    self._pool.stop()
-                    self._pool.join()
-                    raise RuntimeError(
-                        f"Custom processor exceeded max timeouts ({self.config.max_timeouts}). "
-                        "Intentional shard failure triggered."
-                    )
-                    
+                    self._trip_circuit_breaker("Max timeouts reached. Tripping circuit breaker and shutting down pool.")
+            except ProcessExpired as e:
+                # critical error : process died unexpectedly during its execution
+                self._trip_circuit_breaker(f"Worker process crashed fatally : {e}")
             except Exception as e:
-                #fails if user raises exception
+                # if user script raises exception 
                 logger.error(f"User script raised an exception on row {index}: {e}. Applying fallback value.")
-                results[index] = self.config.fallback_value
+                results[index] = copy.deepcopy(self.config.fallback_value)
+                self._error_count += 1
+                if self._error_count >= self.config.max_errors:
+                    self._trip_circuit_breaker("Max errors reached. Tripping circuit breaker and shutting down pool.")
 
         for i, env in enumerate(batch):
             env.set_var(output_var.name, results[i])
@@ -109,8 +113,16 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
     def finalize(self) -> None:
         """shut down the persistent worker pool."""
         if not self._is_broken and hasattr(self, "_pool"):
-            self._pool.close()
+            self._pool.stop()
             self._pool.join()
+    
+    def _trip_circuit_breaker(self, reason: str) -> None:
+        """Helper to centralize circuit breaker hard-fail logic."""
+        self._is_broken = True
+        logger.error(f"Tripping circuit breaker: {reason}")
+        self._pool.stop()
+        self._pool.join()
+        raise RuntimeError(f"Custom processor circuit breaker tripped: {reason}")
 
     def get_token_counts(self) -> TokenCounts:
         """Return zero token counts as this is not an LLM processor."""
