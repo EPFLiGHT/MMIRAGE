@@ -2,14 +2,15 @@ processors:
   - type: "custom"
     script_path: "./tests/mock_script/mock_script.py"  
     function_name: "process_text" 
-    max_workers: 4     
-    timeout_ms: 2000     # by sample
-    max_timeouts: 5      
-    fallback_value: "TIMEOUT_FALLBACK"   #default value if it fails
+    max_workers: 4
+    timeout_ms: 2000 # by sample
+    max_timeouts: 5
+    max_errors: 1
+    fallback_value: "TIMEOUT_FALLBACK" #default value if it fails
 
 loading_params:
   num_shards: 1
-  batch_size: 100
+  batch_size: 500
   datasets:
     - type: JSONL
       path: tests/mock_data/data.jsonl
