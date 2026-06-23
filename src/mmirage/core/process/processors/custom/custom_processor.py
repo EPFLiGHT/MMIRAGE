@@ -5,6 +5,7 @@ import logging
 import time
 import os
 import copy
+import multiprocessing
 from typing import Any, List
 
 from pebble import ProcessPool, ProcessExpired
@@ -41,7 +42,7 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
 
         self._pool = ProcessPool(
             max_workers=self.config.max_workers,
-            context="spawn", # use 'spawn' context for safe and memory-efficient execution (but slower than 'fork')
+            context=multiprocessing.get_context("spawn"), # use 'spawn' context for safe and memory-efficient execution (but slower than 'fork')
             initializer=initialize_worker,
             initargs=(self.config.script_path, self.config.function_name)
         )

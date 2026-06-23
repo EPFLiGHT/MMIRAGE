@@ -1,0 +1,32 @@
+processors:
+  - type: "custom"
+    script_path: "./tests/mock_script/mock_script.py"  
+    function_name: "process_text" 
+    max_workers: 4     
+    timeout_ms: 2000     # by sample
+    max_timeouts: 5      
+    fallback_value: "TIMEOUT_FALLBACK"   #default value if it fails
+
+loading_params:
+  num_shards: 1
+  batch_size: 100
+  datasets:
+    - type: JSONL
+      path: tests/mock_data/data.jsonl
+      output_dir: "./tests/output/data_mock_custom_feature"
+
+execution_params:
+  merge: true
+
+processing_params:
+  inputs:
+    - name: text
+      key: text
+
+  outputs:
+    - name: custom_result
+      type: custom
+  
+  output_schema:   
+    source: "{{ text }}"
+    processed: "{{ custom_result }}"
