@@ -183,8 +183,7 @@ from mmirage.config.batch_provider import BatchProviderConfig
 @dataclass
 class AnthropicBatchConfig(BatchProviderConfig):
     provider: str = "anthropic"
-    model: str = "claude-3-5-sonnet-20241022"
-    anthropic_version: str = "2023-06-01"
+    model: str = "claude-haiku-4-5"
 ```
 
 #### 2. Custom Submission Adapter
@@ -285,7 +284,7 @@ processors:
     batch_provider:
       provider: anthropic
       enabled: true
-      model: claude-3-5-sonnet-20241022
+      model: claude-haiku-4-5
       metadata_output_path: /scratch/anthropic_meta.jsonl
       credentials:
         api_key: "your-anthropic-key"  # Or leave blank and set ANTHROPIC_API_KEY env var
