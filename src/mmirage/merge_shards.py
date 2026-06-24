@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_from_disk
 
-from mmirage.config.config import MMirageConfig
+from mmirage.config.config import DeduplicationParams, MMirageConfig
 from mmirage.core.loader.base import DatasetLike
 from mmirage.shard_utils import (
     _count_rows,
@@ -52,6 +52,45 @@ def _merge_datasetdict(shard_dsets: List[DatasetDict]) -> DatasetDict:
     return DatasetDict(**merged)
 
 
+def _dedup_one(ds: Dataset, params: DeduplicationParams) -> Dataset:
+    """Run the configured dedup stages on a single Dataset and log a combined line."""
+    before = _count_rows(ds)
+    after_exact: Optional[int] = None
+    after_fuzzy: Optional[int] = None
+
+    if params.exact:
+        from mmirage.core.postprocess.exact_dedup import exact_deduplicate
+
+        ds = exact_deduplicate(ds, params)
+        after_exact = _count_rows(ds)
+
+    if params.fuzzy:
+        from mmirage.core.postprocess.fuzzy_dedup import deduplicate
+
+        ds = deduplicate(ds, params)
+        after_fuzzy = _count_rows(ds)
+
+    exact_str = str(after_exact) if after_exact is not None else "skipped"
+    fuzzy_str = str(after_fuzzy) if after_fuzzy is not None else "skipped"
+    logger.info(f"Dedup: {before} → {exact_str} → {fuzzy_str} rows.")
+    return ds
+
+
+def _apply_dedup(ds: DatasetLike, params: DeduplicationParams) -> DatasetLike:
+    """Apply deduplication to a Dataset or each split of a DatasetDict."""
+    if not params.exact and not params.fuzzy:
+        logger.warning(
+            "Deduplication enabled but both 'exact' and 'fuzzy' are disabled; skipping."
+        )
+        return ds
+
+    if isinstance(ds, DatasetDict):
+        return DatasetDict(
+            {split: _dedup_one(split_ds, params) for split, split_ds in ds.items()}
+        )
+    return _dedup_one(ds, params)
+
+
 def _merge_shards(shard_dsets: List[DatasetLike]) -> DatasetLike:
     """Merge shard datasets into a single dataset."""
     if not shard_dsets:
@@ -67,12 +106,17 @@ def _merge_shards(shard_dsets: List[DatasetLike]) -> DatasetLike:
     )
 
 
-def merge_dataset_dir(dataset_dir: str, output_dir: str) -> MergeReport:
+def merge_dataset_dir(
+    dataset_dir: str,
+    output_dir: str,
+    dedup_params: Optional[DeduplicationParams] = None,
+) -> MergeReport:
     """Merge one dataset directory containing shard_* folders.
 
     Args:
         dataset_dir: Input directory containing shard_* folders.
         output_dir: Destination directory for merged dataset.
+        dedup_params: Optional dedup config; applied before saving when enabled.
 
     Returns:
         MergeReport with summary details.
@@ -118,6 +162,10 @@ def merge_dataset_dir(dataset_dir: str, output_dir: str) -> MergeReport:
         )
 
     ds_merged = _merge_shards(shard_dsets)
+
+    if dedup_params is not None and dedup_params.enabled:
+        ds_merged = _apply_dedup(ds_merged, dedup_params)
+
     merged_rows = _count_rows(ds_merged)
 
     _save_dataset_atomic(ds_merged, normalized_output_dir)
@@ -134,7 +182,11 @@ def merge_dataset_dir(dataset_dir: str, output_dir: str) -> MergeReport:
     )
 
 
-def merge_input_dir(input_dir: str, output_dir: str) -> List[MergeReport]:
+def merge_input_dir(
+    input_dir: str,
+    output_dir: str,
+    dedup_params: Optional[DeduplicationParams] = None,
+) -> List[MergeReport]:
     """Merge all shard datasets found under an input directory.
 
     The input can be either:
@@ -167,7 +219,7 @@ def merge_input_dir(input_dir: str, output_dir: str) -> List[MergeReport]:
             dataset_name = os.path.basename(dataset_dir)
             ds_output_dir = os.path.join(output_dir, dataset_name)
 
-        reports.append(merge_dataset_dir(dataset_dir, ds_output_dir))
+        reports.append(merge_dataset_dir(dataset_dir, ds_output_dir, dedup_params))
 
     return reports
 
@@ -210,7 +262,9 @@ def merge_from_config(
                 folder_name = f"{dataset_name}_{index}"
             output_dir = os.path.join(output_root, folder_name)
 
-        reports.append(merge_dataset_dir(dataset_dir, output_dir))
+        reports.append(
+            merge_dataset_dir(dataset_dir, output_dir, cfg.deduplication_params)
+        )
 
     return reports
 
@@ -233,6 +287,11 @@ def main():
         help="Directory to write merged datasets into.",
     )
     ap.add_argument(
+        "--config",
+        default=None,
+        help="Optional MMIRAGE YAML config; enables deduplication if configured.",
+    )
+    ap.add_argument(
         "--log-level",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
@@ -241,7 +300,13 @@ def main():
     args = ap.parse_args()
     _configure_logging(args.log_level)
 
-    reports = merge_input_dir(args.input_dir, args.output_dir)
+    dedup_params: Optional[DeduplicationParams] = None
+    if args.config:
+        from mmirage.config.utils import load_mmirage_config
+
+        dedup_params = load_mmirage_config(args.config).deduplication_params
+
+    reports = merge_input_dir(args.input_dir, args.output_dir, dedup_params)
     for report in reports:
         skipped_total = report.skipped_invalid_dirs + report.skipped_zero_rows
         logger.info(
