@@ -1,0 +1,54 @@
+processors:
+  - type: image_gen
+    backend: external
+    external:
+      base_url: http://127.0.0.1:30010/v1
+      timeout_seconds: 900
+      max_concurrent_requests: 4
+      request_model: null
+    default_sampling_params:
+      num_inference_steps: 20
+      guidance_scale: 7.5
+    parallel_inference: true
+    parallel_chunk_size: 4
+    output_dir: tests/output/image_gen/generated_images
+    file_format: png
+
+loading_params:
+  state_dir: tests/output/image_gen/_pipeline_state
+  datasets:
+    - path: tests/mock_data_image_gen/data.jsonl
+      type: JSONL
+      output_dir: tests/output/image_gen
+
+  num_shards: 1
+  shard_id: 0
+  batch_size: 4
+
+processing_params:
+  inputs:
+    - name: text
+      key: text
+
+  outputs:
+    - name: generated_image
+      type: image_gen
+      output_mode: path
+      filename_template: "generated_{{ __shard_id }}_{{ __sample_index }}_{{ __source_hash }}"
+      width: 512
+      height: 512
+      prompt: |
+        Create a clean and detailed illustration for:
+        {{ text }}
+
+  remove_columns: false
+  output_schema:
+    prompt_source: "{{ text }}"
+    image: "{{ generated_image }}"
+
+execution_params:
+  mode: local
+  retry: false
+  merge: false
+  report_dir: "/users/${USER}/reports"
+  hf_home: "/capstor/store/cscs/swissai/a127/homes/${USER}/hf"

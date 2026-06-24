@@ -51,6 +51,12 @@ Then install MMIRAGE GPU support:
 pip install -e ".[gpu]"
 ```
 
+Install the SGLang diffusion extra when MMIRAGE should launch an image-generation server:
+
+```bash
+pip install -e ".[image_gen]"
+```
+
 > **Note:** On some platforms (e.g. clusters or ARM/aarch64), `pip install -e ".[gpu]"` alone may resolve to a CPU-only PyTorch build.
 
 ### Environment file
@@ -124,7 +130,7 @@ docker compose run --rm -it mmirage-cpu
     - Image inputs for multimodal processing
 - Parallelizable with multi-node support
     - The training pipeline uses distributed inference with sharding
-- Support a variety of LLMs and VLMs (Vision-Language Models)
+- Support a variety of LLMs, VLMs (Vision-Language Models), and image generation models
 - Support any dataset schemas (configurable with the YAML format)
 - The ability to either output a JSON (or any other structured format) or plain text
 - Modular architecture with pluggable processors, loaders, and writers
@@ -249,7 +255,7 @@ execution_params:
 
 Configuration explanation:
 
-- `processors`: List of processor configurations. Currently supports `llm` type for LLM-based generation.
+- `processors`: List of processor configurations. Supports `llm` (text/VLM generation) and `image_gen` (text-to-image generation).
 - `loading_params`: Parameters for loading and sharding datasets.
   - `state_dir`: Optional shared directory for shard status/retry state. Defaults to `~/.cache/MMIRAGE/state_dir`.
   - `datasets`: List of dataset configurations with path, type, and output directory.
@@ -320,6 +326,67 @@ processing_params:
 execution_params:
   mode: local
   retry: false
+```
+
+### Image generation: Text-to-image pipeline
+
+MMIRAGE supports image generation through an already-running HTTP server:
+
+```yaml
+processors:
+  - type: image_gen
+    backend: external
+    external:
+      base_url: http://127.0.0.1:30010/v1
+      timeout_seconds: 900
+      max_concurrent_requests: 4
+      request_model: null
+    default_sampling_params:
+      num_inference_steps: 20
+      guidance_scale: 7.5
+    output_dir: /path/to/generated/images
+    file_format: png
+
+loading_params:
+  state_dir: /path/to/state/dir
+  datasets:
+    - path: /path/to/prompts.jsonl
+      type: JSONL
+      output_dir: /path/to/output/shards
+  num_shards: 1
+  shard_id: 0
+  batch_size: 8
+
+processing_params:
+  inputs:
+    - name: prompt_text
+      key: text
+
+  outputs:
+    - name: generated_image
+      type: image_gen
+      output_mode: path          # "path" or "pil"
+      filename_template: "generated_{{ __shard_id }}_{{ __sample_index }}_{{ __source_hash }}"
+      width: 512
+      height: 512
+      prompt: |
+        Create an illustration of:
+        {{ prompt_text }}
+
+  remove_columns: false
+  output_schema:
+    text: "{{ prompt_text }}"
+    image: "{{ generated_image }}"
+
+execution_params:
+  mode: local
+  retry: false
+```
+
+Install optional image generation dependencies before running this config:
+
+```bash
+pip install -e .[image_gen]
 ```
 
 Key multimodal features:

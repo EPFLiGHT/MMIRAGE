@@ -31,6 +31,7 @@ class MMIRAGEMapper:
         processor_configs: List[BaseProcessorConfig],
         input_vars: List[InputVar],
         output_vars: List[OutputVar],
+        shard_id: int = 0,
     ) -> None:
         """Initialize the MMIRAGE mapper.
 
@@ -38,6 +39,7 @@ class MMIRAGEMapper:
             processor_configs: List of processor configurations.
             input_vars: List of input variable definitions.
             output_vars: List of output variable definitions.
+            shard_id: Shard index for this worker, forwarded to processors.
         """
         self.processors: Dict[str, BaseProcessor] = dict()
         self.input_vars = input_vars
@@ -47,7 +49,7 @@ class MMIRAGEMapper:
             processor_cls = AutoProcessor.from_name(config.type)
             logger.info(f"✅ Successfully loaded processor of type {config.type}")
 
-            self.processors[config.type] = processor_cls(config)
+            self.processors[config.type] = processor_cls(config, shard_id=shard_id)
 
     def validate_vars(self) -> bool:
         """Validate that all output variables are computable.
@@ -136,3 +138,8 @@ class MMIRAGEMapper:
         """Finalize processors that expose a finalize lifecycle hook."""
         for processor in self.processors.values():
             processor.finalize()
+            
+    def shutdown(self) -> None:
+        """Shut down all processors and release their resources."""
+        for processor in self.processors.values():
+            processor.shutdown()

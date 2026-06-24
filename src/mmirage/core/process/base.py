@@ -45,14 +45,28 @@ class BaseProcessor(abc.ABC, Generic[C]):
         config: Configuration object for this processor.
     """
 
-    def __init__(self, config: BaseProcessorConfig) -> None:
+    def __init__(self, config: BaseProcessorConfig, shard_id: int = 0, **kwargs) -> None:
         """Initialize the processor with configuration.
 
         Args:
             config: Configuration object for this processor.
+            shard_id: Optional shard identifier accepted for compatibility
+                with callers that forward it during processor construction.
+            **kwargs: Additional keyword arguments. Any unexpected keyword
+                arguments will raise ``TypeError``.
+
+        Raises:
+            TypeError: If unexpected keyword arguments are provided.
         """
+        if kwargs:
+            unexpected_args = ", ".join(sorted(kwargs))
+            raise TypeError(
+                f"Unexpected keyword argument(s) for "
+                f"{self.__class__.__name__}: {unexpected_args}"
+            )
         super().__init__()
         self.config = config
+        self.shard_id = shard_id
 
     @abc.abstractmethod
     def batch_process_sample(
@@ -100,6 +114,13 @@ class BaseProcessor(abc.ABC, Generic[C]):
         """
         raise NotImplementedError()
 
+    def shutdown(self) -> None:
+        """Release any resources held by this processor.
+
+        Override in subclasses that hold GPU memory, open file handles, or
+        network connections.  The default implementation is a no-op.
+        """
+
 
 class ProcessorRegistry:
     """Registry for managing and accessing available processors.
@@ -120,7 +141,10 @@ class ProcessorRegistry:
     # Import processor implementations lazily because they may depend on heavy
     # libraries (torch/transformers). Config/output-var types are registered via
     # mmirage.config.utils importing the relevant config modules.
-    _lazy_processor_imports = {"llm": "mmirage.core.process.processors.llm.llm_processor"}
+    _lazy_processor_imports = {
+        "llm": "mmirage.core.process.processors.llm.llm_processor",
+        "image_gen": "mmirage.core.process.processors.image_gen.image_gen_processor",
+    }
 
     @classmethod
     def register_types(
@@ -161,6 +185,8 @@ class ProcessorRegistry:
             cls._registry[name] = clazz
             cls._config_registry[name] = config_cls
             cls._output_var_registry[name] = output_var_cls
+            return clazz
+
 
         return inner_register
 
@@ -201,6 +227,9 @@ class ProcessorRegistry:
             ValueError: If no processor is registered under the given name.
         """
         if name not in cls._config_registry:
+            cls._maybe_import_processor(name)
+
+        if name not in cls._config_registry:
             raise ValueError(
                 f"Processor {name} not registered. Available processors are {list(cls._config_registry.keys())}"
             )
@@ -220,6 +249,9 @@ class ProcessorRegistry:
         Raises:
             ValueError: If no processor is registered under the given name.
         """
+        if name not in cls._output_var_registry:
+            cls._maybe_import_processor(name)
+
         if name not in cls._output_var_registry:
             raise ValueError(
                 f"Processor {name} not registered. Available processors are {list(cls._output_var_registry.keys())}"

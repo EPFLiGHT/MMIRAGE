@@ -25,6 +25,11 @@ from mmirage.cli_utils.status import (
 from mmirage.config.config import MMirageConfig
 from mmirage.config.utils import load_mmirage_config
 from mmirage.merge_shards import MergeReport, merge_from_config, merge_input_dir
+from mmirage.core.process.processors.image_gen.sglang_server import (
+    MMIRAGE_SGLANG_BASE_URL,
+    get_sglang_server_config,
+    shared_sglang_server,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -41,6 +46,12 @@ def run_local(config_path: str, shard_id: Optional[int] = None, collect_stats: b
     Returns:
         Process return code from shard execution.
     """
+    cfg = load_mmirage_config(config_path)
+    sglang = get_sglang_server_config(cfg)
+    if sglang is not None and not os.environ.get(MMIRAGE_SGLANG_BASE_URL):
+        with shared_sglang_server(sglang):
+            return run_local(config_path, shard_id, collect_stats)
+
     command = [sys.executable, "-m", "mmirage.shard_process", "--config", config_path]
     env = os.environ.copy()
     if shard_id is not None:
@@ -76,6 +87,17 @@ def launch_pipeline(
     auto_retry = force_retry or cfg.execution_params.retry
 
     if not cfg.execution_params.is_slurm():
+        sglang = get_sglang_server_config(cfg)
+        if sglang is not None and not os.environ.get(MMIRAGE_SGLANG_BASE_URL):
+            with shared_sglang_server(sglang):
+                return launch_pipeline(
+                    cfg,
+                    config_path,
+                    force_retry=force_retry,
+                    require_completion=require_completion,
+                    collect_stats=collect_stats,
+                )
+
         initial_shard_id = cfg.loading_params.get_shard_id()
         if not auto_retry:
             exit_code = run_local(config_path, initial_shard_id, collect_stats=collect_stats)
