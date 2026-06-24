@@ -3,6 +3,7 @@ import sys
 import types
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 _SRC = Path(__file__).resolve().parents[2] / "src"
@@ -88,6 +89,32 @@ def test_compute_source_hash_uses_explicit_empty_payload():
     assert ImageGenProcessor._compute_source_hash(env) == hashlib.sha256(
         b"empty"
     ).hexdigest()[:8]
+
+
+def test_save_image_cleanup_does_not_mask_original_interrupt_like_error(
+    monkeypatch,
+    tmp_path,
+):
+    class InterruptLikeError(BaseException):
+        pass
+
+    class BrokenImage:
+        def save(self, path):
+            raise InterruptLikeError("stop now")
+
+    backend = InMemoryBackend()
+    processor = _processor(monkeypatch, tmp_path, backend)
+
+    def fail_cleanup(path):
+        raise OSError("cleanup failed")
+
+    monkeypatch.setattr(
+        "mmirage.core.process.processors.image_gen.image_gen_processor.os.unlink",
+        fail_cleanup,
+    )
+
+    with pytest.raises(InterruptLikeError, match="stop now"):
+        processor._save_image(BrokenImage(), "sample.png")
 
 
 def test_parallel_batch_failure_falls_back_to_sequential_and_updates_counter(

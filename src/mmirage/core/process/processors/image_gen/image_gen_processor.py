@@ -32,6 +32,13 @@ except ImportError:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 _SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
+_RECOVERABLE_IMAGE_GEN_ERRORS = (
+    OSError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+    jinja2.TemplateError,
+)
 
 
 def _sanitize_filename(filename: str) -> str:
@@ -192,16 +199,22 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
             path = os.path.join(self._output_dir, f"{stem}.{self._run_id}{ext}")
 
         tmp_fd, tmp_path = tempfile.mkstemp(dir=self._output_dir, suffix=ext)
+        saved = False
         try:
             os.close(tmp_fd)
             image.save(tmp_path)
             os.replace(tmp_path, path)
-        except Exception:
-            try:
-                os.unlink(tmp_path)
-            except OSError as cleanup_err:
-                logger.warning("Failed to clean up temp file %r: %s", tmp_path, cleanup_err)
-            raise
+            saved = True
+        finally:
+            if not saved:
+                try:
+                    os.unlink(tmp_path)
+                except OSError as cleanup_err:
+                    logger.warning(
+                        "Failed to clean up temp file %r: %s",
+                        tmp_path,
+                        cleanup_err,
+                    )
         return path
 
     # ------------------------------------------------------------------
@@ -292,7 +305,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                     filename = self._render_filename(filename_template, output_var, env, sample_index)
                     value = self._save_image(image, filename)
                 updated.append(env.with_variable(output_var.name, value, is_image=True))
-            except Exception as exc:
+            except _RECOVERABLE_IMAGE_GEN_ERRORS as exc:
                 logger.error(
                     "Image generation failed for output '%s' at sample %d: %s",
                     output_var.name,
@@ -337,7 +350,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                         batch_offset,
                     )
                 )
-            except Exception as exc:
+            except _RECOVERABLE_IMAGE_GEN_ERRORS as exc:
                 logger.warning(
                     "Batch generation failed for chunk at offset %d "
                     "(samples %d–%d); falling back to sequential for this chunk. "
