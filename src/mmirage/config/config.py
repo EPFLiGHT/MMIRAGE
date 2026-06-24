@@ -89,12 +89,15 @@ class ProcessingParams:
         outputs: List of output variables to generate using processors.
         output_schema: Dictionary defining the structure of output samples.
         remove_columns: If True, removes all columns from original dataset.
+        cast_images: If True, cast generated image path columns to the
+            HuggingFace Image feature before saving.
     """
 
     inputs: List[InputVar]
     outputs: List[OutputVar]
     output_schema: Dict[str, Any]
     remove_columns: bool = False
+    cast_images: bool = True
 
 
 @dataclass

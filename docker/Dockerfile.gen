@@ -30,6 +30,6 @@ RUN pip install --no-cache-dir \
 
 COPY . .
 
-RUN pip install --no-cache-dir ".[gpu]"
+RUN pip install --no-cache-dir ".[gpu,image_gen]"
 
 ENTRYPOINT ["/bin/bash"]
