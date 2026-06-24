@@ -84,9 +84,9 @@ class ImageAssetManager:
             "resolved": 0,
         }
 
-    def resolve_image(self, value: Any) -> ResolvedImage:
+    def resolve_image(self, value: Any, root_dir: Optional[str] = None) -> ResolvedImage:
         """Resolve image from local path, URL, PIL image, or raw bytes."""
-        source_type, source_id, source_bytes = self._resolve_source(value)
+        source_type, source_id, source_bytes = self._resolve_source(value, root_dir=root_dir)
         canonical_bytes, width, height, mode, sha256 = self._canonicalize(source_bytes, source_id)
         resolved = self._write_temp(source_type, source_id, canonical_bytes, width, height, mode, sha256)
 
@@ -97,7 +97,7 @@ class ImageAssetManager:
         """Get in-process image resolution statistics."""
         return dict(self._stats)
 
-    def _resolve_source(self, value: Any) -> tuple[str, str, bytes]:
+    def _resolve_source(self, value: Any, root_dir: Optional[str] = None) -> tuple[str, str, bytes]:
         if isinstance(value, Image.Image):
             source_id = "inline:PIL"
             source_bytes = self._pil_to_png_bytes(value)
@@ -118,21 +118,22 @@ class ImageAssetManager:
         if self._is_remote_url(value):
             return "remote", value, self._download_remote(value)
 
-        local_path = self._resolve_local_path(value)
+        local_path = self._resolve_local_path(value, root_dir=root_dir)
         try:
             with open(local_path, "rb") as f:
                 return "local", local_path, f.read()
         except OSError as e:
             raise ImageResolveError(f"Failed to read local image file '{local_path}': {e}") from e
 
-    def _resolve_local_path(self, value: str) -> str:
+    def _resolve_local_path(self, value: str, root_dir: Optional[str] = None) -> str:
         path = value
         if not os.path.isabs(path):
-            if self.root_dir is None:
+            base_dir = self.root_dir or root_dir
+            if base_dir is None:
                 raise ImageResolveError(
                     f"Relative image path '{value}' cannot be resolved without assets.images.root_dir"
                 )
-            path = os.path.join(self.root_dir, value)
+            path = os.path.join(base_dir, value)
 
         abs_path = os.path.abspath(os.path.expanduser(path))
         if not os.path.exists(abs_path):

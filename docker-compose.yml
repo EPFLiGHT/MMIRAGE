@@ -1,0 +1,17 @@
+services:
+  mmirage:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  mmirage-cpu:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.cpu

@@ -1,23 +1,28 @@
 """Configuration loading utilities for MMIRAGE pipeline."""
 
-from typing import Any, Dict, List, TypeAlias, Union, cast
-from dacite import Config, from_dict
-import yaml
 import os
+from typing import Any, Dict, List, TypeAlias, Union, cast
 
+import yaml
+from dacite import Config, from_dict
+
+from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.config.config import MMirageConfig
 from mmirage.core.assets.image_manager import ImageAssetManager
-from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry, OutputVar
 from mmirage.core.loader.base import BaseDataLoaderConfig, DataLoaderRegistry
+from mmirage.core.process.base import BaseProcessorConfig, OutputVar, ProcessorRegistry
+from mmirage.core.process.batch.provider_resolution import resolve_single_provider_config
+from mmirage.core.process.processors.image_gen.config import ImageOutputMode
 
 # Register built-in processors/loaders.
 #
 # We import configuration modules (lightweight) here so the registries know how
 # to construct config/output-var objects from YAML without importing heavy
 # processor implementations (e.g. torch/transformers).
-import mmirage.core.process.processors.llm.config  # noqa: F401
 import mmirage.core.loader.jsonl  # noqa: F401
 import mmirage.core.loader.local_hf  # noqa: F401
+import mmirage.core.process.processors.image_gen.config  # noqa: F401
+import mmirage.core.process.processors.llm.config  # noqa: F401
 
 EnvValue: TypeAlias = Union[str, List["EnvValue"], Dict[str, "EnvValue"]]
 
@@ -48,6 +53,7 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
         - path: /path/to/dataset.jsonl
           type: JSONL
           output_dir: /path/to/output
+          image_base_path: /path/to/images
       num_shards: 4
       shard_id: 0
       batch_size: 64
@@ -76,6 +82,7 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
             {{ text }}
 
       remove_columns: True
+      cast_images: True
       output_schema:
         conversations:
           - role: "user"
@@ -96,12 +103,16 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
     def expand_env_vars(obj: EnvValue) -> EnvValue:
         if isinstance(obj, dict):
             return {key: expand_env_vars(value) for key, value in obj.items()}
-        elif isinstance(obj, list):
+        if isinstance(obj, list):
             return [expand_env_vars(item) for item in obj]
-        elif isinstance(obj, str):
+        if isinstance(obj, str):
             return os.path.expandvars(obj)
-        else:
-            return obj
+        return obj
+
+    def image_output_mode_hook(value: Any) -> ImageOutputMode:
+        if isinstance(value, ImageOutputMode):
+            return value
+        return ImageOutputMode(value)
 
     def processor_config_hook(data: Dict[str, Any]) -> BaseProcessorConfig:
         clz = ProcessorRegistry.get_config_cls(data["type"])
@@ -115,12 +126,17 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
         clz = ProcessorRegistry.get_output_var_cls(data["type"])
         return from_dict(clz, data, config=config)
 
+    def batch_provider_hook(data: Dict[str, Any]) -> BatchProviderConfig:
+        return resolve_single_provider_config(data)
+
     cfg = expand_env_vars(cfg)
     config = Config(
         type_hooks={
+            ImageOutputMode: image_output_mode_hook,
             BaseProcessorConfig: processor_config_hook,
             BaseDataLoaderConfig: loader_config_hook,
             OutputVar: output_var_hook,
+            BatchProviderConfig: batch_provider_hook,
         }
     )
     cfg_obj = from_dict(MMirageConfig, cast(dict, cfg), config=config)

@@ -267,7 +267,9 @@ class VariableEnvironment:
 
             if input_var.is_image():
                 if image_asset_manager is not None:
-                    value = image_asset_manager.resolve_image(value).canonical_path
+                    value = image_asset_manager.resolve_image(
+                        value, root_dir=image_base_path
+                    ).canonical_path
                 else:
                     value = _resolve_image_input(value, image_base_path)
                 image_vars.add(input_var.name)

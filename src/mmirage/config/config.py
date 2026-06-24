@@ -18,6 +18,7 @@ class ExecutionParams:
     Attributes:
         mode: Execution mode: "local" or "slurm". Defaults to "local".
         retry: Whether automatic retry orchestration is enabled. Defaults to False.
+        merge: Whether to merge shard outputs after a successful run. Defaults to False.
         max_retries: Maximum number of retries for failed shards. Defaults to 3.
         poll_interval_seconds: Seconds to wait between polling job status. Defaults to 30.
         settle_time_seconds: Seconds to wait after job completes before checking results. Defaults to 60.
@@ -41,6 +42,7 @@ class ExecutionParams:
 
     mode: str = "local"
     retry: bool = False
+    merge: bool = False
     max_retries: int = 3
     poll_interval_seconds: int = 30
     settle_time_seconds: int = 60
@@ -87,12 +89,15 @@ class ProcessingParams:
         outputs: List of output variables to generate using processors.
         output_schema: Dictionary defining the structure of output samples.
         remove_columns: If True, removes all columns from original dataset.
+        cast_images: If True, cast generated image path columns to the
+            HuggingFace Image feature before saving.
     """
 
     inputs: List[InputVar]
     outputs: List[OutputVar]
     output_schema: Dict[str, Any]
     remove_columns: bool = False
+    cast_images: bool = True
 
 
 @dataclass

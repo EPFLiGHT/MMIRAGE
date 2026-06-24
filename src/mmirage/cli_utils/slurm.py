@@ -11,6 +11,7 @@ from typing import Optional, Sequence
 
 from mmirage.config.config import MMirageConfig
 from mmirage.cli_utils.runtime import create_directories, expand_path, get_project_root
+from mmirage.core.process.processors.image_gen.sglang_server import get_sglang_server_config
 
 
 logger = logging.getLogger(__name__)
@@ -54,8 +55,13 @@ def _shell_path(value: str, project_root: str) -> str:
     return raw
 
 
-def build_sbatch_script(cfg: MMirageConfig, config_path: str) -> str:
-    """Build the sbatch payload executed for each array task."""
+def build_sbatch_script(
+    cfg: MMirageConfig,
+    config_path: str,
+    collect_stats: bool = False,
+    shard_ids: Optional[Sequence[int]] = None,
+) -> str:
+    """Build the sbatch payload for shard processing."""
     project_root = get_project_root(cfg)
     hf_home = _shell_path(cfg.execution_params.hf_home, project_root)
     state_root = _shell_path(cfg.loading_params.get_state_root(), project_root)
@@ -69,10 +75,19 @@ def build_sbatch_script(cfg: MMirageConfig, config_path: str) -> str:
         f"export SHARD_PROCESS={_bash_double_quote(shard_process_path)}",
         f"export HF_HOME={_bash_double_quote(hf_home)}",
         f"export MMIRAGE_CONFIG={_bash_double_quote(config_path)}",
+    ]
+    if collect_stats:
+        lines.append("export MMIRAGE_COLLECT_STATS=1")
+    sglang = get_sglang_server_config(cfg)
+    if sglang is not None:
+        lines.append(
+            f"export MMIRAGE_SHARD_IDS={_bash_double_quote(','.join(map(str, shard_ids or [])))}"
+        )
+    lines.extend([
         f"mkdir -p {_bash_double_quote(hf_home)}",
         f"mkdir -p {_bash_double_quote(state_root)}",
         "srun_args=(--cpus-per-task ${SLURM_CPUS_PER_TASK:-1} --wait 60)",
-    ]
+    ])
 
     if cfg.execution_params.edf_env:
         edf_env = expand_path(cfg.execution_params.edf_env, project_root)
@@ -86,12 +101,29 @@ def build_sbatch_script(cfg: MMirageConfig, config_path: str) -> str:
     if cfg.execution_params.reservation:
         lines.append(f"srun_args+=(--reservation={shlex.quote(cfg.execution_params.reservation)})")
 
-    lines.extend(
-        [
-            "srun \"${srun_args[@]}\" bash -c 'if command -v python3 >/dev/null 2>&1; then PYTHON_CMD=python3; elif command -v python >/dev/null 2>&1; then PYTHON_CMD=python; else echo \"python3/python not found in PATH\" >&2; exit 127; fi; echo \"Using Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version 2>&1))\"; ${PYTHON_CMD} -c \"import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 2)\" || { echo \"MMIRAGE requires Python >= 3.10 on compute nodes\" >&2; exit 2; }; exec ${PYTHON_CMD} \"$SHARD_PROCESS\" --config \"$MMIRAGE_CONFIG\"'",
-            "echo \"Shard ${SLURM_ARRAY_TASK_ID:-0} completed\"",
-        ]
+    python_setup = (
+        'if command -v python3 >/dev/null 2>&1; then PYTHON_CMD=python3; '
+        'elif command -v python >/dev/null 2>&1; then PYTHON_CMD=python; '
+        'else echo "python3/python not found in PATH" >&2; exit 127; fi; '
+        'echo "Using Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version 2>&1))"; '
+        '${PYTHON_CMD} -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 2)" '
+        '|| { echo "MMIRAGE requires Python >= 3.10 on compute nodes" >&2; exit 2; }; '
     )
+    if sglang is not None:
+        lines.append(
+            "srun \"${srun_args[@]}\" bash -c '"
+            + python_setup
+            + 'exec ${PYTHON_CMD} -m mmirage.sglang_job --config "$MMIRAGE_CONFIG" '
+            '--shard-ids "$MMIRAGE_SHARD_IDS"\''
+        )
+        lines.append('echo "Shared SGLang MMIRAGE job completed"')
+    else:
+        lines.append(
+            "srun \"${srun_args[@]}\" bash -c '"
+            + python_setup
+            + 'exec ${PYTHON_CMD} "$SHARD_PROCESS" --config "$MMIRAGE_CONFIG"\''
+        )
+        lines.append('echo "Shard ${SLURM_ARRAY_TASK_ID:-0} completed"')
     return "\n".join(lines) + "\n"
 
 
@@ -99,19 +131,23 @@ def submit_slurm_job(
     cfg: MMirageConfig,
     config_path: str,
     shard_ids: Optional[Sequence[int]] = None,
+    collect_stats: bool = False,
 ) -> Optional[int]:
-    """Submit a SLURM array job and return its job ID."""
+    """Submit a SLURM shard-processing job and return its job ID."""
     project_root = get_project_root(cfg)
     report_dir = expand_path(cfg.execution_params.report_dir, project_root)
     create_directories([report_dir])
+    sglang = get_sglang_server_config(cfg)
+    output_name = "R-%x.%j.out" if sglang is not None else "R-%x.%A_%a.out"
+    error_name = "R-%x.%j.err" if sglang is not None else "R-%x.%A_%a.err"
 
     command = [
         "sbatch",
         "--parsable",
         f"--job-name={cfg.execution_params.job_name}",
         f"--chdir={project_root}",
-        f"--output={os.path.join(report_dir, 'R-%x.%A_%a.out')}",
-        f"--error={os.path.join(report_dir, 'R-%x.%A_%a.err')}",
+        f"--output={os.path.join(report_dir, output_name)}",
+        f"--error={os.path.join(report_dir, error_name)}",
         f"--nodes={cfg.execution_params.nodes}",
         f"--ntasks-per-node={cfg.execution_params.ntasks_per_node}",
         f"--gres=gpu:{cfg.execution_params.gpus}",
@@ -124,7 +160,10 @@ def submit_slurm_job(
         command.append(f"--reservation={cfg.execution_params.reservation}")
 
     requested_shards = list(shard_ids or [])
-    if requested_shards:
+    if sglang is not None:
+        if cfg.execution_params.nodes != 1:
+            raise ValueError("backend='sglang' currently supports only execution_params.nodes=1")
+    elif requested_shards:
         command.append(f"--array={','.join(str(shard_id) for shard_id in requested_shards)}")
     else:
         num_shards = cfg.loading_params.get_num_shards()
@@ -134,7 +173,12 @@ def submit_slurm_job(
     logger.info("Submitting SLURM job: %s", " ".join(command))
     result = subprocess.run(
         command,
-        input=build_sbatch_script(cfg, config_path),
+        input=build_sbatch_script(
+            cfg,
+            config_path,
+            collect_stats=collect_stats,
+            shard_ids=requested_shards,
+        ),
         text=True,
         capture_output=True,
         check=False,

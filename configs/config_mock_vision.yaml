@@ -47,5 +47,6 @@ assets:
 execution_params:
   mode: local
   retry: false
+  merge: true
   report_dir: ~/reports
   hf_home: ~/hf
