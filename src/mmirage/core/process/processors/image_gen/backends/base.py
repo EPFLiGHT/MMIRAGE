@@ -53,7 +53,7 @@ class ImageGenerationBackend(Protocol):
         *,
         prompt: str,
         negative_prompt: Optional[str] = None,
-        params: Optional[Mapping[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
         seed: Optional[int] = None,
     ) -> PILImage:
         """Generate a single image for one prompt."""
