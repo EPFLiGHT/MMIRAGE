@@ -158,8 +158,10 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
     @staticmethod
     def _compute_source_hash(env: VariableEnvironment) -> str:
         """Return an 8-character SHA-256 hex digest of all input variable values."""
-        payload = str(sorted(env.to_dict().items()))
-        return hashlib.sha256(payload.encode()).hexdigest()[:8]
+        items = sorted(env.to_dict().items())
+        if not items:
+            return hashlib.sha256(b"empty").hexdigest()[:8]
+        return hashlib.sha256(str(items).encode()).hexdigest()[:8]
 
     def _render_filename(
         self,

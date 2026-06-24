@@ -10,7 +10,7 @@ import sys
 import traceback
 from typing import Any, Dict, List, Optional
 
-from datasets import DatasetDict, Image as HFImage
+from datasets import DatasetDict
 
 from mmirage.config.utils import load_mmirage_config
 from mmirage.core.loader.base import DatasetLike
@@ -68,6 +68,16 @@ def _cast_image_columns(ds: DatasetLike, cols: List[str]) -> DatasetLike:
     When ``save_to_disk`` is called, HuggingFace reads each path from disk
     and embeds the raw bytes in the Arrow file, making the shard portable.
     """
+    try:
+        from datasets import Image as HFImage
+    except ImportError as exc:
+        raise RuntimeError(
+            "Generated image path columns require the optional HuggingFace "
+            "`datasets.Image` feature when processing_params.cast_images is true. "
+            "Install `datasets` with image support or set "
+            "`processing_params.cast_images: false` to keep paths as strings."
+        ) from exc
+
     def _normalise_col(batch: Dict[str, Any], col: str) -> Dict[str, Any]:
         normalized: List[Any] = []
         for v in batch[col]:
@@ -255,9 +265,15 @@ def main():
                     processing_params.output_schema,
                     renderer,
                 )
-                if image_cols:
+                if image_cols and processing_params.cast_images:
                     ds_processed = _cast_image_columns(ds_processed, image_cols)
                     logger.info(f"Cast image column(s) to HF Image feature: {image_cols}")
+                elif image_cols:
+                    logger.info(
+                        "Leaving generated image column(s) as paths because "
+                        "processing_params.cast_images is false: %s",
+                        image_cols,
+                    )
 
                 ds_processed_all.append(ds_processed)
 

@@ -264,6 +264,7 @@ def _next_available_port(
 
 
 def _is_port_available(port: int) -> bool:
+    """Best-effort preflight; _is_address_in_use_failure retries recover races."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:

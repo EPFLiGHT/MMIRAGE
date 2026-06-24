@@ -76,6 +76,7 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
             {{ text }}
 
       remove_columns: True
+      cast_images: True
       output_schema:
         conversations:
           - role: "user"
