@@ -85,9 +85,13 @@ src/mmirage/
     │   ├── base.py          BaseProcessor, ProcessorRegistry, TokenCounts
     │   ├── mapper.py        MMIRAGEMapper — orchestrates variables through processors
     │   ├── processors/
-    │   │   └── llm/
-    │   │       ├── config.py         SGLangLLMConfig, SGLangServerArgs, LLMOutputVar
-    │   │       └── llm_processor.py  LLMProcessor — SGLang engine wrapper
+    │   │   ├── llm/
+    │   │   │   ├── config.py            SGLangLLMConfig, SGLangServerArgs, LLMOutputVar
+    │   │   │   └── llm_processor.py     LLMProcessor — SGLang engine wrapper
+    │   │   └── custom/
+    │   │       ├── config.py            CustomProcessorConfig, SGLangServerArgs, CustomOutputVar
+    │   │       ├── custom_processor.py  CustomProcessor — Custom module pool worker
+    │   │       └── worker.py            Worker functions
     │   └── batch/           Async/batch inference subsystem
     │       ├── orchestrator.py       End-to-end batch pipeline
     │       ├── adapter.py            Provider-neutral batch adapter interface

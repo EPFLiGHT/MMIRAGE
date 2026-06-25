@@ -37,6 +37,7 @@ Depending on what you want to do, start in different places:
 - to process images with a VLM, read [Multimodal Processing](multimodal.md)
 - to run at scale on a cluster, read [SLURM & Cluster Deployment](slurm.md)
 - to use the OpenAI Batch API, read [Batch API](batch_api.md)
+- to use your custom python module, read [Custom Module](custom_module.md)
 - to measure throughput and GPU efficiency, read [Benchmarking](benchmarking.md)
 - to configure every parameter, read [Configuration Reference](configuration.md)
 - to contribute to the codebase, read [Developer Guide](developer.md)
