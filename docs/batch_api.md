@@ -6,7 +6,7 @@ This page explains how to run MMIRAGE inference asynchronously using the OpenAI 
 
 ## Overview
 
-By default, MMIRAGE runs inference locally via an SGLang engine. When a `batch_provider` is configured, the `llm` processor instead delegates requests to the OpenAI Batch API asynchronously:
+By default MMIRAGE runs in execution_mode in `local`. If you defined execution_mode in `batch`, it will run into the batch processing 
 
 1. **Request serialization:** MMIRAGE serializes inference requests into JSONL chunks.
 2. **Batch submission:** Each chunk is uploaded and submitted as an OpenAI batch job.
@@ -35,16 +35,14 @@ This mode is useful when:
 
 ## Configuration
 
-Add a `batch_provider` block inside the processor definition in your YAML config:
+Set `execution_mode` to `batch` and add a `batch` block inside the processor definition in your YAML config:
 
 ```yaml
 processors:
   - type: llm
-    server_args:
-      model_path: none               # Ignored in batch mode, defaults to "none"
-    batch_provider:
+    execution_mode: batch
+    batch:
       provider: openai
-      enabled: true
       model: gpt-4o-mini
       max_chunk_bytes: 52428800      # Max bytes per uploaded JSONL file (50 MB)
       max_requests_per_chunk: 50000  # Max requests per batch job
@@ -63,7 +61,6 @@ processors:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `provider` | `str` | — | Provider identifier. Currently `"openai"` is supported. |
-| `enabled` | `bool` | `true` | Whether batch mode is active. |
 | `model` | `str` | `"gpt-4.1-mini"` | Model name for chat completion requests. |
 | `batch_endpoint` | `str` | `"/v1/chat/completions"` | Target endpoint used by OpenAI batch jobs. |
 | `completion_window` | `str` | `"24h"` | OpenAI batch completion window (only `"24h"` is supported). |
