@@ -86,7 +86,7 @@ src/mmirage/
     │   ├── mapper.py        MMIRAGEMapper — orchestrates variables through processors
     │   ├── processors/
     │   │   └── llm/
-    │   │       ├── config.py         SGLangLLMConfig, SGLangServerArgs, LLMOutputVar
+    │   │       ├── config.py         SGLangLLMConfig, SGLangServerArgs, LLMOutputVar, LLMProcessorConfig
     │   │       └── llm_processor.py  LLMProcessor — SGLang engine wrapper
     │   └── batch/           Async/batch inference subsystem
     │       ├── orchestrator.py       End-to-end batch pipeline
