@@ -83,7 +83,7 @@ Exemple for OpenAI:
 
 ```bash
 export OPENAI_API_KEY=sk-...
-# Then you can run mmirage with `execution_mode : batch`
+# Then you can run mmirage with the right yaml configuration for OpenAI
 ```
 
 ---
@@ -267,9 +267,9 @@ After registering your custom provider, you can reference it in your MMIRAGE pip
 ```yaml
 processors:
   - type: llm
-    batch_provider:
+    execution_mode: batch
+    batch:
       provider: anthropic
-      enabled: true
       model: claude-haiku-4-5
       metadata_output_path: /scratch/anthropic_meta.jsonl
 ```
@@ -281,14 +281,9 @@ processors:
 ```yaml
 processors:
   - type: llm
-    server_args:
-      model_path: none        # Ignored in batch mode
-    default_sampling_params:
-      temperature: 0.0
-      max_new_tokens: 512
-    batch_provider:
+    execution_mode: batch
+    batch:
       provider: openai
-      enabled: true
       model: gpt-4o-mini
       max_chunk_bytes: 52428800
       max_requests_per_chunk: 50000
