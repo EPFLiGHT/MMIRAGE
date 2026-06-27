@@ -93,8 +93,6 @@ processors:
       model: gpt-4o-mini
       max_chunk_bytes: 52428800    # 50 MB per batch file
       metadata_output_path: /path/to/batch_metadata.jsonl
-      credentials:
-        api_key: "sk-..."          # Or leave blank and set OPENAI_API_KEY env var
 ```
 
 **`batch_provider` fields:**

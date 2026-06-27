@@ -278,11 +278,11 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
 
     @staticmethod
     def _create_client(config: OpenAIBatchConfig) -> OpenAI:
-        api_key = (config.credentials.get("api_key", "").strip() or os.environ.get("OPENAI_API_KEY", "").strip() )
+        api_key = os.environ.get("OPENAI_API_KEY", "").strip()
 
         if not api_key:
             raise ValueError(
-                "OpenAI API key is missing. Provide credentials.api_key or set OPENAI_API_KEY."
+                "OpenAI API key is missing. set OPENAI_API_KEY. with `export OPENAI_API_KEY=your_api_key` ."
             )
 
         try:

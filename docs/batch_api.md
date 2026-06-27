@@ -73,29 +73,18 @@ processors:
 | `retry_policy.initial_backoff_seconds` | `float` | `2.0` | Initial retry delay in seconds. |
 | `retry_policy.backoff_multiplier` | `float` | `2.0` | Multiplicative factor for subsequent retry delays. |
 | `metadata` | `dict` | `{}` | Key-value pairs sent on batch creation (OpenAI-specific metadata). |
-| `credentials.api_key` | `str` | `null` | OpenAI API key (can also be specified via the `OPENAI_API_KEY` env var). |
 
 ---
 
 ## API key
 
-The OpenAI Batch API requires an API key. You can specify it in your YAML config under `credentials`:
-
-```yaml
-    batch_provider:
-      provider: openai
-      credentials:
-        api_key: sk-...
-```
-
-Or set it via the environment variable before running:
+API provider require an API key. You can set it via the environment variable before running:
+Exemple for OpenAI: 
 
 ```bash
 export OPENAI_API_KEY=sk-...
-mmirage run --config configs/batch_config.yaml
+# Then you can run mmirage with `execution_mode : batch`
 ```
-
-MMIRAGE reads the key from either `credentials.api_key` in the config or the `OPENAI_API_KEY` environment variable. Prefer environment variables to avoid committing credentials.
 
 ---
 
@@ -283,8 +272,6 @@ processors:
       enabled: true
       model: claude-haiku-4-5
       metadata_output_path: /scratch/anthropic_meta.jsonl
-      credentials:
-        api_key: "your-anthropic-key"  # Or leave blank and set ANTHROPIC_API_KEY env var
 ```
 
 ---
