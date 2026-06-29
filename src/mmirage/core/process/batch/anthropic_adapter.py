@@ -25,8 +25,6 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
 
     required_credentials = ("api_key",)
 
-
-
     def build_request(
         self,
         custom_id: str,

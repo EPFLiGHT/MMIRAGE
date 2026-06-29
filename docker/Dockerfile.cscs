@@ -1,0 +1,53 @@
+FROM docker.io/nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04
+
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="/opt/venv/bin:${PATH}"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 \
+    python3.12-dev \
+    python3.12-venv \
+    git \
+    build-essential \
+    wget \
+    ca-certificates \
+    curl \
+    vim \
+    libnuma1 \
+    libjson-c5 \
+    libmunge2 \
+    libhwloc15 \
+    libssl3 \
+    libsasl2-2 \
+ && rm -rf /var/lib/apt/lists/*
+
+# CSCS/Clariden Slurm SitePolicies compatibility:
+# provides libldap_r-2.4.so.2 and liblber-2.4.so.2 on ARM64.
+RUN wget -q http://ports.ubuntu.com/pool/main/o/openldap/libldap-2.4-2_2.4.49+dfsg-2ubuntu1.10_arm64.deb \
+ && apt-get update \
+ && apt-get install -y ./libldap-2.4-2_2.4.49+dfsg-2ubuntu1.10_arm64.deb \
+ && rm libldap-2.4-2_*.deb \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN python3.12 -m venv /opt/venv
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
+
+WORKDIR /workspace/MMIRAGE
+
+COPY requirements-cscs-lock.txt ./
+
+# Use PyTorch CUDA 12.9 index so torch==2.9.1+cu129 resolves.
+# Make sure requirements-cscs-lock.txt does NOT contain:
+#   mmirage @ file:///workspace/MMIRAGE
+RUN pip install --no-cache-dir \
+    --extra-index-url https://download.pytorch.org/whl/cu129 \
+    -r requirements-cscs-lock.txt
+
+COPY . .
+
+# Install MMIRAGE itself without re-resolving dependencies.
+RUN pip install --no-cache-dir --no-deps .
+
+ENTRYPOINT ["/bin/bash"]

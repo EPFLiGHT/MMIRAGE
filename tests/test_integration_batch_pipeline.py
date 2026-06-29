@@ -90,11 +90,10 @@ def test_integration_batch_pipeline_with_stateful_accumulator(monkeypatch, tmp_p
             max_chunk_bytes=500,
             max_requests_per_chunk=None,
             metadata_output_path=str(metadata_base),
-            credentials={"api_key": "test-key"},
             metadata={"pipeline": "integration-test"},
         ),
     )
-
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     mapper = MMIRAGEMapper(
         processor_configs=[llm_cfg],
         input_vars=[InputVar(name="text", key="text")],

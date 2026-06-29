@@ -6,6 +6,7 @@ from dataclasses import asdict, replace
 import json
 import logging
 import time
+import os
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
@@ -29,7 +30,7 @@ from mmirage.core.process.variables import VariableEnvironment
 
 try:
     from typing import override  # Python 3.12+
-except ImportError:  # pragma: no cover
+except ImportError:  # pragma: no cover  
     from typing_extensions import override  # type: ignore
 
 
@@ -62,11 +63,16 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         sampling_params: Default sampling parameters for generation.
     """
 
-    def __init__(self, engine_args: LLMProcessorConfig) -> None:
+    def __init__(
+        self,
+        engine_args: LLMProcessorConfig,
+        export_prompts_dir: Optional[str] = None,
+    ) -> None:
         """Initialize the LLM processor.
 
         Args:
             engine_args: Configuration for local runtime or batch submission.
+            export_prompts_dir: Target path for exporting the payload.
         """
         super().__init__(engine_args)
 
@@ -108,6 +114,7 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         self.chat_template = local_cfg.chat_template if execution_mode == "local" else ""
         self._batch_adapter = None
         self._batch_provider_config = None
+        self._export_prompts_dir = export_prompts_dir
         self._text_orchestrator: Optional[BatchSubmissionOrchestrator] = None
         self._multimodal_orchestrator: Optional[BatchSubmissionOrchestrator] = None
         self._batch_request_counter = 0
@@ -130,8 +137,17 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             return
 
         self._batch_provider_config = provider_cfg
-        self._batch_adapter = BatchAdapterFactory.from_config(provider_cfg)
+        # When export_prompts_dir is set we are in dry-run mode and should not
+        # require valid provider credentials because no network calls will be
+        # performed.
+        self._batch_adapter = BatchAdapterFactory.from_config(
+            provider_cfg, allow_missing_credentials=bool(self._export_prompts_dir)
+        )
         run_id = uuid.uuid4().hex[:6]
+        export_prompts_path = self._resolve_export_prompts_path(
+            self._export_prompts_dir,
+            run_id,
+        )
 
         self._text_orchestrator = BatchSubmissionOrchestrator(
             adapter=self._batch_adapter,
@@ -141,6 +157,8 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                     provider_cfg.metadata_output_path, "text", run_id
                 ),
             ),
+            export_prompts_path=export_prompts_path,
+            export_batch_prefix="text-",
         )
         self._multimodal_orchestrator = BatchSubmissionOrchestrator(
             adapter=self._batch_adapter,
@@ -150,6 +168,8 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                     provider_cfg.metadata_output_path, "multimodal", run_id
                 ),
             ),
+            export_prompts_path=export_prompts_path,
+            export_batch_prefix="multimodal-",
         )
 
     @staticmethod
@@ -158,6 +178,14 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             return ""
         base_path = path.removesuffix(".jsonl")
         return f"{base_path}.{suffix}.{run_id}.jsonl"
+
+    @staticmethod
+    def _resolve_export_prompts_path(path: Optional[str], run_id: str) -> Optional[str]:
+        if not path:
+            return None
+        if path.endswith(".jsonl"):
+            return path
+        return os.path.join(path, f"exported_prompts.{run_id}.jsonl")
 
     @property
     def batch_mode_enabled(self) -> bool:

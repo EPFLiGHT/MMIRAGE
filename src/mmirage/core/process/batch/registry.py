@@ -1,7 +1,7 @@
 """Registry and factory for provider batch adapters."""
 
 import os
-from typing import Dict, Type
+from typing import Dict, Optional, Type
 
 from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.core.process.batch.adapter import BatchSubmissionAdapter
@@ -60,28 +60,37 @@ class BatchAdapterRegistry:
         return cls._registry[provider_key]
 
     @classmethod
-    def create(cls, config: BatchProviderConfig) -> BatchSubmissionAdapter:
-        """Instantiate an adapter for a provider config with credential checks."""
+    def create(
+        cls,
+        config: BatchProviderConfig,
+        allow_missing_credentials: bool = False,
+    ) -> BatchSubmissionAdapter:
+        """Instantiate an adapter for a provider config with credential checks.
+
+        When ``allow_missing_credentials`` is True, missing credential errors
+        are skipped because submission calls are expected to be bypassed.
+        """
         adapter_cls = cls.resolve(config.provider)
 
-        missing_credentials = []
-        for req_key in adapter_cls.required_credentials:
-            credential_value = (config.credentials.get(req_key, "") or "").strip()
-            if credential_value:
-                continue
+        if not allow_missing_credentials:
+            missing_credentials = []
+            for req_key in adapter_cls.required_credentials:
+                credential_value = (config.credentials.get(req_key, "") or "").strip()
+                if credential_value:
+                    continue
 
-            env_var = f"{config.provider.upper()}_{req_key.upper()}"
-            env_value = (os.environ.get(env_var, "") or "").strip()
-            if env_value:
-                config.credentials[req_key] = env_value
-                continue
+                env_var = f"{config.provider.upper()}_{req_key.upper()}"
+                env_value = (os.environ.get(env_var, "") or "").strip()
+                if env_value:
+                    config.credentials[req_key] = env_value
+                    continue
 
-            missing_credentials.append(req_key)
+                missing_credentials.append(req_key)
 
-        if missing_credentials:
-            raise ValueError(
-                f"Missing credentials for provider '{config.provider}': {missing_credentials}"
-            )
+            if missing_credentials:
+                raise ValueError(
+                    f"Missing credentials for provider '{config.provider}': {missing_credentials}"
+                )
         return adapter_cls()
 
 
@@ -89,6 +98,26 @@ class BatchAdapterFactory:
     """Compatibility alias around registry-based adapter creation."""
 
     @classmethod
-    def from_config(cls, config: BatchProviderConfig) -> BatchSubmissionAdapter:
+    def from_config(
+        cls,
+        config: BatchProviderConfig,
+        allow_missing_credentials: bool = False,
+    ) -> BatchSubmissionAdapter:
         """Create an adapter from provider config via registry resolution."""
-        return BatchAdapterRegistry.create(config)
+        return BatchAdapterRegistry.create(
+            config,
+            allow_missing_credentials=allow_missing_credentials,
+        )
+
+    @classmethod
+    def from_config_with_export(cls, config: BatchProviderConfig, export_dir: Optional[str] = None) -> BatchSubmissionAdapter:
+        """Create an adapter and optionally wrap it in DryRunAdapter when
+        `export_dir` is provided.
+        """
+        adapter = BatchAdapterRegistry.create(config)
+        if export_dir:
+            # Local import to avoid import cycles when adapters import registry
+            from mmirage.core.process.batch.dry_run_adapter import DryRunAdapter
+
+            return DryRunAdapter(adapter, export_dir)
+        return adapter

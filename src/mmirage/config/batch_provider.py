@@ -62,7 +62,6 @@ class BatchProviderConfig:
             ``max_chunk_bytes``. ``isolate`` creates a dedicated oversized
             chunk, while ``reject`` fails fast.
         extras: Provider-specific knobs that do not belong in the shared fields.
-        credentials: Provider credentials required to submit chunks.
     """
 
     provider: str
@@ -73,7 +72,6 @@ class BatchProviderConfig:
     retry_policy: BatchRetryPolicy = field(default_factory=BatchRetryPolicy)
     oversized_request_policy: OversizedRequestPolicy | str = OversizedRequestPolicy.ISOLATE
     extras: Dict[str, Any] = field(default_factory=dict)
-    credentials: Dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.provider = self.provider.strip().lower()

@@ -10,7 +10,11 @@ MMIRAGE, which stands for **M**odular **M**ultimodal **I**ntelligent **R**eforma
 
 ## How to install
 
-To install the library, clone it from GitHub and install it with pip. The base install does not include the local SGLang runtime:
+To install the library, clone it from GitHub and install it with pip.
+
+### Base install
+
+The base install does **not** include the local SGLang runtime:
 
 ```bash
 git clone git@github.com:EPFLiGHT/MMIRAGE.git
@@ -18,13 +22,47 @@ cd MMIRAGE
 pip install -e .
 ```
 
-Install the GPU extra when using the SGLang-backed `llm` processor for local GPU inference:
+### GPU install (SGLang-backed `llm` processor)
+
+MMIRAGE requires a **CUDA-enabled PyTorch installation** before installing the GPU extra.
+
+Install a PyTorch build matching your CUDA runtime (example for CUDA 12.9):
+
+```bash
+pip install --index-url https://download.pytorch.org/whl/cu129 \
+  torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1
+```
+
+Verify CUDA is available:
+
+```bash
+python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
+```
+
+Expected output should include:
+
+- `+cu129`
+- `12.9`
+- `True` (when run on a GPU node)
+
+Then install MMIRAGE GPU support:
 
 ```bash
 pip install -e ".[gpu]"
 ```
 
-For testing and scripts that make use of the library, it is advised to create a .env file:
+Install the SGLang diffusion extra when MMIRAGE should launch an image-generation server:
+
+```bash
+pip install -e ".[image_gen]"
+```
+
+> **Note:** On some platforms (e.g. clusters or ARM/aarch64), `pip install -e ".[gpu]"` alone may resolve to a CPU-only PyTorch build.
+
+### Environment file
+
+For testing and scripts that make use of the library, it is advised to create a `.env` file:
+
 ```bash
 ./scripts/generate_env.sh
 ```
@@ -92,7 +130,7 @@ docker compose run --rm -it mmirage-cpu
     - Image inputs for multimodal processing
 - Parallelizable with multi-node support
     - The training pipeline uses distributed inference with sharding
-- Support a variety of LLMs and VLMs (Vision-Language Models)
+- Support a variety of LLMs, VLMs (Vision-Language Models), and image generation models
 - Support any dataset schemas (configurable with the YAML format)
 - The ability to either output a JSON (or any other structured format) or plain text
 - Modular architecture with pluggable processors, loaders, and writers
@@ -219,7 +257,11 @@ execution_params:
 
 Configuration explanation:
 
-- `processors`: List of processor configurations. Currently supports `llm` type for LLM-based generation. Each `llm` processor must set `execution_mode: local|batch` and provide the matching `local` (SGLang runtime config) or `batch` (provider batch config) block.
+- `processors`: List of processor configurations. Currently supports :
+  - `llm` (text/VLM generation). Each `llm` processor must set `execution_mode: local|batch` :
+    - `local` (SGLang runtime config)
+    - `batch` (provider batch config) block.
+  - `image_gen` (text-to-image generation).
 - `loading_params`: Parameters for loading and sharding datasets.
   - `state_dir`: Optional shared directory for shard status/retry state. Defaults to `~/.cache/MMIRAGE/state_dir`.
   - `datasets`: List of dataset configurations with path, type, and output directory.
@@ -294,6 +336,67 @@ execution_params:
   retry: false
 ```
 
+### Image generation: Text-to-image pipeline
+
+MMIRAGE supports image generation through an already-running HTTP server:
+
+```yaml
+processors:
+  - type: image_gen
+    backend: external
+    external:
+      base_url: http://127.0.0.1:30010/v1
+      timeout_seconds: 900
+      max_concurrent_requests: 4
+      request_model: null
+    default_sampling_params:
+      num_inference_steps: 20
+      guidance_scale: 7.5
+    output_dir: /path/to/generated/images
+    file_format: png
+
+loading_params:
+  state_dir: /path/to/state/dir
+  datasets:
+    - path: /path/to/prompts.jsonl
+      type: JSONL
+      output_dir: /path/to/output/shards
+  num_shards: 1
+  shard_id: 0
+  batch_size: 8
+
+processing_params:
+  inputs:
+    - name: prompt_text
+      key: text
+
+  outputs:
+    - name: generated_image
+      type: image_gen
+      output_mode: path          # "path" or "pil"
+      filename_template: "generated_{{ __shard_id }}_{{ __sample_index }}_{{ __source_hash }}"
+      width: 512
+      height: 512
+      prompt: |
+        Create an illustration of:
+        {{ prompt_text }}
+
+  remove_columns: false
+  output_schema:
+    text: "{{ prompt_text }}"
+    image: "{{ generated_image }}"
+
+execution_params:
+  mode: local
+  retry: false
+```
+
+Install optional image generation dependencies before running this config:
+
+```bash
+pip install -e .[image_gen]
+```
+
 Key multimodal features:
 - `chat_template`: Specify the VLM chat template (e.g., `qwen2-vl`)
 - `type: image`: Mark input variables as images
@@ -322,6 +425,42 @@ processors:
 ```
 
 For OpenAI, set `provider: openai` and use `OPENAI_API_KEY` instead.
+
+### Dry-run / Export prompts
+
+MMIRAGE supports a simple dry-run mode that exports the provider-ready
+prompt payloads to disk instead of submitting them to the provider. This is
+useful for cost estimation, inspection, and offline review.
+
+- CLI: pass `--export-prompts <path>` to `src/mmirage/shard_process.py` (or the
+  equivalent `mmirage run` wrapper). When set, MMIRAGE appends all emitted
+  requests to a single JSONL file and skips all network submission calls.
+- Path behavior:
+
+  - If `<path>` ends with `.jsonl`, that exact file path is used.
+  - Otherwise, MMIRAGE treats `<path>` as a directory and creates one file like
+    `<path>/exported_prompts.<run_id>.jsonl`.
+
+- Format: each line is a provider-ready request object (the exact payload that
+  would have been submitted) plus a `batch_id` field identifying which emitted
+  batch chunk produced the row.
+- Credentials: when `--export-prompts` is used, MMIRAGE does not require
+  provider credentials (API keys) because network submission is intentionally
+  skipped. This makes it convenient to export prompts without setting up
+  provider credentials.
+- Metadata: MMIRAGE still writes the standard metadata receipts to
+  `metadata_output_path` as configured in your batch provider block; export
+  mode only short-circuits the submission step.
+
+Example:
+
+```bash
+python src/mmirage/shard_process.py --config configs/config_mock_openai_batch.yaml \
+  --export-prompts /tmp/mmirage_export.jsonl
+```
+
+This writes all emitted chunks into `/tmp/mmirage_export.jsonl`, with one row
+per request and a `batch_id` field for chunk traceability.
 
 ### Benchmarking shard performance
 

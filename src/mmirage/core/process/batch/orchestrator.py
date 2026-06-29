@@ -23,10 +23,18 @@ class _PendingRequest:
 class BatchSubmissionOrchestrator:
     """Accumulate requests across map iterations and submit full-ready chunks."""
 
-    def __init__(self, adapter: BatchSubmissionAdapter, config: BatchProviderConfig) -> None:
+    def __init__(
+        self,
+        adapter: BatchSubmissionAdapter,
+        config: BatchProviderConfig,
+        export_prompts_path: Optional[str] = None,
+        export_batch_prefix: str = "",
+    ) -> None:
         self.adapter = adapter
         self.config = config
         self.chunker = BatchRequestChunker(adapter=adapter, config=config)
+        self._export_prompts_path = export_prompts_path
+        self._export_batch_prefix = export_batch_prefix
         self._pending: List[_PendingRequest] = []
         self._chunk_counter = 0
 
@@ -92,14 +100,21 @@ class BatchSubmissionOrchestrator:
         submission_results: List[BatchSubmissionResult] = []
         for chunk_entries, request_chunk in groups_to_submit:
             chunk_id = self._next_chunk_id()
-            raw_result = self.adapter.submit_chunk(
-                chunk_id=chunk_id,
-                requests=[entry.request for entry in chunk_entries],
-                config=self.config,
-            )
-            parsed_result = self.adapter.parse_submission_result(
-                raw_result=raw_result,
-            )
+            requests = [entry.request for entry in chunk_entries]
+            if self._export_prompts_path:
+                parsed_result = self._export_chunk_requests(
+                    chunk_id=chunk_id,
+                    requests=requests,
+                )
+            else:
+                raw_result = self.adapter.submit_chunk(
+                    chunk_id=chunk_id,
+                    requests=requests,
+                    config=self.config,
+                )
+                parsed_result = self.adapter.parse_submission_result(
+                    raw_result=raw_result,
+                )
             submission_results.append(parsed_result)
 
             self._persist_metadata(
@@ -112,6 +127,36 @@ class BatchSubmissionOrchestrator:
             )
 
         return submission_results
+
+    def _export_chunk_requests(
+        self,
+        chunk_id: str,
+        requests: Sequence[Mapping[str, Any]],
+    ) -> BatchSubmissionResult:
+        export_path = self._export_prompts_path
+        assert export_path is not None
+
+        batch_id = f"{self._export_batch_prefix}{chunk_id}"
+
+        os.makedirs(os.path.dirname(export_path) or ".", exist_ok=True)
+
+        with open(export_path, "a", encoding="utf-8") as f:
+            for request in requests:
+                row = dict(request)
+                row["batch_id"] = batch_id
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+        return BatchSubmissionResult(
+            provider_batch_id=f"dry-run-{batch_id}",
+            status="dry_run",
+            raw_response={
+                "dry_run": True,
+                "chunk_id": chunk_id,
+                "batch_id": batch_id,
+                "export_path": export_path,
+                "request_count": len(requests),
+            },
+        )
 
     def _split_pending_entries_by_chunks(
         self,

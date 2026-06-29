@@ -5,8 +5,6 @@ processors:
       provider: openai
       model: gpt-4o-mini
       metadata_output_path: tests/output/batch_metadata.jsonl
-      credentials:
-        api_key: ""
 
 loading_params:
   datasets:

@@ -25,23 +25,36 @@ from mmirage.cli_utils.status import (
 from mmirage.config.config import MMirageConfig
 from mmirage.config.utils import load_mmirage_config
 from mmirage.merge_shards import MergeReport, merge_from_config, merge_input_dir
+from mmirage.core.process.processors.image_gen.sglang_server import (
+    MMIRAGE_SGLANG_BASE_URL,
+    get_sglang_server_config,
+    shared_sglang_server,
+)
 
 
 logger = logging.getLogger(__name__)
 
 
-def run_local(config_path: str, shard_id: Optional[int] = None, collect_stats: bool = False) -> int:
+def run_local(config_path: str, shard_id: Optional[int] = None, collect_stats: bool = False, export_prompts_path: Optional[str] = None) -> int:
     """Run one shard in the current Python environment.
 
     Args:
         config_path: Absolute path to the MMIRAGE YAML config file.
         shard_id: Optional shard id to inject via SLURM_ARRAY_TASK_ID.
         collect_stats: If True, enable GPU utilization polling in the shard process.
-
+        export_prompts_path: Optional file path for exporting batch prompts instead of submitting them.
     Returns:
         Process return code from shard execution.
     """
+    cfg = load_mmirage_config(config_path)
+    sglang = get_sglang_server_config(cfg)
+    if sglang is not None and not os.environ.get(MMIRAGE_SGLANG_BASE_URL):
+        with shared_sglang_server(sglang):
+            return run_local(config_path, shard_id, collect_stats)
+
     command = [sys.executable, "-m", "mmirage.shard_process", "--config", config_path]
+    if export_prompts_path is not None:
+        command.extend(["--export-prompts", export_prompts_path])
     env = os.environ.copy()
     if shard_id is not None:
         env["SLURM_ARRAY_TASK_ID"] = str(shard_id)
@@ -59,6 +72,7 @@ def launch_pipeline(
     force_retry: bool = False,
     require_completion: bool = False,
     collect_stats: bool = False,
+    export_prompts_path: Optional[str] = None,
 ) -> int:
     """Launch the pipeline according to execution mode and retry settings.
 
@@ -69,6 +83,7 @@ def launch_pipeline(
         require_completion: If True, wait for completion and verify shard
             status before returning success in SLURM mode when auto-retry is off.
         collect_stats: If True, enable GPU utilization polling on compute nodes.
+        export_prompts_path: Optional file path for exporting batch prompts instead of submitting them.
 
     Returns:
         Exit code: 0 on success, 1 on failure.
@@ -76,9 +91,20 @@ def launch_pipeline(
     auto_retry = force_retry or cfg.execution_params.retry
 
     if not cfg.execution_params.is_slurm():
+        sglang = get_sglang_server_config(cfg)
+        if sglang is not None and not os.environ.get(MMIRAGE_SGLANG_BASE_URL):
+            with shared_sglang_server(sglang):
+                return launch_pipeline(
+                    cfg,
+                    config_path,
+                    force_retry=force_retry,
+                    require_completion=require_completion,
+                    collect_stats=collect_stats,
+                )
+
         initial_shard_id = cfg.loading_params.get_shard_id()
         if not auto_retry:
-            exit_code = run_local(config_path, initial_shard_id, collect_stats=collect_stats)
+            exit_code = run_local(config_path, initial_shard_id, collect_stats=collect_stats, export_prompts_path=export_prompts_path)
             if exit_code == 0:
                 logger.info("All shards completed successfully")
             return exit_code
@@ -90,7 +116,7 @@ def launch_pipeline(
             run_exit_codes = {}
             for shard_id in shard_ids:
                 attempts_by_shard[shard_id] = attempts_by_shard.get(shard_id, 0) + 1
-                run_exit_codes[shard_id] = run_local(config_path, shard_id, collect_stats=collect_stats)
+                run_exit_codes[shard_id] = run_local(config_path, shard_id, collect_stats=collect_stats, export_prompts_path=export_prompts_path)
 
             failed_shards, summary = check_failed_shards(cfg)
             if status_exit_code(failed_shards, summary) == 0:
@@ -266,6 +292,11 @@ def build_argparser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable GPU utilization and throughput collection during shard execution",
     )
+    run_parser.add_argument(
+        "--export-prompts",
+        help="Optional directory for exporting batch prompts instead of submitting them.",
+        default=None,
+    )
 
     merge_parser = subparsers.add_parser(
         "merge",
@@ -378,7 +409,7 @@ def handle_run(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -
         Exit code for the run operation.
     """
     if args.shard_id is not None:
-        return run_local(config_path, args.shard_id, collect_stats=args.stats)
+        return run_local(config_path, args.shard_id, collect_stats=args.stats, export_prompts_path=args.export_prompts)
 
     exit_code = launch_pipeline(
         cfg,
@@ -386,6 +417,7 @@ def handle_run(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -
         force_retry=args.force_retry,
         require_completion=cfg.execution_params.merge,
         collect_stats=args.stats,
+        export_prompts_path=args.export_prompts,
     )
     if exit_code != 0:
         return exit_code
