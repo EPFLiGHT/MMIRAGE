@@ -16,6 +16,7 @@ try:
     SGLANG_AVAILABLE = True
 except ImportError:
     SGLANG_AVAILABLE = False
+
 from transformers import AutoTokenizer
 
 from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCounts
@@ -68,7 +69,7 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
 
         Args:
             engine_args: Configuration for local runtime or batch submission.
-            **kwargs: Additional arguments passed to base class.
+            export_prompts_dir: Target path for exporting the payload.
         """
         super().__init__(engine_args)
 

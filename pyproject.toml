@@ -52,6 +52,9 @@ dev = [
   "ipykernel",
   "pytest",
 ]
+image_gen = [
+  "sglang[diffusion]==0.5.10",
+]
 
 [project.scripts]
 mmirage = "mmirage.cli:main"
