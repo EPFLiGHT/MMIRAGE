@@ -7,11 +7,6 @@ on:
       - feature/doc
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 # Only one deployment runs at a time; ongoing deployments are not cancelled.
 concurrency:
   group: pages
@@ -21,6 +16,9 @@ jobs:
   build:
     name: Build documentation
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -33,19 +31,23 @@ jobs:
           cache: pip
           cache-dependency-path: docs/requirements.txt
 
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
       - name: Install Sphinx dependencies
         run: pip install -r docs/requirements.txt
 
       # Install the package itself in no-deps, no-build-isolation mode so that
-      # autodoc can import mmirage.  Heavy runtime dependencies (torch, sglang,
+      # autodoc can import mmirage. Heavy runtime dependencies (torch, sglang,
       # etc.) are mocked in conf.py and therefore do not need to be installed.
-      - name: Install mmirage (no heavy deps)
+      - name: Install mmirage without heavy dependencies
         run: pip install --no-deps -e .
 
       - name: Build HTML docs
         run: sphinx-build -b html -j auto docs docs/_build/html --keep-going
+
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: docs/_build/html
 
@@ -54,11 +56,16 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Deploy
+      - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
