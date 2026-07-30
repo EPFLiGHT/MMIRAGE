@@ -1,6 +1,6 @@
 <h1 align="center">
 
-![image](https://raw.githubusercontent.com/EPFLiGHT/MMIRAGE/main/mmirage_logo_with_text.png)
+![image](https://raw.githubusercontent.com/LiGHTers-playground/MMIRAGE/main/mmirage_logo_with_text.png)
 
 </h1>
 
