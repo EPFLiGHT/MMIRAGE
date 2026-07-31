@@ -4,8 +4,8 @@ from dataclasses import dataclass, field
 
 import logging
 import os
-from typing import Dict, Optional, Sequence, Type, Any, List
-from pydantic import BaseModel, create_model
+from typing import ClassVar, Dict, Optional, Sequence, Type, Any, List
+from pydantic import BaseModel, Field as PydanticField, create_model
 
 from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.core.process.variables import BaseVar, OutputVar
@@ -108,13 +108,82 @@ class LLMOutputVar(OutputVar):
         name: Name of the variable.
         type: Type identifier (must be "llm").
         prompt: Jinja2 template for the LLM prompt.
-        output_schema: List of field names for JSON output (empty for plain text).
+        output_schema: JSON output fields, either a list of field names
+            (all typed as strings) or a mapping of field name to a type name
+            ("str", "int", "float" or "bool") or to a nested mapping with keys
+            `type` (required) and, for numeric types, optional `min`/`max`
+            bounds enforced during constrained decoding. Empty for plain text.
         output_type: Output format - "JSON" or "plain".
     """
 
+    SCHEMA_TYPE_MAP: ClassVar[dict[str, type]] = {
+        "str": str,
+        "string": str,
+        "int": int,
+        "integer": int,
+        "float": float,
+        "number": float,
+        "bool": bool,
+        "boolean": bool,
+    }
+    SCHEMA_FIELD_KEYS: ClassVar[set[str]] = {"type", "min", "max"}
+
     prompt: str = ""
-    output_schema: List[str] = field(default_factory=list)
+    output_schema: list[str] | dict[str, Any] = field(default_factory=list)
     output_type: str = ""
+
+    def _resolve_type(self, var: str, type_name: Any) -> type:
+        """Map a schema type name ("int", "str", ...) to its Python type."""
+        py_type = self.SCHEMA_TYPE_MAP.get(str(type_name).strip().lower())
+        if py_type is None:
+            raise ValueError(
+                f"Unsupported type '{type_name}' for field '{var}' in output_schema "
+                f"of '{self.name}'. Supported types: {sorted(self.SCHEMA_TYPE_MAP)}."
+            )
+        return py_type
+
+    def _build_field(self, var: str, spec: Any) -> tuple[type, Any]:
+        """Turn one output_schema entry into a `create_model` field spec."""
+        if not isinstance(spec, dict):
+            return (self._resolve_type(var, spec), ...)
+
+        unknown = set(spec) - self.SCHEMA_FIELD_KEYS
+        if unknown:
+            raise ValueError(
+                f"Unknown key(s) {sorted(unknown)} for field '{var}' in output_schema "
+                f"of '{self.name}'. Allowed keys: {sorted(self.SCHEMA_FIELD_KEYS)}."
+            )
+        if "type" not in spec:
+            raise ValueError(
+                f"Field '{var}' in output_schema of '{self.name}' is "
+                f"missing required key 'type'."
+            )
+        py_type = self._resolve_type(var, spec["type"])
+
+        min_val, max_val = spec.get("min"), spec.get("max")
+        if min_val is None and max_val is None:
+            return (py_type, ...)
+        if py_type not in (int, float):
+            raise ValueError(
+                f"'min'/'max' are only allowed for numeric types, but field '{var}' "
+                f"in output_schema of '{self.name}' has type '{spec['type']}'."
+            )
+        if min_val is not None and max_val is not None and min_val > max_val:
+            raise ValueError(
+                f"min {min_val} cannot be greater than max {max_val} for field "
+                f"'{var}' in output_schema of '{self.name}'."
+            )
+        return (py_type, PydanticField(ge=min_val, le=max_val))
+
+    def has_schema_constraints(self) -> bool:
+        """Whether any field declares a `min`/`max` bound."""
+        if not isinstance(self.output_schema, dict):
+            return False
+        return any(
+            isinstance(spec, dict)
+            and (spec.get("min") is not None or spec.get("max") is not None)
+            for spec in self.output_schema.values()
+        )
 
     def get_output_schema(self) -> Optional[Type[BaseModel]]:
         """Generate a Pydantic model for JSON output validation.
@@ -122,9 +191,18 @@ class LLMOutputVar(OutputVar):
         Returns:
             A Pydantic BaseModel class if output_type is "JSON" and
             output_schema is non-empty, otherwise None.
+
+        Raises:
+            ValueError: If output_schema maps a field to an unsupported type
+                name or to an invalid constraint mapping.
         """
         if self.output_type == "JSON" and self.output_schema:
-            fields: Dict[str, Any] = {var: (str, ...) for var in self.output_schema}
+            fields: Dict[str, Any] = {}
+            if isinstance(self.output_schema, dict):
+                for var, spec in self.output_schema.items():
+                    fields[var] = self._build_field(var, spec)
+            else:
+                fields = {var: (str, ...) for var in self.output_schema}
             return create_model("OutputSchema", **fields)
         return None
 

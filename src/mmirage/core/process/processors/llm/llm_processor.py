@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
 import jinja2
+from pydantic import BaseModel, ValidationError
 try:
     import sglang as sgl
     SGLANG_AVAILABLE = True
@@ -242,6 +243,43 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
 
         return IMAGE_TOKENS.get(self.chat_template, "<image>")
 
+    @staticmethod
+    def _warn_on_schema_violation(
+        name: str, model: type[BaseModel] | None, value: Any
+    ) -> None:
+        """Warn when a parsed JSON output does not match its declared schema."""
+        if model is None:
+            return
+        try:
+            model.model_validate(value)
+        except ValidationError as exc:
+            details = []
+            for err in exc.errors():
+                location = ".".join(str(part) for part in err["loc"]) or "<root>"
+                if err["type"] == "missing":
+                    details.append(f"{location}: {err['msg']}")
+                else:
+                    details.append(f"{location}={err.get('input')!r}: {err['msg']}")
+            logger.warning(
+                f"Schema validation failed for '{name}'; keeping parsed value. "
+                + "; ".join(details)
+            )
+
+    def _decode_json_value(
+        self, name: str, raw: str, constraint_model: type[BaseModel] | None
+    ) -> Any:
+        """Parse a JSON generation, falling back to an empty dict if unusable."""
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError:
+            logger.warning(
+                f"Failed to parse JSON output for '{name}'; "
+                f"falling back to empty dict. Raw model output: {raw!r}"
+            )
+            return {}
+        self._warn_on_schema_violation(name, constraint_model, value)
+        return value
+
     @override
     def batch_process_sample(
         self, batch: List[VariableEnvironment], output_var: LLMOutputVar
@@ -267,6 +305,7 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         # Prepare sampling params
         sampling_params_output = self.sampling_params.copy()
 
+        constraint_model = None
         if output_var.output_type == "JSON":
             json_schema = output_var.get_output_schema()
             if json_schema is None:
@@ -276,6 +315,8 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             sampling_params_output["json_schema"] = json.dumps(
                 json_schema.model_json_schema()
             )
+            if output_var.has_schema_constraints():
+                constraint_model = json_schema
 
         # Separate samples into text-only and multimodal groups
         text_only_indices: List[int] = []
@@ -311,10 +352,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                 for local_idx, global_i in enumerate(text_only_indices):
                     value = text_only_outputs[local_idx].get("text", "").strip()
                     if output_var.output_type == "JSON":
-                        try:
-                            value = json.loads(value)
-                        except json.JSONDecodeError:
-                            value = {}
+                        value = self._decode_json_value(
+                            output_var.name, value, constraint_model
+                        )
                     results[global_i] = batch[global_i].with_variable(output_var.name, value)
 
             except Exception as e:
@@ -375,10 +415,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                 for local_idx, global_i in enumerate(multimodal_indices):
                     value = multimodal_outputs[local_idx].get("text", "").strip()
                     if output_var.output_type == "JSON":
-                        try:
-                            value = json.loads(value)
-                        except json.JSONDecodeError:
-                            value = {}
+                        value = self._decode_json_value(
+                            output_var.name, value, constraint_model
+                        )
                     results[global_i] = batch[global_i].with_variable(output_var.name, value)
 
             except Exception as e:
