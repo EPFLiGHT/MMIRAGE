@@ -32,6 +32,9 @@ except ImportError:  # pragma: no cover
 
 logger = logging.getLogger(__name__)
 
+# Cap on raw generations echoed into WARNING logs; the full text goes to DEBUG.
+RAW_OUTPUT_LOG_LIMIT = 500
+
 # Common image tokens for known templates
 IMAGE_TOKENS = {
     "qwen2-vl": "<|vision_start|><|image_pad|><|vision_end|>",
@@ -272,10 +275,13 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         try:
             value = json.loads(raw)
         except json.JSONDecodeError:
+            preview = raw[:RAW_OUTPUT_LOG_LIMIT]
+            suffix = "" if len(raw) <= RAW_OUTPUT_LOG_LIMIT else f" (truncated, {len(raw)} chars)"
             logger.warning(
                 f"Failed to parse JSON output for '{name}'; "
-                f"falling back to empty dict. Raw model output: {raw!r}"
+                f"falling back to empty dict. Raw model output: {preview!r}{suffix}"
             )
+            logger.debug(f"Full unparsable output for '{name}': {raw!r}")
             return {}
         self._warn_on_schema_violation(name, constraint_model, value)
         return value

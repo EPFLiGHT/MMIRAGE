@@ -231,8 +231,22 @@ def test_constraint_with_single_bound():
         ({"NoInterest": {"type": "integerish"}}, "Unsupported type 'integerish'"),
         ({"NoInterest": {"type": "str", "min": 0}}, "only allowed for numeric"),
         ({"NoInterest": {"type": "int", "min": 3, "max": 0}}, "cannot be greater than"),
+        ({"NoInterest": {"type": "int", "min": "0", "max": "3"}}, "must be a number"),
+        ({"NoInterest": {"type": "int", "min": 0, "max": [3]}}, "must be a number"),
+        ({"NoInterest": {"type": "int", "min": True, "max": 3}}, "must be a number"),
+        ({"NoInterest": {"type": "int", "min": 0.5}}, "must be a whole number"),
     ],
-    ids=["unknown-key", "missing-type", "bad-type", "bound-on-str", "min-gt-max"],
+    ids=[
+        "unknown-key",
+        "missing-type",
+        "bad-type",
+        "bound-on-str",
+        "min-gt-max",
+        "string-bounds",
+        "list-bound",
+        "bool-bound",
+        "fractional-bound-on-int",
+    ],
 )
 def test_invalid_nested_schema_raises(schema, match):
     with pytest.raises(ValueError, match=match):

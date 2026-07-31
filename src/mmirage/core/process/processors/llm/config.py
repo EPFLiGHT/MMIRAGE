@@ -142,6 +142,22 @@ class LLMOutputVar(OutputVar):
             )
         return py_type
 
+    def _coerce_bound(self, var: str, key: str, py_type: type, value: Any) -> Any:
+        """Validate a `min`/`max` bound and coerce it to the field's numeric type."""
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(
+                f"'{key}' for field '{var}' in output_schema of '{self.name}' must be "
+                f"a number, got {value!r}."
+            )
+        if py_type is int:
+            if int(value) != value:
+                raise ValueError(
+                    f"'{key}' for field '{var}' in output_schema of '{self.name}' must "
+                    f"be a whole number for an int field, got {value!r}."
+                )
+            return int(value)
+        return float(value)
+
     def _build_field(self, var: str, spec: Any) -> tuple[type, Any]:
         """Turn one output_schema entry into a `create_model` field spec."""
         if not isinstance(spec, dict):
@@ -168,6 +184,10 @@ class LLMOutputVar(OutputVar):
                 f"'min'/'max' are only allowed for numeric types, but field '{var}' "
                 f"in output_schema of '{self.name}' has type '{spec['type']}'."
             )
+        if min_val is not None:
+            min_val = self._coerce_bound(var, "min", py_type, min_val)
+        if max_val is not None:
+            max_val = self._coerce_bound(var, "max", py_type, max_val)
         if min_val is not None and max_val is not None and min_val > max_val:
             raise ValueError(
                 f"min {min_val} cannot be greater than max {max_val} for field "
