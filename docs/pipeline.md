@@ -122,8 +122,9 @@ If `output_type: JSON`, the response is parsed as JSON before storage. A respons
 that fails to parse is stored as an empty dict and logged as a warning carrying a
 truncated copy of the raw output; the full text is logged at `DEBUG`.
 
-When the output variable declares `min`/`max` bounds, the parsed value is checked
-against them again after decoding. Violations are logged as a warning and the
+When the output variable declares typed fields or `min`/`max` bounds, the parsed
+value is validated against the full schema after decoding (missing fields, type
+mismatches, and bound violations). Failures are logged as a warning and the
 parsed value is stored unchanged, nothing is clamped or discarded.
 
 ### 4c. Render the output schema

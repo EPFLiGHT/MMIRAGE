@@ -281,7 +281,7 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                 f"Failed to parse JSON output for '{name}'; "
                 f"falling back to empty dict. Raw model output: {preview!r}{suffix}"
             )
-            logger.debug(f"Full unparsable output for '{name}': {raw!r}")
+            logger.debug("Full unparsable output for '%s': %r", name, raw)
             return {}
         self._warn_on_schema_violation(name, constraint_model, value)
         return value

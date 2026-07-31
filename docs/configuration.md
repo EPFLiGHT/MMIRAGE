@@ -202,9 +202,11 @@ processing_params:
 ### `processing_params.outputs[*].output_schema`
 
 Declares the fields of a structured JSON output. Required when `output_type: JSON`,
-ignored otherwise. The schema is compiled into a Pydantic model and handed to the
-engine as a JSON schema, so the model is constrained *at decode time* to emit
-exactly these fields with these types.
+ignored otherwise. In local/SGLang mode the schema is compiled into a Pydantic
+model and handed to the engine as a JSON schema, so the model is constrained
+*at decode time* to emit exactly these fields with these types. In batch mode
+(OpenAI Batch API) only the field names are used: every field is requested as a
+string, and type or `min`/`max` constraints are not enforced.
 
 Three forms are accepted, and the two mapping forms may be mixed freely:
 
