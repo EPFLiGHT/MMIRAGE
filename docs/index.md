@@ -91,6 +91,12 @@ Scaling pipelines across HPC nodes with SLURM.
 Async inference via the OpenAI Batch API.
 :::
 
+:::{grid-item-card} 🐍 Custom Module
+:link: custom_module
+:link-type: doc
+Running your own Python function in an isolated worker pool.
+:::
+
 :::{grid-item-card} 📊 Benchmarking
 :link: benchmarking
 :link-type: doc
@@ -132,6 +138,7 @@ Testing, code style, extending MMIRAGE, and debugging.
 - [Concepts](concepts.md): learn the vocabulary used throughout the documentation
 - [Pipeline](pipeline.md): understand what happens at each stage of the pipeline
 - [Multimodal Processing](multimodal.md): configure image inputs and VLM chat templates
+- [Custom Module](custom_module.md): run your own Python function over the dataset in an isolated worker pool
 - [SLURM & Cluster Deployment](slurm.md): submit, monitor, and retry jobs on HPC clusters
 - [Batch API](batch_api.md): send requests asynchronously to the OpenAI Batch API
 - [Benchmarking](benchmarking.md): collect and interpret throughput and GPU efficiency metrics
@@ -157,6 +164,7 @@ concepts
 
 pipeline
 multimodal
+custom_module
 slurm
 batch_api
 ```

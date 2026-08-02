@@ -118,6 +118,10 @@ For each `OutputVar` in `processing_params.outputs`, MMIRAGE:
 The processor is the SGLang engine (for local inference) or the OpenAI Batch
 API orchestrator (for batch mode).
 
+A `custom` output skips the prompt step entirely: the row's variables are passed
+as a dictionary to your Python function, running in a separate process pool
+(see [Custom Module](custom_module.md)).
+
 If `output_type: JSON`, the response is parsed as JSON before storage.
 
 ### 4c. Render the output schema

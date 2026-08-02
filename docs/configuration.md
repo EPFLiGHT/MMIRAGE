@@ -13,7 +13,8 @@ then follow [Quickstart](quickstart.md) for a minimal working example.
 
 ## `processors`
 
-A list of processor definitions. Currently the only supported type is `llm`.
+A list of processor definitions. The `llm` type is documented below; for `type: custom`,
+which runs your own Python function instead of a model, see [Custom Module](custom_module.md).
 
 ```yaml
 processors:
@@ -191,10 +192,13 @@ processing_params:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `name` | `str` | — | Variable name made available in `output_schema` templates |
-| `type` | `str` | — | Processor type — must match a registered processor (`llm`) |
+| `type` | `str` | — | Processor type — must match a registered processor (`llm`, `custom`) |
 | `output_type` | `str` | `plain` | `"plain"` (raw text) or `"JSON"` (structured object) |
 | `prompt` | `str` | — | Jinja2 template for the LLM prompt |
 | `output_schema` | `list[str]` | `[]` | Required field names when `output_type: JSON` |
+
+`output_type`, `prompt`, and `output_schema` apply to `llm` outputs only. A `custom`
+output needs just `name` and `type` — the value comes from your Python function.
 
 ### `processing_params.output_schema`
 

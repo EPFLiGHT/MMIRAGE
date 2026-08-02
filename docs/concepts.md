@@ -81,7 +81,7 @@ Output variables are defined in `processing_params.outputs`.
 Each output variable specifies:
 
 - a **name** — how it is referenced in the output schema
-- a **type** — always `llm` for the current processor
+- a **type** — the processor that computes it (`llm`, or `custom` for your own Python function)
 - an **output_type** — `plain` for raw text, `JSON` for parsed JSON
 - a **prompt** — a Jinja2 template that constructs the message sent to the model
 
@@ -159,14 +159,18 @@ in which case all original fields are kept alongside the new outputs.
 
 ## Processor
 
-A **processor** is the inference engine that generates outputs.
-Currently, MMIRAGE supports one processor type: `llm`.
+A **processor** is the component that computes an output variable.
+Each entry in `processing_params.outputs` names a processor via its `type`.
 
 The `llm` processor runs a language model via one of two backends:
 
 - **Local inference** — starts an SGLang engine on the current machine (or SLURM node).
 - **Batch API** — sends requests asynchronously to the OpenAI Batch API
   (configured via `batch_provider`; see [Batch API](batch_api.md)).
+
+The `custom` processor runs your own Python function over each row in an isolated
+process pool — for CPU-bound work such as parsing, cleaning, or scoring rather than
+inference. See [Custom Module](custom_module.md).
 
 ---
 

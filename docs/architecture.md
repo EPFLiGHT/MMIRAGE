@@ -89,9 +89,9 @@ src/mmirage/
     │   │   │   ├── config.py            SGLangLLMConfig, SGLangServerArgs, LLMOutputVar
     │   │   │   └── llm_processor.py     LLMProcessor — SGLang engine wrapper
     │   │   └── custom/
-    │   │       ├── config.py            CustomProcessorConfig, SGLangServerArgs, CustomOutputVar
-    │   │       ├── custom_processor.py  CustomProcessor — Custom module pool worker
-    │   │       └── worker.py            Worker functions
+    │   │       ├── config.py            CustomProcessorConfig, CustomOutputVar
+    │   │       ├── custom_processor.py  CustomProcessor — pebble pool, circuit breaker
+    │   │       └── worker.py            Spawned-worker script loading and execution
     │   └── batch/           Async/batch inference subsystem
     │       ├── orchestrator.py       End-to-end batch pipeline
     │       ├── adapter.py            Provider-neutral batch adapter interface
