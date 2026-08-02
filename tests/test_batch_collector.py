@@ -327,7 +327,7 @@ def test_collector_main_uses_config_and_records(tmp_path, monkeypatch):
     config_path = tmp_path / "dummy.yaml"
     config_path.write_text("processors: []\n", encoding="utf-8")
 
-    cfg = SimpleNamespace(processors=[SimpleNamespace(batch={"provider": "openai"})])
+    cfg = SimpleNamespace(processors=[SimpleNamespace(provider_config={"provider": "openai"})])
     captured = {}
 
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
@@ -386,7 +386,7 @@ def test_collector_main_uses_config_metadata_path_when_missing_cli_arg(
     cfg = SimpleNamespace(
         processors=[
             SimpleNamespace(
-                batch={
+                provider_config={
                     "provider": "openai",
                     "metadata_output_path": str(metadata_base),
                 }
@@ -435,7 +435,7 @@ def test_collector_main_raises_when_config_metadata_paths_missing(tmp_path, monk
     cfg = SimpleNamespace(
         processors=[
             SimpleNamespace(
-                batch={
+                provider_config={
                     "provider": "openai",
                     "metadata_output_path": str(metadata_base),
                 }
@@ -476,7 +476,7 @@ def test_collector_main_raises_when_metadata_provider_missing_in_config(tmp_path
     config_path.write_text("processors: []\n", encoding="utf-8")
 
     # Config intentionally only defines openai, not mistral.
-    cfg = SimpleNamespace(processors=[SimpleNamespace(batch={"provider": "openai"})])
+    cfg = SimpleNamespace(processors=[SimpleNamespace(provider_config={"provider": "openai"})])
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
 
     rc = collector.main(
@@ -524,9 +524,9 @@ def test_collect_and_merge_routes_multiple_providers(tmp_path, monkeypatch):
     cfg = SimpleNamespace(
         processors=[
             SimpleNamespace(
-                batch={"provider": "openai"}
+                provider_config={"provider": "openai"}
             ),
-            SimpleNamespace(batch={"provider": "unit"}),
+            SimpleNamespace(provider_config={"provider": "unit"}),
         ]
     )
 
@@ -593,7 +593,7 @@ def test_collector_main_raises_for_invalid_batch_provider_config(tmp_path, monke
 
     cfg = SimpleNamespace(
         processors=[
-            SimpleNamespace(batch={"provider": "openai", "batch_endpoint": "v1"})
+            SimpleNamespace(provider_config={"provider": "openai", "batch_endpoint": "v1"})
         ]
     )
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
