@@ -4,25 +4,24 @@ The **Custom Processor** allows you to inject arbitrary, user-defined Python log
 
 ## Key Architectural Features
 
-* **Memory Isolated:** Worker pools are initialized using a strict `"spawn"` multiprocessing context. This completely isolates your custom logic from MMIRAGE's main process preventing for example  memory leaks.
+* **Memory Isolated:** Worker pools are initialized using a strict `"spawn"` multiprocessing context. Your custom logic runs in separate processes, so a memory leak, a segfault or a fatal crash inside your script cannot corrupt MMIRAGE's main process.
 * **Concurrency:** Inside one shard, many workers can work at the same time, independently.
-* **Strict Order Preservation:** The processor guarantees that the output of each row is outputed at their original position into the batch.
-* **Dual-Layer Fault Tolerance:**
-* **Soft Fail:** If rows throw a standard Python exceptions or timeouts, the pipeline catches it, logs the error, injects your predefined `fallback_value`, and keeps the batch moving.
-* **Circuit Breaker (Hard Fail):** If the script behaves wrongly and hits a configured threshold of consecutive timeouts (`max_timeouts`) or exceptions (`max_errors`), the processor intentionally trips a circuit breaker, halts the pool, and cleanly fails the shard to prevent infinite pipeline hangs.
-
-
+* **Strict Order Preservation:** The processor guarantees that the output of each row is written at their original position into the batch.
+* **Fault Tolerance:**
+  * **Soft Fail:** If rows throw a standard Python exception or time out, the pipeline catches it, logs the error, injects your predefined `fallback_value`, and keeps the batch moving.
+  * **Circuit Breaker (Hard Fail):** If the script behaves wrongly and hits a configured threshold of number of timeouts (`max_timeouts`) or exceptions (`max_errors`), the processor intentionally trips a circuit breaker, halts the pool, and cleanly fails the shard to prevent infinite pipeline hangs.
+  * **Fatal Worker Crash:** If a worker process dies outright (OOM kill, segfault, `os._exit()`), the circuit breaker trips **immediately**, regardless of `max_errors`. A dead worker is not a recoverable row-level error, so no `fallback_value` is applied and the shard fails.
 * **Seamless Local Imports:** Your custom script can safely import other local helper modules. Your script is loaded at runtime, and its folder is temporarily added to Python’s module search path (sys.path).
 
 ---
 
-## How to use it ?
+## How to use it?
 
 ### 1. Writing Your Custom Script
 
 Your custom script must contain a target function that accepts **exactly one argument: a dictionary** representing the current row's data (`VariableEnvironment`). It should return the value you want written to the pipeline's output variable.
 
-**Example: `my_custom_logic.py**`
+**Example**: `my_custom_logic.py`
 
 ```python
 import re
@@ -46,6 +45,33 @@ def extract_address(row: dict) -> str:
 
 > **Warning:** The pipeline will always pass the full dictionary of the current row environment. Extract what you need using `.get("variable_name")`.
 
+#### What your function can return
+
+Return plain data only — strings, numbers, lists, dicts, None. Returning a function, a class, or an instance of a class defined in your script will break the worker.
+
+#### Beware of module-level code
+
+Because the pool uses `"spawn"`, your script is imported **once per worker process**, not once per run. Anything at module scope — compiling regex patterns, reading a lookup file — runs `max_workers` times, at pool startup:
+
+```python
+import json, re
+
+# Runs once in EVERY worker process, then reused for all its rows
+PATTERNS = [re.compile(p) for p in (r"\b\d{3}-\d{2}-\d{4}\b", r"\b0x[a-fA-F0-9]{40}\b")]
+BLOCKLIST = set(json.load(open("./data/blocklist.json")))
+
+def scrub(row: dict) -> str:
+    text = row.get("text", "")
+    for pattern in PATTERNS:
+        text = pattern.sub("[REDACTED]", text)
+    return " ".join(w for w in text.split() if w.lower() not in BLOCKLIST)
+```
+
+That is the right place for setup that is worth reusing across the rows a worker handles, as long as duplicating it `max_workers` times is cheap — compiled patterns, a small lookup table, a config file. It is the wrong place for anything large, since each worker keeps its own full copy in memory.
+
+>Note : also that workers share no memory: a global counter or cache mutated by your function is local to one worker and is not visible to the others or to the main process.
+
+
 ---
 
 ### 2. Pipeline Configuration
@@ -54,6 +80,8 @@ To use the custom processor, register it in your MMIRAGE YAML configuration file
 
 Because local custom processors write to intermediate `.arrow` shards by default, it is highly recommended to set `merge: true` in your execution parameters so MMIRAGE automatically generates your final `.jsonl` file.
 
+> **Note:** A relative `script_path` is resolved against the **current working directory of the run**, not against the location of the YAML file. Launch the job from your project root (as in the example below), or use an absolute path if you need the config to be location-independent.
+
 ```yaml
 execution_params:
   merge: true                          # Automatically merge .arrow
@@ -61,7 +89,7 @@ execution_params:
 processors:
   - type: "custom"
     script_path: "./my_custom_logic.py"  # Path to your python file
-    function_name: "extract_metadata"    # Target function to execute inside the file
+    function_name: "extract_address"    # Target function to execute inside the file
     max_workers: 4                       # Number of isolated worker processes running at the same time
     timeout_ms: 2000                     # Max execution time (in millisecond) per row
     max_timeouts: 5                      # Trip circuit breaker after 5 timeouts
@@ -91,15 +119,26 @@ processing_params:
 
 ```
 
+### 3. Running It
+
+```bash
+mmirage run --config configs/my_config.yaml
+```
+
+See the [CLI Reference](cli.md) for the full set of flags.
+
 ### Configuration Parameters Reference
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `type` | `str` | *None* | **Required.** Must be set to `"custom"` to trigger the custom module processor. |
-| `script_path` | `str` | *None* | **Required.** The relative or absolute path to your `.py` file. |
+| `script_path` | `str` | *None* | **Required.** Path to your `.py` file. Relative paths are resolved against the working directory of the run, not against the config file. |
 | `function_name` | `str` | *None* | **Required.** The exact name of the callable function inside your script. |
 | `max_workers` | `int` | `1` | Number of concurrent processes spawned. Scale this based on CPU availability. |
 | `timeout_ms` | `int` | `1000` | Maximum time (in milliseconds) a single row is allowed to process before soft-failing. |
-| `max_timeouts` | `int` | `1` | Number of `TimeoutError` occurrences allowed before the circuit breaker trips and fails the shard. |
-| `max_errors` | `int` | `1` | Number of standard `Exceptions` allowed before the circuit breaker trips. |
-| `fallback_value` | `Any` | `None` | The default value safely written to the output variable if the script soft-fails. |
+| `max_timeouts` | `int` | `1` | Number of `TimeoutError` occurrences allowed before the circuit breaker trips and fails the shard. Counted cumulatively over the whole shard, the counter is never reset between batches. |
+| `max_errors` | `int` | `1` | Number of standard `Exceptions` allowed before the circuit breaker trips. Cumulative over the shard, same as `max_timeouts`. |
+| `fallback_value` | `Any` | `None` | The default value safely written to the output variable if the script soft-fails. Should have the same type as a normal return value. |
+
+> **Tip:** The two counters are cumulative and never reset, so on a large shard a tolerant `max_errors: 3` will eventually trip on any script that fails even occasionally. Size them against the total number of rows in a shard, not against a batch — and keep them low deliberately if you would rather fail fast than produce a file silently full of `fallback_value`.
+
