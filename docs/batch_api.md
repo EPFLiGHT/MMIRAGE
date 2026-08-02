@@ -6,7 +6,7 @@ This page explains how to run MMIRAGE inference asynchronously using the OpenAI 
 
 ## Overview
 
-By default MMIRAGE runs in execution_mode in `local`. If you defined execution_mode in `batch`, it will run into the batch processing 
+Use the `batch_api` processor instead of `llm`, and give its outputs `type: batch_api`.
 
 1. **Request serialization:** MMIRAGE serializes inference requests into JSONL chunks.
 2. **Batch submission:** Each chunk is uploaded and submitted as an OpenAI batch job.
@@ -35,25 +35,23 @@ This mode is useful when:
 
 ## Configuration
 
-Set `execution_mode` to `batch` and add a `batch` block inside the processor definition in your YAML config:
+Declare a `batch_api` processor and its provider settings in your YAML config:
 
 ```yaml
 processors:
-  - type: llm
-    execution_mode: batch
-    batch:
-      provider: openai
-      model: gpt-4o-mini
-      max_chunk_bytes: 52428800      # Max bytes per uploaded JSONL file (50 MB)
-      max_requests_per_chunk: 50000  # Max requests per batch job
-      metadata_output_path: /path/to/batch_metadata.jsonl
-      completion_window: 24h
-      base_url: https://api.openai.com/v1
-      oversized_request_policy: isolate  # isolate | reject
-      retry_policy:
-        max_attempts: 3
-        initial_backoff_seconds: 2.0
-        backoff_multiplier: 2.0
+  - type: batch_api
+    provider: openai
+    model: gpt-4o-mini
+    max_chunk_bytes: 52428800      # Max bytes per uploaded JSONL file (50 MB)
+    max_requests_per_chunk: 50000  # Max requests per batch job
+    metadata_output_path: /path/to/batch_metadata.jsonl
+    completion_window: 24h
+    base_url: https://api.openai.com/v1
+    oversized_request_policy: isolate  # isolate | reject
+    retry_policy:
+      max_attempts: 3
+      initial_backoff_seconds: 2.0
+      backoff_multiplier: 2.0
 ```
 
 ### Field reference
@@ -101,7 +99,7 @@ For very large prompts (e.g. with long contexts), you may need to reduce `max_re
 Running the batch pipeline is an asynchronous, three-step process:
 
 ### Step 1: Submit the Batch Jobs
-Execute your MMIRAGE pipeline with a configuration that has `batch_provider.enabled: true`:
+Execute your MMIRAGE pipeline with a configuration that declares a `batch_api` processor:
 
 ```bash
 mmirage run --config configs/batch_config.yaml
@@ -266,12 +264,10 @@ After registering your custom provider, you can reference it in your MMIRAGE pip
 
 ```yaml
 processors:
-  - type: llm
-    execution_mode: batch
-    batch:
-      provider: anthropic
-      model: claude-haiku-4-5
-      metadata_output_path: /scratch/anthropic_meta.jsonl
+  - type: batch_api
+    provider: anthropic
+    model: claude-haiku-4-5
+    metadata_output_path: /scratch/anthropic_meta.jsonl
 ```
 
 ---
@@ -280,21 +276,19 @@ processors:
 
 ```yaml
 processors:
-  - type: llm
-    execution_mode: batch
-    batch:
-      provider: openai
-      model: gpt-4o-mini
-      max_chunk_bytes: 52428800
-      max_requests_per_chunk: 50000
-      metadata_output_path: /scratch/batch_meta.jsonl
-      completion_window: 24h
-      base_url: https://api.openai.com/v1
-      oversized_request_policy: isolate
-      retry_policy:
-        max_attempts: 3
-        initial_backoff_seconds: 2.0
-        backoff_multiplier: 2.0
+  - type: batch_api
+    provider: openai
+    model: gpt-4o-mini
+    max_chunk_bytes: 52428800
+    max_requests_per_chunk: 50000
+    metadata_output_path: /scratch/batch_meta.jsonl
+    completion_window: 24h
+    base_url: https://api.openai.com/v1
+    oversized_request_policy: isolate
+    retry_policy:
+      max_attempts: 3
+      initial_backoff_seconds: 2.0
+      backoff_multiplier: 2.0
 
 loading_params:
   state_dir: /scratch/state
@@ -313,7 +307,7 @@ processing_params:
 
   outputs:
     - name: answer
-      type: llm
+      type: batch_api
       output_type: plain
       prompt: |
         Answer the following question concisely:
@@ -333,7 +327,7 @@ execution_params:
 
 ## See also
 
-- [Concepts](concepts.md) — processor types and execution modes
-- [Configuration Reference](configuration.md) — full `batch_provider` parameter reference
+- [Concepts](concepts.md) — processor types
+- [Configuration Reference](configuration.md) — full `batch_api` parameter reference
 - [Pipeline](pipeline.md) — where batch inference fits in the data flow
 - [CLI Reference](cli.md) — CLI command reference for local and SLURM pipeline execution
