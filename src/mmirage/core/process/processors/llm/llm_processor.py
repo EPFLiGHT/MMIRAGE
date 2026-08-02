@@ -15,6 +15,10 @@ try:
     SGLANG_AVAILABLE = True
 except ImportError:
     SGLANG_AVAILABLE = False
+    class DummySGL:
+        class Engine:
+            pass
+    sgl = DummySGL
 
 from transformers import AutoTokenizer
 
@@ -59,13 +63,14 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         sampling_params: Default sampling parameters for generation.
     """
 
-    def __init__(self, engine_args: LLMProcessorConfig) -> None:
+    def __init__(self, engine_args: LLMProcessorConfig, shard_id: int = 0, **kwargs) -> None:
         """Initialize the LLM processor.
 
         Args:
             engine_args: Configuration for local runtime or batch submission.
+            shard_id: Shard index for this worker.
         """
-        super().__init__(engine_args)
+        super().__init__(engine_args, shard_id=shard_id, **kwargs)
 
         execution_mode = engine_args.execution_mode
         local_cfg = engine_args.local
