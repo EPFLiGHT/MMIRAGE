@@ -67,7 +67,7 @@ def test_run_status_checker_prints_summary_with_factory_dispatch(tmp_path, monke
     )
 
     config_map = {
-        "openai": OpenAIBatchConfig(credentials={"api_key": "k"}),
+        "openai": OpenAIBatchConfig(),
     }
     records = _read_metadata_records(str(metadata_path))
 
@@ -165,7 +165,7 @@ def test_status_checker_main_returns_error_when_metadata_provider_missing_in_con
     assert mock_logger.error.called or mock_logger.exception.called
 
 
-def test_status_checker_main_returns_error_when_credentials_missing(
+def test_status_checker_main_returns_error_when_api_key_missing(
     tmp_path, monkeypatch
 ):
     from mmirage.core.process.batch import status_checker
@@ -180,7 +180,7 @@ def test_status_checker_main_returns_error_when_credentials_missing(
     config_path.write_text("processors: []\n", encoding="utf-8")
 
     cfg = SimpleNamespace(
-        processors=[SimpleNamespace(batch={"provider": "openai", "credentials": {}})]
+        processors=[SimpleNamespace(batch={"provider": "openai"})]
     )
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)

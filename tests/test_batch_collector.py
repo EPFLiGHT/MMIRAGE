@@ -71,7 +71,7 @@ def test_collect_and_merge_reconstructs_rows_deterministically(tmp_path, monkeyp
         lambda config: fake_adapter,
     )
 
-    provider_configs = {"openai": OpenAIBatchConfig(credentials={"api_key": "k"})}
+    provider_configs = {"openai": OpenAIBatchConfig()}
     records = _read_metadata_records(str(metadata_path))
     assert "Skipping malformed metadata JSON line" in caplog.text
     rows = collect_and_merge(
@@ -154,7 +154,7 @@ def test_collect_and_merge_outputs_caption_for_plain_text_content(tmp_path, monk
     records = _read_metadata_records(str(metadata_path))
     rows = collect_and_merge(
         records=records,
-        provider_configs={"openai": OpenAIBatchConfig(credentials={"api_key": "k"})},
+        provider_configs={"openai": OpenAIBatchConfig()},
         output_path=str(output_path),
     )
 
@@ -284,11 +284,12 @@ def test_collect_and_merge_uses_openai_adapter_generated_text(tmp_path, monkeypa
         "mmirage.core.process.batch.collector.BatchAdapterFactory.from_config",
         lambda config: OpenAIBatchAdapter(),
     )
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     records = _read_metadata_records(str(metadata_path))
     rows = collect_and_merge(
         records=records,
-        provider_configs={"openai": OpenAIBatchConfig(credentials={"api_key": "k"})},
+        provider_configs={"openai": OpenAIBatchConfig()},
         output_path=str(output_path),
     )
 
@@ -523,7 +524,7 @@ def test_collect_and_merge_routes_multiple_providers(tmp_path, monkeypatch):
     cfg = SimpleNamespace(
         processors=[
             SimpleNamespace(
-                batch={"provider": "openai", "credentials": {"api_key": "k"}}
+                batch={"provider": "openai"}
             ),
             SimpleNamespace(batch={"provider": "unit"}),
         ]
@@ -647,7 +648,7 @@ def test_collect_and_merge_tiebreaker_secondary_sort_key(tmp_path, monkeypatch):
     records = _read_metadata_records(str(metadata_path))
     rows = collect_and_merge(
         records=records,
-        provider_configs={"openai": OpenAIBatchConfig(credentials={"api_key": "k"})},
+        provider_configs={"openai": OpenAIBatchConfig()},
         output_path=str(output_path),
     )
 

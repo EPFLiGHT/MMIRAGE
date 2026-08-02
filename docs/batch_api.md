@@ -182,7 +182,7 @@ from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubm
 from mmirage.config.batch_provider import BatchProviderConfig
 
 class AnthropicBatchAdapter(BatchSubmissionAdapter):
-    # Defines required keys for config.credentials (or environment variable fallbacks)
+    # Each key must be set as an <PROVIDER>_<KEY> environment variable, e.g. ANTHROPIC_API_KEY
     required_credentials = ("api_key",)
 
     def build_request(

@@ -59,26 +59,17 @@ class BatchAdapterRegistry:
 
     @classmethod
     def create(cls, config: BatchProviderConfig) -> BatchSubmissionAdapter:
-        """Instantiate an adapter for a provider config with credential checks."""
+        """Instantiate an adapter, checking its credentials are set in the environment."""
         adapter_cls = cls.resolve(config.provider)
 
-        missing_credentials = []
-        for req_key in adapter_cls.required_credentials:
-            credential_value = (config.credentials.get(req_key, "") or "").strip()
-            if credential_value:
-                continue
-
-            env_var = f"{config.provider.upper()}_{req_key.upper()}"
-            env_value = (os.environ.get(env_var, "") or "").strip()
-            if env_value:
-                config.credentials[req_key] = env_value
-                continue
-
-            missing_credentials.append(req_key)
-
-        if missing_credentials:
+        missing = [
+            f"{config.provider.upper()}_{req_key.upper()}"
+            for req_key in adapter_cls.required_credentials
+            if not os.environ.get(f"{config.provider.upper()}_{req_key.upper()}", "").strip()
+        ]
+        if missing:
             raise ValueError(
-                f"Missing credentials for provider '{config.provider}': {missing_credentials}"
+                f"Missing environment variable(s) for provider '{config.provider}': {missing}"
             )
         return adapter_cls()
 
