@@ -71,7 +71,7 @@ def test_collect_and_merge_reconstructs_rows_deterministically(tmp_path, monkeyp
         lambda config: fake_adapter,
     )
 
-    provider_configs = {"openai": OpenAIBatchConfig(credentials={"api_key": "k"})}
+    provider_configs = {"openai": OpenAIBatchConfig()}
     records = _read_metadata_records(str(metadata_path))
     assert "Skipping malformed metadata JSON line" in caplog.text
     rows = collect_and_merge(
@@ -154,7 +154,7 @@ def test_collect_and_merge_outputs_caption_for_plain_text_content(tmp_path, monk
     records = _read_metadata_records(str(metadata_path))
     rows = collect_and_merge(
         records=records,
-        provider_configs={"openai": OpenAIBatchConfig(credentials={"api_key": "k"})},
+        provider_configs={"openai": OpenAIBatchConfig()},
         output_path=str(output_path),
     )
 
@@ -284,11 +284,12 @@ def test_collect_and_merge_uses_openai_adapter_generated_text(tmp_path, monkeypa
         "mmirage.core.process.batch.collector.BatchAdapterFactory.from_config",
         lambda config: OpenAIBatchAdapter(),
     )
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     records = _read_metadata_records(str(metadata_path))
     rows = collect_and_merge(
         records=records,
-        provider_configs={"openai": OpenAIBatchConfig(credentials={"api_key": "k"})},
+        provider_configs={"openai": OpenAIBatchConfig()},
         output_path=str(output_path),
     )
 
@@ -326,7 +327,7 @@ def test_collector_main_uses_config_and_records(tmp_path, monkeypatch):
     config_path = tmp_path / "dummy.yaml"
     config_path.write_text("processors: []\n", encoding="utf-8")
 
-    cfg = SimpleNamespace(processors=[SimpleNamespace(batch={"provider": "openai"})])
+    cfg = SimpleNamespace(processors=[SimpleNamespace(provider_config={"provider": "openai"})])
     captured = {}
 
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
@@ -385,7 +386,7 @@ def test_collector_main_uses_config_metadata_path_when_missing_cli_arg(
     cfg = SimpleNamespace(
         processors=[
             SimpleNamespace(
-                batch={
+                provider_config={
                     "provider": "openai",
                     "metadata_output_path": str(metadata_base),
                 }
@@ -434,7 +435,7 @@ def test_collector_main_raises_when_config_metadata_paths_missing(tmp_path, monk
     cfg = SimpleNamespace(
         processors=[
             SimpleNamespace(
-                batch={
+                provider_config={
                     "provider": "openai",
                     "metadata_output_path": str(metadata_base),
                 }
@@ -475,7 +476,7 @@ def test_collector_main_raises_when_metadata_provider_missing_in_config(tmp_path
     config_path.write_text("processors: []\n", encoding="utf-8")
 
     # Config intentionally only defines openai, not mistral.
-    cfg = SimpleNamespace(processors=[SimpleNamespace(batch={"provider": "openai"})])
+    cfg = SimpleNamespace(processors=[SimpleNamespace(provider_config={"provider": "openai"})])
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
 
     rc = collector.main(
@@ -523,9 +524,9 @@ def test_collect_and_merge_routes_multiple_providers(tmp_path, monkeypatch):
     cfg = SimpleNamespace(
         processors=[
             SimpleNamespace(
-                batch={"provider": "openai", "credentials": {"api_key": "k"}}
+                provider_config={"provider": "openai"}
             ),
-            SimpleNamespace(batch={"provider": "unit"}),
+            SimpleNamespace(provider_config={"provider": "unit"}),
         ]
     )
 
@@ -592,7 +593,7 @@ def test_collector_main_raises_for_invalid_batch_provider_config(tmp_path, monke
 
     cfg = SimpleNamespace(
         processors=[
-            SimpleNamespace(batch={"provider": "openai", "batch_endpoint": "v1"})
+            SimpleNamespace(provider_config={"provider": "openai", "batch_endpoint": "v1"})
         ]
     )
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
@@ -647,7 +648,7 @@ def test_collect_and_merge_tiebreaker_secondary_sort_key(tmp_path, monkeypatch):
     records = _read_metadata_records(str(metadata_path))
     rows = collect_and_merge(
         records=records,
-        provider_configs={"openai": OpenAIBatchConfig(credentials={"api_key": "k"})},
+        provider_configs={"openai": OpenAIBatchConfig()},
         output_path=str(output_path),
     )
 

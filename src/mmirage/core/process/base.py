@@ -144,6 +144,7 @@ class ProcessorRegistry:
     _lazy_processor_imports = {
         "llm": "mmirage.core.process.processors.llm.llm_processor",
         "image_gen": "mmirage.core.process.processors.image_gen.image_gen_processor",
+        "batch_api": "mmirage.core.process.processors.batch_api.batch_api_processor",
     }
 
     @classmethod
@@ -185,7 +186,7 @@ class ProcessorRegistry:
             cls._registry[name] = clazz
             cls._config_registry[name] = config_cls
             cls._output_var_registry[name] = output_var_cls
-            return clazz
+            return clazz
 
 
         return inner_register

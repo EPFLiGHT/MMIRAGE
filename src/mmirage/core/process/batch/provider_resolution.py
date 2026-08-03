@@ -89,7 +89,7 @@ def _extract_batch_provider_blocks(cfg: MMirageConfig) -> Dict[str, Dict[str, An
     """
     provider_blocks: Dict[str, Dict[str, Any]] = {}
     for processor_cfg in cfg.processors:
-        raw_provider = getattr(processor_cfg, "batch", None)
+        raw_provider = getattr(processor_cfg, "provider_config", None)
         if raw_provider is None:
             continue
 
@@ -189,7 +189,7 @@ def resolve_provider_configs(
 
     Raises:
         ValueError: If metadata references a provider missing from config
-            processor ``batch_provider`` blocks or if provider config
+            ``batch_api`` processor blocks or if provider config
             instantiation fails.
     """
     available_configs = build_all_provider_configs(cfg)
@@ -201,7 +201,7 @@ def resolve_provider_configs(
     if missing:
         raise ValueError(
             "Metadata references provider(s) missing from YAML batch config: "
-            f"{missing}. Check cfg.processors[*].batch."
+            f"{missing}. Check the batch_api processor block(s)."
         )
 
     return {provider: available_configs[provider] for provider in required_providers}

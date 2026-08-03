@@ -50,7 +50,7 @@ class MMIRAGEMapper:
             processor_cls = AutoProcessor.from_name(config.type)
             logger.info(f"✅ Successfully loaded processor of type {config.type}")
 
-            if config.type == "llm":
+            if config.type == "batch_api":
                 self.processors[config.type] = processor_cls(
                     config,
                     export_prompts_dir=export_prompts_dir,

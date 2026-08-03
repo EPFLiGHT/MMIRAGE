@@ -3,19 +3,17 @@
 
 processors:
   - type: llm
-    execution_mode: local
-    local:
-      server_args:
-        model_path: Qwen/Qwen3-4B           # same model family as DataTrove baseline
-        tp_size: 1                           # DataTrove baseline: tp=1
-        trust_remote_code: true
-        disable_custom_all_reduce: true
-        # SGLang engine tuning — equivalents of DataTrove's vLLM mns/mnbt knobs
-        extra_engine_args:
-          max_running_requests: 1000
-      default_sampling_params:
-        temperature: 0.0
-        max_new_tokens: 1024                 # DataTrove: max-tokens=1024
+    server_args:
+      model_path: Qwen/Qwen3-4B           # same model family as DataTrove baseline
+      tp_size: 1                           # DataTrove baseline: tp=1
+      trust_remote_code: true
+      disable_custom_all_reduce: true
+      # SGLang engine tuning — equivalents of DataTrove's vLLM mns/mnbt knobs
+      extra_engine_args:
+        max_running_requests: 1000
+    default_sampling_params:
+      temperature: 0.0
+      max_new_tokens: 1024                 # DataTrove: max-tokens=1024
 
 loading_params:
   state_dir: data/benchmark_s1k/_pipeline_state

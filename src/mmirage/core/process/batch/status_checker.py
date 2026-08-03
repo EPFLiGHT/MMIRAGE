@@ -98,7 +98,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         nargs="+",
         help=(
             "Path(s) to metadata JSONL receipt file(s). Supports multiple files. "
-            "When omitted, uses metadata_output_path from the config batch_provider blocks "
+            "When omitted, uses metadata_output_path from the config batch_api processor blocks "
             "and resolves suffixed receipts like '<base>.text.<run>.jsonl'."
         ),
     )
@@ -132,12 +132,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             ]
             metadata_paths = list(dict.fromkeys(metadata_paths))
             if not metadata_paths:
-                logger.error("No metadata paths provided and none found in config batch_provider blocks.")
+                logger.error("No metadata paths provided and none found in config batch_api processor blocks.")
                 return 1
             metadata_paths = resolve_metadata_paths_from_config(metadata_paths)
 
         if not metadata_paths:
-            logger.error("No metadata paths provided and none found in config batch_provider blocks.")
+            logger.error("No metadata paths provided and none found in config batch_api processor blocks.")
             return 1
 
         records = _read_metadata_records(metadata_paths)

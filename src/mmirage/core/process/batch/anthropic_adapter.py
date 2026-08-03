@@ -376,12 +376,10 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
 
     @staticmethod
     def _create_client(config: AnthropicBatchConfig) -> Anthropic:
-        api_key = config.credentials.get("api_key", "").strip() or os.environ.get(
-            "ANTHROPIC_API_KEY", ""
-        ).strip()
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
         if not api_key:
             raise ValueError(
-                "Anthropic API key is missing. Provide credentials.api_key or set ANTHROPIC_API_KEY."
+                "Anthropic API key is missing. set ANTHROPIC_API_KEY. with `export ANTHROPIC_API_KEY=your_api_key` ."
             )
 
         client_kwargs: Dict[str, Any] = {"api_key": api_key}

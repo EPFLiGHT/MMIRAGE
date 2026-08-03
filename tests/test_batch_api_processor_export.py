@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import json
 
-from mmirage.core.process.processors.llm.config import LLMProcessorConfig
+from mmirage.core.process.processors.batch_api.config import BatchApiProcessorConfig
 from mmirage.core.process.batch.adapter import BatchSubmissionAdapter
 from mmirage.config.batch_provider import BatchProviderConfig
 
@@ -45,7 +45,7 @@ class UnitBatchConfig(BatchProviderConfig):
             raise ValueError("unit_setting must be a non-empty string")
 
 
-def test_llm_processor_exports_to_single_file_with_batch_ids(tmp_path, monkeypatch):
+def test_batch_api_processor_exports_to_single_file_with_batch_ids(tmp_path, monkeypatch):
     from mmirage.core.process.batch.registry import BatchAdapterRegistry
     from mmirage.core.process.batch.provider_resolution import BatchProviderConfigRegistry
     from mmirage.core.process.base import ProcessorRegistry
@@ -54,14 +54,17 @@ def test_llm_processor_exports_to_single_file_with_batch_ids(tmp_path, monkeypat
     BatchProviderConfigRegistry.register("unit", UnitBatchConfig)
     BatchAdapterRegistry.register("unit", RecordingAdapter)
 
-    # Create processor config and instantiate LLM processor with export dir
-    config = LLMProcessorConfig(
-        type="llm",
-        execution_mode="batch",
-        batch=UnitBatchConfig(provider="unit", max_chunk_bytes=10, metadata_output_path=str(tmp_path / "meta.jsonl")),
+    # Create processor config and instantiate the batch API processor with export dir
+    config = BatchApiProcessorConfig(
+        type="batch_api",
+        provider_config=UnitBatchConfig(
+            provider="unit",
+            max_chunk_bytes=10,
+            metadata_output_path=str(tmp_path / "meta.jsonl"),
+        ),
     )
 
-    processor_cls = ProcessorRegistry.get_processor("llm")
+    processor_cls = ProcessorRegistry.get_processor("batch_api")
     export_file = tmp_path / "exports" / "prompts.jsonl"
     processor = processor_cls(config, export_prompts_dir=str(export_file))
 

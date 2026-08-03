@@ -202,16 +202,14 @@ The dataset contains assistant answers that are badly formatted. The goal would 
 ```yaml
 processors:
   - type: llm
-    execution_mode: local
-    local:
-      server_args:
-        model_path: Qwen/Qwen3-8B
-        tp_size: 4
-        trust_remote_code: true
-      default_sampling_params:
-        temperature: 0.1
-        top_p: 1.0
-        max_new_tokens: 384
+    server_args:
+      model_path: Qwen/Qwen3-8B
+      tp_size: 4
+      trust_remote_code: true
+    default_sampling_params:
+      temperature: 0.1
+      top_p: 1.0
+      max_new_tokens: 384
 
 loading_params:
   state_dir: /path/to/state/dir
@@ -258,9 +256,8 @@ execution_params:
 Configuration explanation:
 
 - `processors`: List of processor configurations. Currently supports :
-  - `llm` (text/VLM generation). Each `llm` processor must set `execution_mode: local|batch` :
-    - `local` (SGLang runtime config)
-    - `batch` (provider batch config) block.
+  - `llm` (text/VLM generation, run locally with SGLang).
+  - `batch_api` (text/VLM generation submitted to a provider batch API, see [Batch API](docs/batch_api.md)).
   - `image_gen` (text-to-image generation).
 - `loading_params`: Parameters for loading and sharding datasets.
   - `state_dir`: Optional shared directory for shard status/retry state. Defaults to `~/.cache/MMIRAGE/state_dir`.
@@ -285,17 +282,15 @@ MMIRAGE supports multimodal processing with vision-language models:
 ```yaml
 processors:
   - type: llm
-    execution_mode: local
-    local:
-      server_args:
-        model_path: Qwen/Qwen2-VL-7B-Instruct
-        tp_size: 4
-        trust_remote_code: true
-      chat_template: qwen2-vl  # Required for VLMs
-      default_sampling_params:
-        temperature: 0.1
-        top_p: 0.95
-        max_new_tokens: 768
+    server_args:
+      model_path: Qwen/Qwen2-VL-7B-Instruct
+      tp_size: 4
+      trust_remote_code: true
+    chat_template: qwen2-vl  # Required for VLMs
+    default_sampling_params:
+      temperature: 0.1
+      top_p: 0.95
+      max_new_tokens: 768
 
 loading_params:
   state_dir: path/to/state/dir

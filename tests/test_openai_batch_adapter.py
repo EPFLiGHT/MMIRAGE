@@ -8,6 +8,12 @@ from mmirage.core.process.batch.adapter import BatchSubmissionResult
 from mmirage.core.process.batch.registry import BatchAdapterFactory, BatchAdapterRegistry
 
 
+@pytest.fixture(autouse=True)
+def openai_api_key(monkeypatch):
+    """The API key is only ever read from the environment."""
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+
 def test_openai_build_request_matches_expected_structure():
     from mmirage.core.process.batch.openai_adapter import OpenAIBatchAdapter
 
@@ -157,7 +163,6 @@ def test_openai_submit_chunk_uses_mocked_openai_client(monkeypatch):
         completion_window="24h",
         batch_endpoint="/v1/chat/completions",
         metadata={"pipeline": "unit"},
-        credentials={"api_key": "test-key"},
     )
     adapter = OpenAIBatchAdapter()
     requests = [
@@ -208,7 +213,7 @@ def test_factory_resolves_openai_adapter_from_registry():
     from mmirage.core.process.batch.openai_adapter import OpenAIBatchAdapter
 
     BatchAdapterRegistry.clear()
-    config = OpenAIBatchConfig(model="gpt-4.1-mini", credentials={"api_key": "key"})
+    config = OpenAIBatchConfig(model="gpt-4.1-mini")
 
     adapter = BatchAdapterFactory.from_config(config)
 
@@ -241,7 +246,6 @@ def test_openai_check_batch_status_uses_mocked_openai_client(monkeypatch):
     )
 
     config = OpenAIBatchConfig(
-        credentials={"api_key": "test-key"},
         base_url="https://example.test/v1",
     )
     adapter = OpenAIBatchAdapter()
@@ -282,7 +286,7 @@ def test_openai_check_batch_status_falls_back_to_env_api_key(monkeypatch):
     )
     monkeypatch.setenv("OPENAI_API_KEY", "env-test-key")
 
-    config = OpenAIBatchConfig(credentials={})
+    config = OpenAIBatchConfig()
     adapter = OpenAIBatchAdapter()
 
     result = adapter.check_batch_status(provider_batch_id="batch_env", config=config)
@@ -296,7 +300,7 @@ def test_openai_check_batch_status_raises_when_no_api_key(monkeypatch):
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    config = OpenAIBatchConfig(credentials={})
+    config = OpenAIBatchConfig()
     adapter = OpenAIBatchAdapter()
 
     with pytest.raises(ValueError, match="OpenAI API key is missing"):
@@ -342,7 +346,7 @@ def test_openai_retrieve_results_downloads_and_parses_jsonl(monkeypatch):
         FakeClient,
     )
 
-    config = OpenAIBatchConfig(credentials={"api_key": "test-key"})
+    config = OpenAIBatchConfig()
     adapter = OpenAIBatchAdapter()
 
     rows = adapter.retrieve_results(provider_batch_id="batch_abc", config=config)
@@ -391,7 +395,7 @@ def test_openai_retrieve_results_prefers_message_content(monkeypatch):
         FakeClient,
     )
 
-    config = OpenAIBatchConfig(credentials={"api_key": "test-key"})
+    config = OpenAIBatchConfig()
     adapter = OpenAIBatchAdapter()
 
     rows = adapter.retrieve_results(provider_batch_id="batch_choices", config=config)
@@ -434,7 +438,7 @@ def test_openai_retrieve_results_normalizes_error_rows(monkeypatch):
         FakeClient,
     )
 
-    config = OpenAIBatchConfig(credentials={"api_key": "test-key"})
+    config = OpenAIBatchConfig()
     adapter = OpenAIBatchAdapter()
 
     rows = adapter.retrieve_results(provider_batch_id="batch_error", config=config)
@@ -489,7 +493,7 @@ def test_openai_retrieve_results_raises_if_batch_not_completed(monkeypatch):
         FakeClient,
     )
 
-    config = OpenAIBatchConfig(credentials={"api_key": "test-key"})
+    config = OpenAIBatchConfig()
     adapter = OpenAIBatchAdapter()
 
     with pytest.raises(ValueError, match="not completed"):
@@ -534,7 +538,7 @@ def test_openai_retrieve_results_uses_error_file_when_output_missing(monkeypatch
         FakeClient,
     )
 
-    config = OpenAIBatchConfig(credentials={"api_key": "test-key"})
+    config = OpenAIBatchConfig()
     adapter = OpenAIBatchAdapter()
 
     rows = adapter.retrieve_results(provider_batch_id="batch_abc", config=config)

@@ -49,7 +49,6 @@ class BatchProviderConfig:
 
     Attributes:
         provider: Provider identifier (for example, "openai" or "anthropic").
-        enabled: Whether batch submission mode is enabled.
         max_chunk_bytes: Maximum serialized request bytes per chunk.
             Defaults to 50 MB.
         max_requests_per_chunk: Optional hard cap on number of requests in a
@@ -65,7 +64,6 @@ class BatchProviderConfig:
     """
 
     provider: str
-    enabled: bool = True
     max_chunk_bytes: int = 50 * 1024 * 1024
     max_requests_per_chunk: Optional[int] = None
     metadata_output_path: str = ""
