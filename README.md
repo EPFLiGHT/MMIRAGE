@@ -109,7 +109,7 @@ docker compose run --rm -it mmirage
 
 ### CPU-only
 
-The CPU image installs MMIRAGE without the GPU extra. It is suitable for workflows that do not instantiate the SGLang-backed `llm` processor, and is intended to support API-backed processors once they are available. No CPU-ready configuration files are provided yet.
+The CPU image installs MMIRAGE without the GPU extra. It is suitable for workflows that do not instantiate the SGLang-backed `llm` processor, such as the `batch_api` processor. See `configs/config_mock_openai_batch.yaml` and `configs/config_mock_anthropic_batch.yaml`.
 
 Commands:
 
