@@ -115,7 +115,7 @@ For each `OutputVar` in `processing_params.outputs`, MMIRAGE:
 2. Passes the rendered prompt (and any image inputs) to the configured processor.
 3. Stores the model's response under the output variable's name.
 
-The processor is the SGLang engine (for local inference) or the OpenAI Batch
+The processor is the SGLang engine (for local inference) or a provider batch
 API orchestrator (for batch mode).
 
 If `output_type: JSON`, the response is parsed as JSON before storage.

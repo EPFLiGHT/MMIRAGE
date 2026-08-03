@@ -66,6 +66,7 @@ src/mmirage/
 │   ├── loading.py           LoadingParams, env-var resolution
 │   ├── batch_provider.py    Provider-neutral BatchProviderConfig
 │   ├── openai_batch.py      OpenAIBatchConfig (extends BatchProviderConfig)
+│   ├── anthropic_batch.py   AnthropicBatchConfig (extends BatchProviderConfig)
 │   └── utils.py             YAML loader, env-var expansion, dacite wiring
 │
 ├── cli_utils/               CLI helpers
@@ -95,6 +96,7 @@ src/mmirage/
     │       ├── orchestrator.py       End-to-end batch pipeline
     │       ├── adapter.py            Provider-neutral batch adapter interface
     │       ├── openai_adapter.py     OpenAI Batch API adapter
+    │       ├── anthropic_adapter.py  Anthropic Messages Batches adapter
     │       ├── chunking.py           Request chunking (byte/count limits)
     │       ├── collector.py          Response collection and result joining
     │       ├── status_checker.py     Batch job polling
@@ -125,7 +127,7 @@ src/mmirage/
 
 `launch_pipeline` generates and submits an sbatch array script. Each array task runs `shard_process.py` with `SLURM_ARRAY_TASK_ID` as the shard ID. The orchestrator polls job status via `squeue`, waits for the `settle_time_seconds`, checks `status.json` for each shard, and retries failed shards up to `max_retries`.
 
-### Batch API mode (OpenAI)
+### Batch API mode (OpenAI, Anthropic)
 
 The `BatchApiProcessor` delegates request submission to the batch orchestrator:
 1. Requests are serialized to JSONL chunks respecting `max_chunk_bytes` / `max_requests_per_chunk`.

@@ -1,6 +1,6 @@
 # 🗂️ Batch API
 
-This page explains how to run MMIRAGE inference asynchronously using the OpenAI Batch API, which is useful for large-scale processing at lower cost.
+This page explains how to run MMIRAGE inference asynchronously using a provider batch API — OpenAI or Anthropic are built in — which is useful for large-scale processing at lower cost.
 
 ---
 
@@ -9,7 +9,7 @@ This page explains how to run MMIRAGE inference asynchronously using the OpenAI 
 Use the `batch_api` processor instead of `llm`, and give its outputs `type: batch_api`.
 
 1. **Request serialization:** MMIRAGE serializes inference requests into JSONL chunks.
-2. **Batch submission:** Each chunk is uploaded and submitted as an OpenAI batch job.
+2. **Batch submission:** Each chunk is uploaded and submitted as a provider batch job.
 3. **Execution completion:** The pipeline run exits immediately after submission, saving placeholder values (e.g. `__BATCH_SUBMITTED__:<output_name>:<modality>:<request_number>`) in the output dataset shards.
 4. **Asynchronous retrieval:** The user manually polls status and downloads/merges the completed results using separate Python utility modules once the provider completes the batch jobs.
 
@@ -35,7 +35,7 @@ This mode is useful when:
 
 ## Configuration
 
-Declare a `batch_api` processor and its provider settings in your YAML config:
+Declare a `batch_api` processor and its provider settings in your YAML config. `provider` selects the built-in adapter (`openai` or `anthropic`) and determines which provider-specific fields are accepted.
 
 ```yaml
 processors:
@@ -54,14 +54,13 @@ processors:
       backoff_multiplier: 2.0
 ```
 
-### Field reference
+### Shared field reference
+
+These fields apply to every provider.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `provider` | `str` | — | Provider identifier. Currently `"openai"` is supported. |
-| `model` | `str` | `"gpt-4.1-mini"` | Model name for chat completion requests. |
-| `batch_endpoint` | `str` | `"/v1/chat/completions"` | Target endpoint used by OpenAI batch jobs. |
-| `completion_window` | `str` | `"24h"` | OpenAI batch completion window (only `"24h"` is supported). |
+| `provider` | `str` | — | Provider identifier: `"openai"` or `"anthropic"`. |
 | `max_chunk_bytes` | `int` | `52428800` | Maximum JSONL file size per batch upload (50 MB). |
 | `max_requests_per_chunk` | `int` | `null` | Optional hard cap on number of requests in a chunk. |
 | `metadata_output_path` | `str` | `""` | Base path for batch job metadata receipt files. Suffixes like `.text.<run_id>.jsonl` and `.multimodal.<run_id>.jsonl` will be appended. |
@@ -70,19 +69,42 @@ processors:
 | `retry_policy.max_attempts` | `int` | `3` | Maximum retry attempts for transient submission errors. |
 | `retry_policy.initial_backoff_seconds` | `float` | `2.0` | Initial retry delay in seconds. |
 | `retry_policy.backoff_multiplier` | `float` | `2.0` | Multiplicative factor for subsequent retry delays. |
-| `metadata` | `dict` | `{}` | Key-value pairs sent on batch creation (OpenAI-specific metadata). |
+| `metadata` | `dict` | `{}` | Key-value pairs sent on batch creation. |
+
+### `provider: openai`
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `model` | `str` | `"gpt-4.1-mini"` | Model name for chat completion requests. |
+| `batch_endpoint` | `str` | `"/v1/chat/completions"` | Target endpoint used by OpenAI batch jobs. |
+| `completion_window` | `str` | `"24h"` | OpenAI batch completion window (only `"24h"` is supported). |
+| `base_url` | `str` | `null` | Optional base URL, useful for API-compatible gateways. |
+
+### `provider: anthropic`
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `model` | `str` | `"claude-haiku-4-5"` | Model name used in each Messages request body. |
+| `max_tokens` | `int` | `8192` | Maximum tokens for the generated response. |
+| `temperature` | `float` | `0.0` | Sampling temperature. Mutually exclusive with `top_p`. |
+| `top_p` | `float` | `null` | Nucleus sampling probability, in `(0, 1]`. Mutually exclusive with `temperature`. |
+| `base_url` | `str` | `null` | Optional base URL, useful for API-compatible gateways. |
+| `timeout_seconds` | `float` | `null` | Optional request timeout. |
+
+Setting both `temperature` and `top_p` is rejected at config load; setting neither defaults `temperature` to `0.0`.
 
 ---
 
 ## API key
 
-API provider require an API key. You can set it via the environment variable before running:
-Exemple for OpenAI: 
+Each provider reads its API key from the environment. Set it before running:
 
 ```bash
-export OPENAI_API_KEY=sk-...
-# Then you can run mmirage with the right yaml configuration for OpenAI
+export OPENAI_API_KEY=sk-...        # provider: openai
+export ANTHROPIC_API_KEY=sk-ant-... # provider: anthropic
 ```
+
+Keys cannot be supplied in the YAML config. The key is checked when the processor is built, so a missing one fails before the dataset is processed — except under `--export-prompts`, which skips the check because nothing is submitted.
 
 ---
 
@@ -105,7 +127,7 @@ Execute your MMIRAGE pipeline with a configuration that declares a `batch_api` p
 mmirage run --config configs/batch_config.yaml
 ```
 
-During this run, MMIRAGE maps over your datasets, generates request payloads, writes them to serialized JSONL chunks, and submits them to the OpenAI Batch API.
+During this run, MMIRAGE maps over your datasets, generates request payloads, writes them to serialized JSONL chunks, and submits them to the provider batch API.
 - The pipeline execution completes immediately after submission.
 - The output files in the dataset's `output_dir` shards will contain temporary placeholder variables of the format `__BATCH_SUBMITTED__:<output_name>:<modality>:<request_number>`.
 - MMIRAGE generates **metadata receipt files** named `<metadata_output_path>.<modality>.<run_id>.jsonl` (e.g., `batch_metadata.text.abc123.jsonl`). These receipt files store the API batch IDs and map each API request's `custom_id` to its original dataset `source_index`.
@@ -147,7 +169,7 @@ python -m mmirage.core.process.batch.collector \
 
 ## Provider-Agnostic Architecture & Custom Providers
 
-MMIRAGE's batch processing system is designed to be provider-agnostic. While it comes with built-in support for the OpenAI Batch API, developers can implement custom batch submission providers (such as Anthropic, Mistral, or private gateways) by implementing and registering custom provider configurations and adapters.
+MMIRAGE's batch processing system is designed to be provider-agnostic. OpenAI and Anthropic ship built in; developers can add other providers (Mistral, private gateways, ...) by implementing and registering a provider configuration and an adapter.
 
 ### Extension Contracts
 
@@ -165,9 +187,9 @@ from dataclasses import dataclass
 from mmirage.config.batch_provider import BatchProviderConfig
 
 @dataclass
-class AnthropicBatchConfig(BatchProviderConfig):
-    provider: str = "anthropic"
-    model: str = "claude-haiku-4-5"
+class MistralBatchConfig(BatchProviderConfig):
+    provider: str = "mistral"
+    model: str = "mistral-small-latest"
 ```
 
 #### 2. Custom Submission Adapter
@@ -179,8 +201,8 @@ from typing import Any, Dict, Sequence
 from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubmissionResult
 from mmirage.config.batch_provider import BatchProviderConfig
 
-class AnthropicBatchAdapter(BatchSubmissionAdapter):
-    # Each key must be set as an <PROVIDER>_<KEY> environment variable, e.g. ANTHROPIC_API_KEY
+class MistralBatchAdapter(BatchSubmissionAdapter):
+    # Each key must be set as an <PROVIDER>_<KEY> environment variable, e.g. MISTRAL_API_KEY
     required_credentials = ("api_key",)
 
     def build_request(
@@ -252,10 +274,10 @@ from mmirage.core.process.batch.provider_resolution import BatchProviderConfigRe
 from mmirage.core.process.batch.registry import BatchAdapterRegistry
 
 # Register the provider configuration class
-BatchProviderConfigRegistry.register("anthropic", AnthropicBatchConfig)
+BatchProviderConfigRegistry.register("mistral", MistralBatchConfig)
 
 # Register the provider submission adapter
-BatchAdapterRegistry.register("anthropic", AnthropicBatchAdapter)
+BatchAdapterRegistry.register("mistral", MistralBatchAdapter)
 ```
 
 ### Config Usage
@@ -265,14 +287,16 @@ After registering your custom provider, you can reference it in your MMIRAGE pip
 ```yaml
 processors:
   - type: batch_api
-    provider: anthropic
-    model: claude-haiku-4-5
-    metadata_output_path: /scratch/anthropic_meta.jsonl
+    provider: mistral
+    model: mistral-small-latest
+    metadata_output_path: /scratch/mistral_meta.jsonl
 ```
 
 ---
 
 ## Complete example config
+
+Shown for `provider: openai`; see `configs/config_mock_anthropic_batch.yaml` for the Anthropic equivalent.
 
 ```yaml
 processors:
