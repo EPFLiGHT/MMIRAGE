@@ -8,7 +8,7 @@ from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubm
 from mmirage.core.process.batch.provider_resolution import BatchProviderConfigRegistry
 from mmirage.core.process.batch.registry import BatchAdapterRegistry
 from mmirage.core.process.base import ProcessorRegistry
-from mmirage.core.process.processors.llm.config import LLMProcessorConfig, SGLangLLMConfig, SGLangServerArgs
+from mmirage.core.process.processors.batch_api.config import BatchApiProcessorConfig
 
 
 class RecordingAdapter(BatchSubmissionAdapter):
@@ -185,108 +185,23 @@ class UnitBatchConfig(BatchProviderConfig):
             raise ValueError("unit_setting must be a non-empty string")
 
 
-def test_llm_processor_initializes_with_custom_provider(tmp_path):
+def test_batch_api_processor_initializes_with_custom_provider(tmp_path):
     BatchProviderConfigRegistry.register("unit", UnitBatchConfig)
     BatchAdapterRegistry.register("unit", RecordingAdapter)
 
-    config = LLMProcessorConfig(
-        type="llm",
-        execution_mode="batch",
-        batch=UnitBatchConfig(
+    config = BatchApiProcessorConfig(
+        type="batch_api",
+        provider_config=UnitBatchConfig(
             provider="unit",
             unit_setting="custom",
             metadata_output_path=str(tmp_path / "metadata.jsonl"),
         ),
     )
 
-    processor_cls = ProcessorRegistry.get_processor("llm")
+    processor_cls = ProcessorRegistry.get_processor("batch_api")
     processor = processor_cls(config)
 
-    assert processor.batch_mode_enabled is True
     assert isinstance(processor._batch_provider_config, UnitBatchConfig)
     assert processor._batch_provider_config.provider == "unit"
     assert processor._batch_provider_config.unit_setting == "custom"
     assert isinstance(processor._batch_adapter, RecordingAdapter)
-
-
-def test_llm_processor_rejects_disabled_batch(monkeypatch):
-    class FakeEngine:
-        def __init__(self, **_kwargs):
-            return None
-
-        def generate(self, **_kwargs):
-            raise AssertionError("Synchronous generation should not run in this test")
-
-        def shutdown(self):
-            return None
-
-    class FakeTokenizer:
-        def apply_chat_template(self, *args, **kwargs):
-            return ""
-
-    monkeypatch.setattr(
-        "mmirage.core.process.processors.llm.llm_processor.sgl.Engine",
-        FakeEngine,
-    )
-    monkeypatch.setattr(
-        "mmirage.core.process.processors.llm.llm_processor.AutoTokenizer.from_pretrained",
-        lambda *args, **kwargs: FakeTokenizer(),
-    )
-    monkeypatch.setattr(
-        "mmirage.core.process.processors.llm.llm_processor.SGLANG_AVAILABLE",
-        True,
-    )
-
-    config = LLMProcessorConfig(
-        type="llm",
-        execution_mode="batch",
-        batch=BatchProviderConfig(provider="openai", enabled=False),
-    )
-
-    processor_cls = ProcessorRegistry.get_processor("llm")
-    with pytest.raises(ValueError, match="batch config must be enabled"):
-        processor_cls(config)
-
-
-def test_llm_processor_uses_sync_runtime_when_batch_provider_omitted(monkeypatch):
-    class FakeEngine:
-        def __init__(self, **_kwargs):
-            return None
-
-        def generate(self, **_kwargs):
-            raise AssertionError("Synchronous generation should not run in this test")
-
-        def shutdown(self):
-            return None
-
-    class FakeTokenizer:
-        def apply_chat_template(self, *args, **kwargs):
-            return ""
-
-    monkeypatch.setattr(
-        "mmirage.core.process.processors.llm.llm_processor.sgl.Engine",
-        FakeEngine,
-    )
-    monkeypatch.setattr(
-        "mmirage.core.process.processors.llm.llm_processor.AutoTokenizer.from_pretrained",
-        lambda *args, **kwargs: FakeTokenizer(),
-    )
-    monkeypatch.setattr(
-        "mmirage.core.process.processors.llm.llm_processor.SGLANG_AVAILABLE",
-        True,
-    )
-
-    config = LLMProcessorConfig(
-        type="llm",
-        execution_mode="local",
-        local=SGLangLLMConfig(server_args=SGLangServerArgs(model_path="dummy-model")),
-    )
-
-    processor_cls = ProcessorRegistry.get_processor("llm")
-    processor = processor_cls(config)
-
-    assert processor.batch_mode_enabled is False
-    assert isinstance(processor.llm, FakeEngine)
-    assert isinstance(processor.tokenizer, FakeTokenizer)
-    assert processor._batch_adapter is None
-    assert processor._batch_provider_config is None

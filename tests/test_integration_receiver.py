@@ -59,7 +59,7 @@ def test_integration_receiver_reads_receipt_and_writes_merged_output(tmp_path, m
     records = _read_metadata_records(str(metadata_path))
     rows = collect_and_merge(
         records=records,
-        provider_configs={"openai": OpenAIBatchConfig(credentials={"api_key": "test"})},
+        provider_configs={"openai": OpenAIBatchConfig()},
         output_path=str(output_path),
     )
 

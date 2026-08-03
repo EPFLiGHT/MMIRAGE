@@ -5,7 +5,7 @@ This page is the complete reference for every parameter in the MMIRAGE YAML conf
 A pipeline config is split into four top-level sections: `processors`, `loading_params`,
 `processing_params`, and `execution_params`.
 
-To route inference through the OpenAI Batch API, configure `execution_mode` under your `llm` processor (see `processors[*].batch_provider` below).
+To route inference through the OpenAI Batch API, use the `batch_api` processor instead of `llm` (see below).
 If you are new to MMIRAGE, read [Concepts](concepts.md) first to understand the terminology,
 then follow [Quickstart](quickstart.md) for a minimal working example.
 
@@ -15,29 +15,24 @@ then follow [Quickstart](quickstart.md) for a minimal working example.
 
 
 
-A list of processor definitions. Currently the only supported type is `llm`.
+A list of processor definitions. Generation is available as two processors: `llm` runs a
+local SGLang server, `batch_api` submits the same requests to an API provider.
 
-The processor `llm` has to two `execution_mode` : 
-- `local` (by default): run on your hardware
-- `batch` : run thanks to a API LLM provider.
- 
-### `processors[*].local` — Local execution mode
+### `llm` — Local execution
 
 ```yaml
 processors:
   - type: llm
-    execution_mode: local
-    local:
-      server_args:
-        model_path: Qwen/Qwen3-8B
-        tp_size: 4
-        trust_remote_code: true
-        disable_custom_all_reduce: false
-      chat_template: ""           # Set to e.g. "qwen2-vl" for VLMs
-      default_sampling_params:
-        temperature: 0.1
-        top_p: 0.9
-        max_new_tokens: 1024
+    server_args:
+      model_path: Qwen/Qwen3-8B
+      tp_size: 4
+      trust_remote_code: true
+      disable_custom_all_reduce: false
+    chat_template: ""           # Set to e.g. "qwen2-vl" for VLMs
+    default_sampling_params:
+      temperature: 0.1
+      top_p: 0.9
+      max_new_tokens: 1024
 ```
 
 #### `processors[*].server_args`
@@ -88,21 +83,20 @@ default_sampling_params:
 
 Optional. Set to a named template (e.g. `qwen2-vl`, `llava`, `internvl`, `phi3_v`) for vision-language models. Defaults to the tokenizer's built-in template.
 
-### `processors[*].batch` — Batch execution mode
-Optional. When set, MMIRAGE routes requests through the OpenAI Batch API instead of running a local SGLang server. This is useful for large-scale processing without a local GPU.
+### `batch_api` — Provider batch execution
+
+Routes requests through a provider batch API instead of a local SGLang server, for large-scale processing without a GPU. Outputs served by this processor must use `type: batch_api`.
 
 ```yaml
 processors:
-  - type: llm
-    execution_mode: batch
-    batch:
-      provider: openai
-      model: gpt-4o-mini
-      max_chunk_bytes: 52428800    # 50 MB per batch file
-      metadata_output_path: /path/to/batch_metadata.jsonl
+  - type: batch_api
+    provider: openai
+    model: gpt-4o-mini
+    max_chunk_bytes: 52428800    # 50 MB per batch file
+    metadata_output_path: /path/to/batch_metadata.jsonl
 ```
 
-**`batch` fields:**
+**`batch_api` fields:**
 
 | Field | Type | Default | Description |
 |---|---|---|---|
@@ -294,5 +288,5 @@ If `shard_*` folders are present **directly** inside `--input-dir`, MMIRAGE merg
 - [Quickstart](quickstart.md) — minimal working config examples
 - [Multimodal Processing](multimodal.md) — image inputs and `chat_template`
 - [SLURM & Cluster Deployment](slurm.md) — `execution_params` for SLURM mode
-- [Batch API](batch_api.md) — `batch_provider` configuration in depth
+- [Batch API](batch_api.md) — the `batch_api` processor in depth
 - [CLI Reference](cli.md) — how to run a configured pipeline
