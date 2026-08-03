@@ -64,12 +64,10 @@ These fields apply to every provider.
 | `max_chunk_bytes` | `int` | `52428800` | Maximum JSONL file size per batch upload (50 MB). |
 | `max_requests_per_chunk` | `int` | `null` | Optional hard cap on number of requests in a chunk. |
 | `metadata_output_path` | `str` | `""` | Base path for batch job metadata receipt files. Suffixes like `.text.<run_id>.jsonl` and `.multimodal.<run_id>.jsonl` will be appended. |
-| `base_url` | `str` | `null` | Optional base URL, useful for API-compatible gateways. |
 | `oversized_request_policy` | `str` | `"isolate"` | Policy for requests exceeding `max_chunk_bytes`: `"isolate"` (dedicated chunk) or `"reject"` (fail fast). |
 | `retry_policy.max_attempts` | `int` | `3` | Maximum retry attempts for transient submission errors. |
 | `retry_policy.initial_backoff_seconds` | `float` | `2.0` | Initial retry delay in seconds. |
 | `retry_policy.backoff_multiplier` | `float` | `2.0` | Multiplicative factor for subsequent retry delays. |
-| `metadata` | `dict` | `{}` | Key-value pairs sent on batch creation. |
 
 ### `provider: openai`
 
@@ -79,6 +77,7 @@ These fields apply to every provider.
 | `batch_endpoint` | `str` | `"/v1/chat/completions"` | Target endpoint used by OpenAI batch jobs. |
 | `completion_window` | `str` | `"24h"` | OpenAI batch completion window (only `"24h"` is supported). |
 | `base_url` | `str` | `null` | Optional base URL, useful for API-compatible gateways. |
+| `metadata` | `dict` | `{}` | Key-value pairs sent on batch creation. |
 
 ### `provider: anthropic`
 
@@ -90,6 +89,7 @@ These fields apply to every provider.
 | `top_p` | `float` | `null` | Nucleus sampling probability, in `(0, 1]`. Mutually exclusive with `temperature`. |
 | `base_url` | `str` | `null` | Optional base URL, useful for API-compatible gateways. |
 | `timeout_seconds` | `float` | `null` | Optional request timeout. |
+| `metadata` | `dict` | `{}` | Key-value pairs sent on batch creation. |
 
 Setting both `temperature` and `top_p` is rejected at config load; setting neither defaults `temperature` to `0.0`.
 

@@ -106,7 +106,6 @@ The API key is read from the environment (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
 | `max_chunk_bytes` | `int` | `52428800` | Max serialized bytes per batch file (50 MB) |
 | `max_requests_per_chunk` | `int` | `null` | Optional hard cap on requests per chunk |
 | `metadata_output_path` | `str` | `""` | Base path for submission receipt files |
-| `base_url` | `str` | `null` | Optional base URL for API-compatible gateways |
 | `oversized_request_policy` | `str` | `"isolate"` | `"isolate"` or `"reject"` for requests exceeding `max_chunk_bytes` |
 | `retry_policy.max_attempts` | `int` | `3` | Max retry attempts for transient submission errors |
 | `retry_policy.initial_backoff_seconds` | `float` | `2.0` | Initial retry delay |
@@ -119,6 +118,8 @@ The API key is read from the environment (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
 | `model` | `str` | `gpt-4.1-mini` | Model name for chat completion requests |
 | `batch_endpoint` | `str` | `"/v1/chat/completions"` | Target endpoint used by OpenAI batch jobs |
 | `completion_window` | `str` | `"24h"` | OpenAI batch completion window |
+| `base_url` | `str` | `null` | Optional base URL for API-compatible gateways |
+| `metadata` | `dict` | `{}` | Key-value pairs sent on batch creation |
 
 **`provider: anthropic` fields:**
 
@@ -129,6 +130,8 @@ The API key is read from the environment (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
 | `temperature` | `float` | `0.0` | Sampling temperature; mutually exclusive with `top_p` |
 | `top_p` | `float` | `null` | Nucleus sampling probability in `(0, 1]`; mutually exclusive with `temperature` |
 | `timeout_seconds` | `float` | `null` | Optional request timeout |
+| `base_url` | `str` | `null` | Optional base URL for API-compatible gateways |
+| `metadata` | `dict` | `{}` | Key-value pairs sent on batch creation |
 
 Setting both `temperature` and `top_p` is rejected at config load; setting neither defaults `temperature` to `0.0`.
 
@@ -209,7 +212,7 @@ processing_params:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `name` | `str` | — | Variable name made available in `output_schema` templates |
-| `type` | `str` | — | Processor type — must match a registered processor (`llm`) |
+| `type` | `str` | — | Processor type — must match a processor declared in `processors` (`llm`, `batch_api`, `image_gen`) |
 | `output_type` | `str` | `plain` | `"plain"` (raw text) or `"JSON"` (structured object) |
 | `prompt` | `str` | — | Jinja2 template for the LLM prompt |
 | `output_schema` | `list[str]` | `[]` | Required field names when `output_type: JSON` |

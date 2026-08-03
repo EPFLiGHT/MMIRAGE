@@ -25,13 +25,15 @@ Common flags available on most subcommands:
 Run the pipeline according to `execution_params.mode` and `execution_params.retry`.
 
 ```bash
-mmirage run --config configs/config.yaml [--force-retry] [--shard-id N] [--stats]
+mmirage run --config configs/config.yaml [--force-retry] [--shard-id N] [--stats] [--export-prompts PATH]
 ```
 
 | Flag | Description |
 |---|---|
 | `--force-retry` | Enable retry orchestration even if `execution_params.retry` is `false` |
 | `--shard-id N` | Run a single specific shard locally, ignoring the execution mode |
+| `--stats` | Enable GPU utilization and throughput collection during shard execution |
+| `--export-prompts PATH` | Dry-run for `batch_api` processors: write the provider-ready requests to `PATH` instead of submitting them. No API key required. See [Batch API](batch_api.md) |
 
 **Behaviour summary:**
 
