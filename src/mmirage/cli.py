@@ -24,6 +24,8 @@ from mmirage.cli_utils.status import (
 )
 from mmirage.config.config import MMirageConfig
 from mmirage.config.utils import load_mmirage_config
+from mmirage.core.process.batch.collector import collect_batches
+from mmirage.core.process.batch.status_checker import check_batches
 from mmirage.merge_shards import MergeReport, merge_from_config, merge_input_dir
 from mmirage.core.process.processors.image_gen.sglang_server import (
     MMIRAGE_SGLANG_BASE_URL,
@@ -208,6 +210,32 @@ def add_shared_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_metadata_path_argument(parser: argparse.ArgumentParser) -> None:
+    """Attach the batch receipt path argument to a subcommand parser.
+
+    Args:
+        parser: Subcommand parser receiving the argument.
+    """
+    parser.add_argument(
+        "--metadata-path",
+        nargs="+",
+        help=(
+            "batch_api configs only: path(s) to metadata JSONL receipt file(s). "
+            "When omitted, receipts are resolved from the metadata_output_path of "
+            "each batch_api processor block"
+        ),
+    )
+
+
+def uses_batch_api(cfg: MMirageConfig) -> bool:
+    """Return True when the config declares at least one batch_api processor.
+
+    Args:
+        cfg: Parsed MMIRAGE configuration object.
+    """
+    return any(processor.type == "batch_api" for processor in cfg.processors)
+
+
 def build_argparser() -> argparse.ArgumentParser:
     """Build the CLI parser.
 
@@ -230,8 +258,12 @@ def build_argparser() -> argparse.ArgumentParser:
         help="Enable GPU utilization and throughput collection on compute nodes",
     )
 
-    check_parser = subparsers.add_parser("check", help="Inspect shard status")
+    check_parser = subparsers.add_parser(
+        "check",
+        help="Inspect shard status, or provider batch status for batch_api configs",
+    )
     add_shared_arguments(check_parser)
+    add_metadata_path_argument(check_parser)
     check_parser.add_argument(
         "--retry",
         dest="retry",
@@ -300,7 +332,10 @@ def build_argparser() -> argparse.ArgumentParser:
 
     merge_parser = subparsers.add_parser(
         "merge",
-        help="Merge shard outputs listed in config.loading_params.datasets",
+        help=(
+            "Merge shard outputs listed in config.loading_params.datasets, or "
+            "retrieve and merge completed provider batches for batch_api configs"
+        ),
     )
     add_shared_arguments(merge_parser)
     merge_parser.add_argument(
@@ -314,6 +349,12 @@ def build_argparser() -> argparse.ArgumentParser:
             "each dataset is merged into <dataset.output_dir>/merged"
         ),
     )
+    merge_parser.add_argument(
+        "--output-path",
+        default=None,
+        help="batch_api configs only: JSONL file path for the merged batch results (required)",
+    )
+    add_metadata_path_argument(merge_parser)
 
     merge_dir_parser = subparsers.add_parser(
         "merge-dir",
@@ -465,6 +506,9 @@ def handle_submit(args: argparse.Namespace, cfg: MMirageConfig, config_path: str
 def handle_check(args: argparse.Namespace, cfg: MMirageConfig, config_path: str) -> int:
     """Inspect shard status and optionally submit retries.
 
+    For batch_api configs, shard state only records submission, so the provider
+    batch status is reported from the metadata receipts instead.
+
     Args:
         args: Parsed CLI namespace.
         cfg: Parsed MMIRAGE configuration object.
@@ -473,6 +517,9 @@ def handle_check(args: argparse.Namespace, cfg: MMirageConfig, config_path: str)
     Returns:
         Exit code based on shard status and optional retry submission.
     """
+    if uses_batch_api(cfg):
+        return check_batches(cfg, args.metadata_path)
+
     failed_shards, summary = check_failed_shards(cfg)
     print(json.dumps(asdict(summary), indent=2))
 
@@ -547,6 +594,9 @@ def handle_stats(args: argparse.Namespace, cfg: MMirageConfig, _config_path: str
 def handle_merge(args: argparse.Namespace, cfg: MMirageConfig, _config_path: str) -> int:
     """Merge shard outputs defined in config.loading_params.datasets.
 
+    For batch_api configs, the shards only hold submission placeholders, so the
+    completed provider results are retrieved and merged into --output-path.
+
     Args:
         args: Parsed CLI namespace.
         cfg: Parsed MMIRAGE configuration object.
@@ -555,6 +605,12 @@ def handle_merge(args: argparse.Namespace, cfg: MMirageConfig, _config_path: str
     Returns:
         Exit code for merge outcome.
     """
+    if uses_batch_api(cfg):
+        if not args.output_path:
+            logger.error("--output-path is required to merge batch_api results")
+            return 1
+        return collect_batches(cfg, args.output_path, args.metadata_path)
+
     reports = merge_from_config(cfg, output_root=args.output_dir)
     log_merge_reports(reports)
     return 0

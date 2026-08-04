@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import glob
-from typing import List, Sequence
+from typing import TYPE_CHECKING, List, Optional, Sequence
+
+if TYPE_CHECKING:
+    from mmirage.config.config import MMirageConfig
 
 _METADATA_SUFFIXES = ("text", "multimodal")
 
@@ -39,3 +42,28 @@ def resolve_metadata_paths_from_config(metadata_output_paths: Sequence[str]) -> 
         )
 
     return resolved
+
+
+def resolve_metadata_paths(
+    cfg: "MMirageConfig",
+    metadata_paths: Optional[Sequence[str]] = None,
+) -> List[str]:
+    """Return receipt paths from explicit values, or from the config batch blocks."""
+    if metadata_paths:
+        return list(metadata_paths)
+
+    from mmirage.core.process.batch.provider_resolution import build_all_provider_configs
+
+    base_paths = list(
+        dict.fromkeys(
+            config.metadata_output_path
+            for config in build_all_provider_configs(cfg).values()
+            if config.metadata_output_path
+        )
+    )
+    if not base_paths:
+        raise ValueError(
+            "No metadata paths provided and none found in config batch_api processor blocks."
+        )
+
+    return resolve_metadata_paths_from_config(base_paths)

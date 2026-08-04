@@ -133,33 +133,33 @@ During this run, MMIRAGE maps over your datasets, generates request payloads, wr
 - MMIRAGE generates **metadata receipt files** named `<metadata_output_path>.<modality>.<run_id>.jsonl` (e.g., `batch_metadata.text.abc123.jsonl`). These receipt files store the API batch IDs and map each API request's `custom_id` to its original dataset `source_index`.
 
 ### Step 2: Check Batch Job Status
-Because batch jobs run asynchronously on the provider's server and can take up to 24 hours to complete, you can monitor their status using the `status_checker` utility module:
+Because batch jobs run asynchronously on the provider's server and can take up to 24 hours to complete, monitor their status with `mmirage check`, which reports provider batch status instead of shard status when the config declares a `batch_api` processor:
 
 ```bash
-python -m mmirage.core.process.batch.status_checker --config configs/batch_config.yaml
+mmirage check --config configs/batch_config.yaml
 ```
 
-By default, the status checker automatically resolves the metadata receipt files from your configuration. You can also specify them manually:
+By default the metadata receipt files are resolved from your configuration. You can also specify them manually:
 
 ```bash
-python -m mmirage.core.process.batch.status_checker \
+mmirage check \
   --config configs/batch_config.yaml \
   --metadata-path /path/to/batch_metadata.text.abc123.jsonl
 ```
 
 ### Step 3: Retrieve and Merge Results
-Once all batch jobs show a status of `completed`, retrieve the generated outputs, map them back to their original row positions, and merge them into a single, ordered JSONL file using the `collector` utility module:
+Once all batch jobs show a status of `completed`, retrieve the generated outputs, map them back to their original row positions, and merge them into a single, ordered JSONL file with `mmirage merge`:
 
 ```bash
-python -m mmirage.core.process.batch.collector \
+mmirage merge \
   --config configs/batch_config.yaml \
   --output-path /path/to/final_merged_output.jsonl
 ```
 
-Just like the status checker, the collector automatically locates the metadata receipt files based on the config. To specify the metadata receipts manually, run:
+Just like step 2, the metadata receipts are located from the config unless given explicitly:
 
 ```bash
-python -m mmirage.core.process.batch.collector \
+mmirage merge \
   --config configs/batch_config.yaml \
   --metadata-path /path/to/batch_metadata.text.abc123.jsonl \
   --output-path /path/to/final_merged_output.jsonl
