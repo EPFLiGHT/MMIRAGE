@@ -65,7 +65,7 @@ mmirage submit --config configs/config.yaml [--shard-ids 0,2,3] [--wait] [--stat
 Inspect shard status from the state directory and optionally submit retries.
 
 ```bash
-mmirage check --config configs/config.yaml [--retry] [-y] [--stats]
+mmirage check --config configs/config.yaml [--retry] [-y] [--stats] [--metadata-path PATH ...]
 ```
 
 | Flag | Description |
@@ -73,8 +73,11 @@ mmirage check --config configs/config.yaml [--retry] [-y] [--stats]
 | `--retry` | Submit a retry job for any failed shards |
 | `-y`, `--yes` | Submit retries without prompting for confirmation |
 | `--stats` | Enable GPU utilization and throughput collection on retried compute nodes |
+| `--metadata-path PATH [PATH ...]` | `batch_api` configs only: metadata receipt file(s). If omitted, receipts are resolved from each processor's `metadata_output_path` |
 
 Exits with code `0` if all shards succeeded, `1` otherwise.
+
+For a config declaring a `batch_api` processor, `check` reports the provider batch status from the metadata receipts instead of the shard state — see [Batch API](batch_api.md).
 
 ---
 
@@ -99,11 +102,16 @@ Merge shard outputs for all datasets listed in `loading_params.datasets`.
 
 ```bash
 mmirage merge --config configs/config.yaml [--output-root /path/to/merged]
+mmirage merge --config configs/batch_config.yaml --output-path merged.jsonl [--metadata-path PATH ...]
 ```
 
 | Flag | Description |
 |---|---|
 | `--output-root PATH` | Root directory for merged outputs. MMIRAGE creates one subdirectory per dataset. If omitted, each dataset is merged into `<dataset.output_dir>/merged` |
+| `--output-path PATH` | `batch_api` configs only: JSONL file for the merged batch results (**required**) |
+| `--metadata-path PATH [PATH ...]` | `batch_api` configs only: metadata receipt file(s). If omitted, receipts are resolved from each processor's `metadata_output_path` |
+
+For a config declaring a `batch_api` processor, `merge` retrieves the completed provider results and merges them by source index into `--output-path`, since the shards only hold submission placeholders — see [Batch API](batch_api.md).
 
 ---
 

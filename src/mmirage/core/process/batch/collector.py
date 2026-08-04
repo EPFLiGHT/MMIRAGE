@@ -11,21 +11,19 @@ import argparse
 import json
 import logging
 import os
-import sys
-from typing import Any, Dict, List, Mapping, MutableMapping, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
 from mmirage.config.batch_provider import BatchProviderConfig
-from mmirage.core.process.batch.metadata_paths import resolve_metadata_paths_from_config
+from mmirage.core.process.batch.metadata_paths import resolve_metadata_paths
 from mmirage.core.process.batch.metadata_utils import (
     BatchMetadataRecord,
-    _normalize_metadata_paths,
     _read_metadata_records,
 )
-from mmirage.core.process.batch.provider_resolution import (
-    build_all_provider_configs,
-    resolve_provider_configs,
-)
+from mmirage.core.process.batch.provider_resolution import resolve_provider_configs
 from mmirage.core.process.batch.registry import BatchAdapterFactory
+
+if TYPE_CHECKING:
+    from mmirage.config.config import MMirageConfig
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +175,30 @@ def _extract_content_string(result_row: Mapping[str, Any]) -> str:
     return str(result_row.get("generated_text", ""))
 
 
+def collect_batches(
+    cfg: "MMirageConfig",
+    output_path: str,
+    metadata_paths: Optional[Sequence[str]] = None,
+) -> int:
+    """Retrieve every batch referenced by the receipts of ``cfg`` and merge them.
+
+    Args:
+        cfg: Loaded MMIRAGE configuration declaring the batch_api processor(s).
+        output_path: Destination JSONL path for the merged output.
+        metadata_paths: Explicit receipt paths; resolved from the config when omitted.
+
+    Returns:
+        Exit code: 0 on success.
+    """
+    metadata_paths = resolve_metadata_paths(cfg, metadata_paths)
+    records = _read_metadata_records(metadata_paths)
+    provider_configs = resolve_provider_configs(records, cfg)
+
+    rows = collect_and_merge(records, provider_configs, output_path)
+    print(f"Merged {len(rows)} rows and saved to {output_path}")
+    return 0
+
+
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Collect provider batch outputs and merge rows by source index."
@@ -214,39 +236,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     from mmirage.config.utils import load_mmirage_config
 
     try:
-        cfg = load_mmirage_config(args.config)
-        if args.metadata_path:
-            metadata_paths = args.metadata_path
-        else:
-            all_provider_configs = build_all_provider_configs(cfg)
-            metadata_paths = [
-                config.metadata_output_path
-                for config in all_provider_configs.values()
-                if config.metadata_output_path
-            ]
-            metadata_paths = list(dict.fromkeys(metadata_paths))
-            if not metadata_paths:
-                raise ValueError(
-                    "No metadata paths provided and none found in config batch_api processor blocks."
-                )
-            metadata_paths = resolve_metadata_paths_from_config(metadata_paths)
-
-        if not metadata_paths:
-            raise ValueError("No metadata paths provided and none found in config batch_api processor blocks.")
-
-        records = _read_metadata_records(metadata_paths)
-        provider_configs = resolve_provider_configs(records, cfg)
-
-        rows = collect_and_merge(records, provider_configs, args.output_path)
-        print(f"Merged {len(rows)} rows and saved to {args.output_path}")
+        return collect_batches(
+            load_mmirage_config(args.config),
+            args.output_path,
+            args.metadata_path,
+        )
     except ValueError as exc:
         logger.error(str(exc))
         return 1
-    except Exception as exc:
+    except Exception:
         logger.exception("Collector failed")
         return 1
-
-    return 0
 
 
 if __name__ == "__main__":

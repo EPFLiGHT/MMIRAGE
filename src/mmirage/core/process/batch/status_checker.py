@@ -8,21 +8,20 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
-from typing import Any, Dict, List, Mapping, Sequence, TextIO, Tuple
+from typing import TYPE_CHECKING, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.core.process.batch.adapter import BatchSubmissionResult
-from mmirage.core.process.batch.metadata_paths import resolve_metadata_paths_from_config
+from mmirage.core.process.batch.metadata_paths import resolve_metadata_paths
 from mmirage.core.process.batch.metadata_utils import (
     BatchMetadataRecord,
-    _normalize_metadata_paths,
     _read_metadata_records,
 )
-from mmirage.core.process.batch.provider_resolution import (
-    build_all_provider_configs,
-    resolve_provider_configs,
-)
+from mmirage.core.process.batch.provider_resolution import resolve_provider_configs
+
+if TYPE_CHECKING:
+    from mmirage.config.config import MMirageConfig
+
 from mmirage.core.process.batch.registry import BatchAdapterFactory
 logger = logging.getLogger(__name__)
 
@@ -90,6 +89,34 @@ def run_status_checker(
     return results
 
 
+def check_batches(
+    cfg: "MMirageConfig",
+    metadata_paths: Optional[Sequence[str]] = None,
+) -> int:
+    """Check every batch referenced by the receipts of ``cfg``.
+
+    Args:
+        cfg: Loaded MMIRAGE configuration declaring the batch_api processor(s).
+        metadata_paths: Explicit receipt paths; resolved from the config when omitted.
+
+    Returns:
+        Exit code: 0 on success or when no batches are referenced, 1 otherwise.
+    """
+    metadata_paths = resolve_metadata_paths(cfg, metadata_paths)
+    records = _read_metadata_records(metadata_paths)
+    if not extract_unique_provider_batches(records):
+        logger.info(f"No provider batch IDs found in metadata file(s): {metadata_paths}")
+        return 0
+
+    provider_configs = resolve_provider_configs(records, cfg)
+    if not provider_configs:
+        logger.error("No supported provider configurations could be built from metadata.")
+        return 1
+
+    run_status_checker(metadata_records=records, provider_configs=provider_configs)
+    return 0
+
+
 def _build_arg_parser() -> argparse.ArgumentParser:
     """Build the CLI parser for the status-check entry point."""
     parser = argparse.ArgumentParser(description="Check provider batch statuses from metadata receipts.")
@@ -120,45 +147,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     from mmirage.config.utils import load_mmirage_config
 
     try:
-        cfg = load_mmirage_config(args.config)
-        if args.metadata_path:
-            metadata_paths = args.metadata_path
-        else:
-            all_provider_configs = build_all_provider_configs(cfg)
-            metadata_paths = [
-                config.metadata_output_path
-                for config in all_provider_configs.values()
-                if config.metadata_output_path
-            ]
-            metadata_paths = list(dict.fromkeys(metadata_paths))
-            if not metadata_paths:
-                logger.error("No metadata paths provided and none found in config batch_api processor blocks.")
-                return 1
-            metadata_paths = resolve_metadata_paths_from_config(metadata_paths)
-
-        if not metadata_paths:
-            logger.error("No metadata paths provided and none found in config batch_api processor blocks.")
-            return 1
-
-        records = _read_metadata_records(metadata_paths)
-        pairs = extract_unique_provider_batches(records)
-        if not pairs:
-            logger.info(f"No provider batch IDs found in metadata file(s): {metadata_paths}")
-            return 0
-
-        provider_configs = resolve_provider_configs(records, cfg)
-        if not provider_configs:
-            logger.error("No supported provider configurations could be built from metadata.")
-            return 1
-        run_status_checker(
-            metadata_records=records,
-            provider_configs=provider_configs,
-        )
-    except Exception as exc:
+        return check_batches(load_mmirage_config(args.config), args.metadata_path)
+    except Exception:
         logger.exception("Status checker failed")
         return 1
-
-    return 0
 
 
 if __name__ == "__main__":
