@@ -89,7 +89,7 @@ FI_CXI_SAFE_DEVMEM_COPY_THRESHOLD = "16777216"
 FI_CXI_COMPAT = "0"\n\n
 EOF
 )
-    
+
     # If the file already exists, git diff against the expected value
     should_generate=1
     if test -f $ENV_EDF_PATH; then
@@ -107,8 +107,8 @@ EOF
         fi
     fi
 
-    # In the other case we generate the 
-    if [ $should_generate -eq 1 ]; then 
+    # In the other case we generate the
+    if [ $should_generate -eq 1 ]; then
         printf "${COLOR_GREEN}Generating file at $ENV_EDF_PATH.${COLOR_RESET}\n"
         printf "$ENV_EDF_CONTENT" > $ENV_EDF_PATH
     fi
@@ -117,7 +117,7 @@ fi
 # Generate the .env based on the retrieved configuration
 OUTPUT_PATH="$MMIRAGE_PATH/.env"
 OUTPUT_TEXT=$(cat <<EOF
-# This .env file has been generated programmatically using the 
+# This .env file has been generated programmatically using the
 # script generate_env.sh
 
 MMIRAGE_PATH="$MMIRAGE_PATH"
@@ -127,5 +127,3 @@ EOF
 
 printf "${COLOR_GREEN}The .env file has been generated successfully at $OUTPUT_PATH\n${COLOR_RESET}"
 printf "$OUTPUT_TEXT" > $OUTPUT_PATH
-
-

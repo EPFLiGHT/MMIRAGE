@@ -6,6 +6,9 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: lint-${{ github.ref }}
   cancel-in-progress: true
@@ -13,6 +16,7 @@ concurrency:
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
