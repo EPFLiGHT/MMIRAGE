@@ -1,11 +1,11 @@
 """Base classes and registry for processors in MMIRAGE."""
 
 import abc
-from importlib import import_module
 from dataclasses import dataclass
+from importlib import import_module
 from typing import Callable, Generic, List, Type, TypeVar
 
-from mmirage.core.process.variables import VariableEnvironment, OutputVar
+from mmirage.core.process.variables import OutputVar, VariableEnvironment
 
 
 @dataclass
@@ -45,7 +45,9 @@ class BaseProcessor(abc.ABC, Generic[C]):
         config: Configuration object for this processor.
     """
 
-    def __init__(self, config: BaseProcessorConfig, shard_id: int = 0, **kwargs) -> None:
+    def __init__(
+        self, config: BaseProcessorConfig, shard_id: int = 0, **kwargs
+    ) -> None:
         """Initialize the processor with configuration.
 
         Args:
@@ -85,7 +87,7 @@ class BaseProcessor(abc.ABC, Generic[C]):
             NotImplementedError: If not implemented by subclass.
         """
         raise NotImplementedError()
-    
+
     def finalize(self) -> None:
         """Optional lifecycle hook; override when a processor buffers state."""
         pass
@@ -96,7 +98,7 @@ class BaseProcessor(abc.ABC, Generic[C]):
 
         Returns:
             TokenCounts object containing input and output token counts.
-        
+
         Raises:
             NotImplementedError: If not implemented by subclass.
         """
@@ -185,8 +187,7 @@ class ProcessorRegistry:
             cls._registry[name] = clazz
             cls._config_registry[name] = config_cls
             cls._output_var_registry[name] = output_var_cls
-            return clazz
-
+            return clazz
 
         return inner_register
 

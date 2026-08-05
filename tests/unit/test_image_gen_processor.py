@@ -86,9 +86,10 @@ def _output_var():
 def test_compute_source_hash_uses_explicit_empty_payload():
     env = VariableEnvironment({})
 
-    assert ImageGenProcessor._compute_source_hash(env) == hashlib.sha256(
-        b"empty"
-    ).hexdigest()[:8]
+    assert (
+        ImageGenProcessor._compute_source_hash(env)
+        == hashlib.sha256(b"empty").hexdigest()[:8]
+    )
 
 
 def test_save_image_cleanup_does_not_mask_original_interrupt_like_error(

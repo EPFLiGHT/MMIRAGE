@@ -18,7 +18,6 @@ from mmirage.core.loader.utils import load_datasets_from_configs
 from mmirage.core.process.mapper import MMIRAGEMapper
 from mmirage.core.process.variables import OutputVar
 from mmirage.core.writer.renderer import TemplateRenderer
-
 from mmirage.shard_utils import (
     GpuUtilizationPoller,
     ShardStats,
@@ -140,9 +139,9 @@ def rewrite_batch(
 
 def main():
     """
-        Process a single shard of the dataset.
-        Loads configuration, datasets, processes the shard using MMIRAGE
-        transformations (including multimodal), and saves the result to disk.
+    Process a single shard of the dataset.
+    Loads configuration, datasets, processes the shard using MMIRAGE
+    transformations (including multimodal), and saves the result to disk.
     """
     ap = argparse.ArgumentParser("Process dataset shards using MMIRAGE with SGLang.")
     ap.add_argument(
@@ -189,7 +188,11 @@ def main():
             all_visible = [x.strip() for x in cuda_visible.split(",") if x.strip()]
             # Fall back to range-based indices if CUDA_VISIBLE_DEVICES was set
             # but contained only whitespace/empty entries after stripping.
-            gpu_indices_for_polling: List[str] = all_visible[:tp_size] if all_visible else [str(i) for i in range(tp_size)]
+            gpu_indices_for_polling: List[str] = (
+                all_visible[:tp_size]
+                if all_visible
+                else [str(i) for i in range(tp_size)]
+            )
         else:
             gpu_indices_for_polling = [str(i) for i in range(tp_size)]
 
@@ -199,7 +202,9 @@ def main():
 
     try:
         retry_count = _mark_running(state_dir, shard_id, datasets_config)
-        logger.info(f"Starting shard {shard_id}/{last_shard_id} (attempt #{retry_count})")
+        logger.info(
+            f"Starting shard {shard_id}/{last_shard_id} (attempt #{retry_count})"
+        )
 
         if retry_count > 1:
             for ds_config in datasets_config:
@@ -267,7 +272,9 @@ def main():
                 )
                 if image_cols and processing_params.cast_images:
                     ds_processed = _cast_image_columns(ds_processed, image_cols)
-                    logger.info(f"Cast image column(s) to HF Image feature: {image_cols}")
+                    logger.info(
+                        f"Cast image column(s) to HF Image feature: {image_cols}"
+                    )
                 elif image_cols:
                     logger.info(
                         "Leaving generated image column(s) as paths because "
@@ -277,12 +284,18 @@ def main():
 
                 ds_processed_all.append(ds_processed)
 
-            for ds_idx, (ds_config, ds_processed) in enumerate(zip(datasets_config, ds_processed_all)):
+            for ds_idx, (ds_config, ds_processed) in enumerate(
+                zip(datasets_config, ds_processed_all)
+            ):
                 out_dir = _dataset_out_dir(shard_id, ds_config)
                 _save_dataset_atomic(ds_processed, out_dir)
                 logger.info(f"✅ Saved dataset {ds_idx} shard in: {out_dir}")
 
-            gpu_info = gpu_poller.stop() if collect_stats and gpu_poller is not None else {"mean": None, "min": None, "max": None, "samples": 0}
+            gpu_info = (
+                gpu_poller.stop()
+                if collect_stats and gpu_poller is not None
+                else {"mean": None, "min": None, "max": None, "samples": 0}
+            )
 
             # Collect token counts accumulated by LLM processor(s).
             token_counts = mapper.get_token_counts()

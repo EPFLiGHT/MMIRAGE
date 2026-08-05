@@ -186,15 +186,7 @@ def test_generate_batch_rejects_mismatched_request_options():
         ({"data": []}, "Unexpected SGLang image response"),
         ({"data": [{"b64_json": "not-base64"}]}, "invalid base64 image data"),
         (
-            {
-                "data": [
-                    {
-                        "b64_json": base64.b64encode(b"not an image").decode(
-                            "ascii"
-                        )
-                    }
-                ]
-            },
+            {"data": [{"b64_json": base64.b64encode(b"not an image").decode("ascii")}]},
             "Could not decode SGLang image response",
         ),
     ],

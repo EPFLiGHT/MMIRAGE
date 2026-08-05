@@ -490,8 +490,9 @@ Download the dataset before running:
 
 ```python
 from datasets import load_dataset
-ds = load_dataset('simplescaling/s1K-1.1', split='train')
-ds.save_to_disk('data/s1K-1.1')
+
+ds = load_dataset("simplescaling/s1K-1.1", split="train")
+ds.save_to_disk("data/s1K-1.1")
 ```
 
 Then run with stats collection enabled:

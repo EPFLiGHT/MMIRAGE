@@ -3,11 +3,15 @@
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Union, List, cast
+from typing import List, Union, cast
 
 from mmirage.core.loader.base import BaseDataLoaderConfig
 
 DEFAULT_STATE_DIR = "~/.cache/MMIRAGE/state_dir"
+
+_UNRESOLVED_ENV_VAR_PATTERN = re.compile(
+    r"^\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)$"
+)
 
 
 @dataclass
@@ -37,26 +41,31 @@ class LoadingParams:
     batch_size: Union[int, str] = 1
 
     def __post_init__(self):
-        _UNRESOLVED_ENV_VAR_PATTERN = re.compile(r"^\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)$")
         def is_unresolved_env_var(s: str) -> bool:
             return bool(_UNRESOLVED_ENV_VAR_PATTERN.fullmatch(s.strip()))
-        
+
         if isinstance(self.num_shards, str):
             try:
                 self.num_shards = int(self.num_shards)
                 if self.num_shards < 1:
                     raise ValueError()
             except (ValueError, TypeError):
-                if isinstance(self.num_shards, str) and is_unresolved_env_var(self.num_shards):
+                if isinstance(self.num_shards, str) and is_unresolved_env_var(
+                    self.num_shards
+                ):
                     self.num_shards = 1
                 else:
-                    raise ValueError(f"Invalid value for num_shards: {self.num_shards!r}")
+                    raise ValueError(
+                        f"Invalid value for num_shards: {self.num_shards!r}"
+                    )
 
         if isinstance(self.shard_id, str):
             try:
                 self.shard_id = int(self.shard_id)
             except (ValueError, TypeError):
-                if isinstance(self.shard_id, str) and is_unresolved_env_var(self.shard_id):
+                if isinstance(self.shard_id, str) and is_unresolved_env_var(
+                    self.shard_id
+                ):
                     self.shard_id = 0
                 else:
                     raise ValueError(f"Invalid value for shard_id: {self.shard_id!r}")

@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, replace
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional, Tuple
 import uuid
+from dataclasses import asdict, replace
+from typing import Any, Dict, List, Optional, Tuple
 
 import jinja2
 from pydantic import BaseModel, ValidationError
+
 try:
     import sglang as sgl
+
     SGLANG_AVAILABLE = True
 except ImportError:
     SGLANG_AVAILABLE = False
@@ -72,7 +74,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         super().__init__(engine_args, **kwargs)
 
         batch_provider_cfg = engine_args.batch_provider
-        is_provider_batch_enabled = bool(batch_provider_cfg and batch_provider_cfg.enabled)
+        is_provider_batch_enabled = bool(
+            batch_provider_cfg and batch_provider_cfg.enabled
+        )
         self._model_load_seconds: float = 0.0
 
         # In provider-batch mode we only build payloads/metadata and should not
@@ -95,7 +99,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             self._model_load_seconds = time.monotonic() - _load_start
             self.tokenizer = AutoTokenizer.from_pretrained(
                 engine_args.server_args.model_path,
-                trust_remote_code=getattr(engine_args.server_args, "trust_remote_code", False),
+                trust_remote_code=getattr(
+                    engine_args.server_args, "trust_remote_code", False
+                ),
             )
 
         self.sampling_params = engine_args.default_sampling_params
@@ -152,7 +158,10 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
 
     @property
     def batch_mode_enabled(self) -> bool:
-        return self._text_orchestrator is not None and self._multimodal_orchestrator is not None
+        return (
+            self._text_orchestrator is not None
+            and self._multimodal_orchestrator is not None
+        )
 
     def _next_custom_id(self, output_name: str, modality: str) -> str:
         self._batch_request_counter += 1
@@ -173,7 +182,7 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         """
         return TokenCounts(
             input_tokens=self._total_input_tokens,
-            output_tokens=self._total_output_tokens
+            output_tokens=self._total_output_tokens,
         )
 
     def _accumulate_tokens(self, outputs: list) -> None:
@@ -199,7 +208,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         jinja_template = jinja2.Template(prompt_template)
 
         for var in vars_samples:
-            user_prompt = [{"role": "user", "content": jinja_template.render(**var.to_dict())}]
+            user_prompt = [
+                {"role": "user", "content": jinja_template.render(**var.to_dict())}
+            ]
             formatted = self.tokenizer.apply_chat_template(
                 user_prompt, tokenize=False, add_generation_prompt=True
             )
@@ -277,7 +288,11 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             value = json.loads(raw)
         except json.JSONDecodeError:
             preview = raw[:RAW_OUTPUT_LOG_LIMIT]
-            suffix = "" if len(raw) <= RAW_OUTPUT_LOG_LIMIT else f" (truncated, {len(raw)} chars)"
+            suffix = (
+                ""
+                if len(raw) <= RAW_OUTPUT_LOG_LIMIT
+                else f" (truncated, {len(raw)} chars)"
+            )
             logger.warning(
                 f"Failed to parse JSON output for '{name}'; "
                 f"falling back to empty dict. Raw model output: {preview!r}{suffix}"
@@ -347,7 +362,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                     sampling_params=sampling_params_output,
                 )
 
-                if not isinstance(text_only_outputs, list) or len(text_only_outputs) != len(text_only_indices):
+                if not isinstance(text_only_outputs, list) or len(
+                    text_only_outputs
+                ) != len(text_only_indices):
                     raise RuntimeError(
                         f"Mismatch between text-only prompts and outputs for '{output_var.name}': "
                         f"{len(text_only_prompts)} vs "
@@ -362,7 +379,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                         value = self._decode_json_value(
                             output_var.name, value, constraint_model
                         )
-                    results[global_i] = batch[global_i].with_variable(output_var.name, value)
+                    results[global_i] = batch[global_i].with_variable(
+                        output_var.name, value
+                    )
 
             except Exception as e:
                 logger.error(
@@ -370,7 +389,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                 )
                 for global_i in text_only_indices:
                     empty_val = {} if output_var.output_type == "JSON" else ""
-                    results[global_i] = batch[global_i].with_variable(output_var.name, empty_val)
+                    results[global_i] = batch[global_i].with_variable(
+                        output_var.name, empty_val
+                    )
 
         # Multimodal batch
         if multimodal_indices:
@@ -410,7 +431,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                     image_data=multimodal_image_data,
                 )
 
-                if not isinstance(multimodal_outputs, list) or len(multimodal_outputs) != len(multimodal_indices):
+                if not isinstance(multimodal_outputs, list) or len(
+                    multimodal_outputs
+                ) != len(multimodal_indices):
                     raise RuntimeError(
                         f"Mismatch between multimodal prompts and outputs for '{output_var.name}': "
                         f"{len(multimodal_prompts)} vs "
@@ -425,7 +448,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                         value = self._decode_json_value(
                             output_var.name, value, constraint_model
                         )
-                    results[global_i] = batch[global_i].with_variable(output_var.name, value)
+                    results[global_i] = batch[global_i].with_variable(
+                        output_var.name, value
+                    )
 
             except Exception as e:
                 logger.error(
@@ -433,7 +458,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
                 )
                 for global_i in multimodal_indices:
                     empty_val = {} if output_var.output_type == "JSON" else ""
-                    results[global_i] = batch[global_i].with_variable(output_var.name, empty_val)
+                    results[global_i] = batch[global_i].with_variable(
+                        output_var.name, empty_val
+                    )
 
         return [results[i] for i in range(nb_samples)]
 
@@ -497,7 +524,9 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
             requests = []
             source_indices = []
             for global_i in multimodal_indices:
-                base_prompt, image_data = self.build_multimodal_prompt(output_var.prompt, batch[global_i])
+                base_prompt, image_data = self.build_multimodal_prompt(
+                    output_var.prompt, batch[global_i]
+                )
                 content: List[Dict[str, Any]] = [{"type": "text", "text": base_prompt}]
 
                 if image_data is not None:

@@ -20,7 +20,6 @@ from typing import Any, Deque, Iterator, List, Optional, Sequence
 
 from mmirage.core.process.processors.image_gen.config import SGLangBackendConfig
 
-
 logger = logging.getLogger(__name__)
 
 MMIRAGE_SGLANG_BASE_URL = "MMIRAGE_SGLANG_BASE_URL"
@@ -40,7 +39,9 @@ def get_sglang_server_config(cfg: Any) -> Optional[SGLangBackendConfig]:
     if not configs:
         return None
     elif len(configs) > 1:
-        raise ValueError("Only one backend='sglang' image_gen processor is supported per run")
+        raise ValueError(
+            "Only one backend='sglang' image_gen processor is supported per run"
+        )
     else:
         return configs[0]
 
@@ -107,7 +108,7 @@ def _require_sglang_diffusion_installation() -> None:
             "The active SGLang 0.5.10 installation cannot import its diffusion "
             "server. Rebuild the EDF environment with a consistent "
             "`sglang[diffusion]==0.5.10` installation and verify it with "
-            "`python -c \"import sglang.multimodal_gen.runtime.entrypoints.cli.serve\"`. "
+            '`python -c "import sglang.multimodal_gen.runtime.entrypoints.cli.serve"`. '
             f"Import check output:\n{result.stderr.strip()}"
         )
 
@@ -118,7 +119,9 @@ def wait_for_sglang_server(
 ) -> None:
     """Wait until the shared SGLang server reports readiness."""
     if config.port is None:
-        raise RuntimeError("SGLang server port must be resolved before readiness checks.")
+        raise RuntimeError(
+            "SGLang server port must be resolved before readiness checks."
+        )
     server_root = f"http://127.0.0.1:{config.port}"
     candidate_urls = (
         f"{server_root}/models",
@@ -167,7 +170,9 @@ def stop_sglang_server(proc: subprocess.Popen[bytes], grace_seconds: int = 30) -
     except ProcessLookupError:
         return
     except Exception:
-        logger.exception("Failed to terminate SGLang process group; trying proc.terminate()")
+        logger.exception(
+            "Failed to terminate SGLang process group; trying proc.terminate()"
+        )
         proc.terminate()
 
     try:

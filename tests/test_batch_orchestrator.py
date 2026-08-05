@@ -1,13 +1,16 @@
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 
 import pytest
 
 from mmirage.config.batch_provider import BatchProviderConfig
-from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubmissionResult
+from mmirage.core.process.base import ProcessorRegistry
+from mmirage.core.process.batch.adapter import (
+    BatchSubmissionAdapter,
+    BatchSubmissionResult,
+)
 from mmirage.core.process.batch.provider_resolution import BatchProviderConfigRegistry
 from mmirage.core.process.batch.registry import BatchAdapterRegistry
-from mmirage.core.process.base import ProcessorRegistry
 from mmirage.core.process.processors.llm.config import SGLangLLMConfig, SGLangServerArgs
 
 
@@ -57,7 +60,9 @@ def clear_batch_registries():
     BatchAdapterRegistry.clear()
 
 
-def test_orchestrator_buffers_across_iterations_and_avoids_tiny_midstream_flush(tmp_path):
+def test_orchestrator_buffers_across_iterations_and_avoids_tiny_midstream_flush(
+    tmp_path,
+):
     from mmirage.core.process.batch.orchestrator import BatchSubmissionOrchestrator
 
     adapter = RecordingAdapter()

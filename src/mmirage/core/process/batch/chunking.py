@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Sequence
+from typing import Any, Dict, List, Sequence
 
 from mmirage.config.batch_provider import BatchProviderConfig, OversizedRequestPolicy
 from mmirage.core.process.batch.adapter import BatchSubmissionAdapter
@@ -26,7 +26,9 @@ class RequestChunk:
 class BatchRequestChunker:
     """Split request sequences into chunks using serialized-byte limits."""
 
-    def __init__(self, adapter: BatchSubmissionAdapter, config: BatchProviderConfig) -> None:
+    def __init__(
+        self, adapter: BatchSubmissionAdapter, config: BatchProviderConfig
+    ) -> None:
         self.adapter = adapter
         self.config = config
 
@@ -51,7 +53,10 @@ class BatchRequestChunker:
             request_size = self.adapter.estimate_request_bytes(request)
 
             if request_size > max_chunk_bytes:
-                if self.config.oversized_request_policy is OversizedRequestPolicy.REJECT:
+                if (
+                    self.config.oversized_request_policy
+                    is OversizedRequestPolicy.REJECT
+                ):
                     raise ValueError(
                         "Encountered oversized request: "
                         f"{request_size} bytes exceeds max_chunk_bytes={max_chunk_bytes}"
@@ -92,7 +97,9 @@ class BatchRequestChunker:
 
         return chunks
 
-    def _would_exceed_count_limit(self, current_requests: Sequence[Dict[str, Any]]) -> bool:
+    def _would_exceed_count_limit(
+        self, current_requests: Sequence[Dict[str, Any]]
+    ) -> bool:
         if self.config.max_requests_per_chunk is None:
             return False
         return len(current_requests) >= self.config.max_requests_per_chunk
