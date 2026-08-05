@@ -1,9 +1,12 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from datasets import load_dataset
+
 from mmirage.config.openai_batch import OpenAIBatchConfig
 from mmirage.core.process.mapper import MMIRAGEMapper
+from mmirage.core.process.processors.llm import llm_processor
 from mmirage.core.process.processors.llm.config import (
     LLMOutputVar,
     SGLangLLMConfig,
@@ -77,9 +80,9 @@ def test_integration_batch_pipeline_with_stateful_accumulator(monkeypatch, tmp_p
         "mmirage.core.process.batch.openai_adapter.OpenAI",
         FakeOpenAIClient,
     )
+    monkeypatch.setattr(llm_processor, "SGLANG_AVAILABLE", True)
     monkeypatch.setattr(
-        "mmirage.core.process.processors.llm.llm_processor.sgl.Engine",
-        FakeEngine,
+        llm_processor, "sgl", SimpleNamespace(Engine=FakeEngine), raising=False
     )
     monkeypatch.setattr(
         "mmirage.core.process.processors.llm.llm_processor.AutoTokenizer.from_pretrained",

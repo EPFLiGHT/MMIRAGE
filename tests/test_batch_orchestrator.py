@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import pytest
 
@@ -11,6 +12,7 @@ from mmirage.core.process.batch.adapter import (
 )
 from mmirage.core.process.batch.provider_resolution import BatchProviderConfigRegistry
 from mmirage.core.process.batch.registry import BatchAdapterRegistry
+from mmirage.core.process.processors.llm import llm_processor
 from mmirage.core.process.processors.llm.config import SGLangLLMConfig, SGLangServerArgs
 
 
@@ -183,9 +185,9 @@ def test_llm_processor_skips_batch_setup_when_disabled(monkeypatch):
         def apply_chat_template(self, *args, **kwargs):
             return ""
 
+    monkeypatch.setattr(llm_processor, "SGLANG_AVAILABLE", True)
     monkeypatch.setattr(
-        "mmirage.core.process.processors.llm.llm_processor.sgl.Engine",
-        FakeEngine,
+        llm_processor, "sgl", SimpleNamespace(Engine=FakeEngine), raising=False
     )
     monkeypatch.setattr(
         "mmirage.core.process.processors.llm.llm_processor.AutoTokenizer.from_pretrained",
@@ -221,9 +223,9 @@ def test_llm_processor_uses_sync_runtime_when_batch_provider_omitted(monkeypatch
         def apply_chat_template(self, *args, **kwargs):
             return ""
 
+    monkeypatch.setattr(llm_processor, "SGLANG_AVAILABLE", True)
     monkeypatch.setattr(
-        "mmirage.core.process.processors.llm.llm_processor.sgl.Engine",
-        FakeEngine,
+        llm_processor, "sgl", SimpleNamespace(Engine=FakeEngine), raising=False
     )
     monkeypatch.setattr(
         "mmirage.core.process.processors.llm.llm_processor.AutoTokenizer.from_pretrained",
