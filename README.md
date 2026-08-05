@@ -4,6 +4,12 @@
 
 </h1>
 
+<p align="center">
+  <a href="https://github.com/LiGHTers-playground/MMIRAGE/actions/workflows/ruff.yml"><img src="https://github.com/LiGHTers-playground/MMIRAGE/actions/workflows/ruff.yml/badge.svg" alt="Lint"></a>
+  <a href="https://github.com/LiGHTers-playground/MMIRAGE/actions/workflows/tests.yml"><img src="https://github.com/LiGHTers-playground/MMIRAGE/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
+</p>
+
 # MMIRAGE
 
 MMIRAGE, which stands for **M**odular **M**ultimodal **I**ntelligent **R**eformatting and **A**ugmentation **G**eneration **E**ngine, is an advanced platform designed to streamline the processing of datasets using generative models, including vision-language models (VLMs). It is engineered to handle large-scale data reformatting and augmentation tasks with efficiency and precision. By leveraging state-of-the-art generative models, MMIRAGE enables users to perform complex dataset transformations, ensuring compatibility across various formats and schemas. Its multi-node support and parallel processing capabilities make it an ideal choice for scenarios demanding substantial computational power, such as distributed training and inference workflows. MMIRAGE not only simplifies the integration of powerful language models but also provides a customizable framework for diverse use cases, from reformatting conversational datasets to generating Q/A pairs from plain text.
@@ -191,7 +197,7 @@ MMIRAGE still keeps datasets separate by creating one subdirectory per dataset u
 Suppose you have a dataset with samples of the following format
 
 ```json
-{ 
+{
     "conversations" : [{"role": "user", "content": "Describe the image"}, {"role": "assistant", "content": "This is a badly formmatted answer"}],
     "modalities" : ["<the images>"]
 }
@@ -234,10 +240,10 @@ processing_params:
     - name: formatted_answer
       type: llm
       output_type: plain
-      prompt: | 
+      prompt: |
         Reformat the answer in a markdown format without adding anything else:
         {{ assistant_answer }}
-      
+
   remove_columns: false
   output_schema:
     conversations:
@@ -316,7 +322,7 @@ processing_params:
       prompt: |
         Describe the medical image in detail.
         Original caption for context: {{ original_caption }}
-        
+
   remove_columns: false
   output_schema:
     image: "{{ medical_image }}"
