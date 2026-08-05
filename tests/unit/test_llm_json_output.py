@@ -15,60 +15,51 @@ from mmirage.core.process.processors.llm.config import (
 from mmirage.core.process.processors.llm.llm_processor import LLMProcessor
 from mmirage.core.process.variables import VariableEnvironment
 
-PHQ8_FIELDS = [
-    "NoInterest",
-    "Depressed",
-    "Sleep",
-    "Tired",
-    "Appetite",
-    "Failure",
-    "Concentrating",
-    "Moving",
-]
+FIELDS = ["relevance", "clarity", "fluency"]
 
 
 def test_typed_output_schema_generates_typed_json_schema():
     output_var = LLMOutputVar(
-        name="phq8_scores",
+        name="scores",
         type="llm",
-        prompt="{{ transcript }}",
+        prompt="{{ text }}",
         output_type="JSON",
-        output_schema={field: "int" for field in PHQ8_FIELDS},
+        output_schema={field: "int" for field in FIELDS},
     )
 
     model = output_var.get_output_schema()
     assert model is not None
     schema = model.model_json_schema()
 
-    for field in PHQ8_FIELDS:
+    for field in FIELDS:
         assert schema["properties"][field]["type"] == "integer"
-    assert set(schema["required"]) == set(PHQ8_FIELDS)
+    assert set(schema["required"]) == set(FIELDS)
 
 
 def test_list_output_schema_defaults_to_str_fields():
     output_var = LLMOutputVar(
-        name="phq8_scores",
+        name="scores",
         type="llm",
-        prompt="{{ transcript }}",
+        prompt="{{ text }}",
         output_type="JSON",
-        output_schema=PHQ8_FIELDS,
+        output_schema=FIELDS,
     )
 
     model = output_var.get_output_schema()
     assert model is not None
     schema = model.model_json_schema()
 
-    for field in PHQ8_FIELDS:
+    for field in FIELDS:
         assert schema["properties"][field]["type"] == "string"
 
 
 def test_unknown_type_name_in_output_schema_raises():
     output_var = LLMOutputVar(
-        name="phq8_scores",
+        name="scores",
         type="llm",
-        prompt="{{ transcript }}",
+        prompt="{{ text }}",
         output_type="JSON",
-        output_schema={"NoInterest": "integerish"},
+        output_schema={"relevance": "integerish"},
     )
 
     with pytest.raises(ValueError, match="integerish"):
@@ -82,17 +73,17 @@ def test_output_var_loads_typed_schema_from_config_dict():
     output_var = from_dict(
         LLMOutputVar,
         {
-            "name": "phq8_scores",
+            "name": "scores",
             "type": "llm",
-            "prompt": "{{ transcript }}",
+            "prompt": "{{ text }}",
             "output_type": "JSON",
-            "output_schema": {field: "int" for field in PHQ8_FIELDS},
+            "output_schema": {field: "int" for field in FIELDS},
         },
     )
 
     model = output_var.get_output_schema()
     assert model is not None
-    assert model.model_json_schema()["properties"]["Sleep"]["type"] == "integer"
+    assert model.model_json_schema()["properties"]["clarity"]["type"] == "integer"
 
 
 def _make_processor(
@@ -141,84 +132,79 @@ def _make_processor(
 def test_json_parse_failure_logs_raw_output_and_falls_back_to_empty_dict(
     monkeypatch, caplog
 ):
-    # Reproduces the PHQ-8 bug: str-typed constrained decoding rambles inside a
-    # string value, generation is truncated at max_new_tokens, and the invalid
-    # JSON silently becomes {}.
-    truncated = '{"NoInterest": "0", "Depressed": "the participant mentions feel'
+    truncated = '{"relevance": "1", "clarity": "the answer mentions sev'
     processor = _make_processor(monkeypatch, truncated)
 
     output_var = LLMOutputVar(
-        name="phq8_scores",
+        name="scores",
         type="llm",
-        prompt="{{ transcript }}",
+        prompt="{{ text }}",
         output_type="JSON",
-        output_schema=PHQ8_FIELDS,
+        output_schema=FIELDS,
     )
-    batch = [VariableEnvironment({"transcript": "hi ellie"})]
+    batch = [VariableEnvironment({"text": "some input"})]
 
     with caplog.at_level(logging.WARNING, logger=llm_processor_module.__name__):
         results = processor.batch_process_sample(batch, output_var)
 
-    assert results[0].get("phq8_scores") == {}
+    assert results[0].get("scores") == {}
     failure_logs = [
         record.getMessage()
         for record in caplog.records
-        if "phq8_scores" in record.getMessage() and truncated in record.getMessage()
+        if "scores" in record.getMessage() and truncated in record.getMessage()
     ]
     assert failure_logs, "expected a warning containing the raw model output"
 
 
 def test_valid_json_output_is_parsed(monkeypatch):
-    valid = json.dumps({field: "1" for field in PHQ8_FIELDS})
+    valid = json.dumps({field: "1" for field in FIELDS})
     processor = _make_processor(monkeypatch, valid)
 
     output_var = LLMOutputVar(
-        name="phq8_scores",
+        name="scores",
         type="llm",
-        prompt="{{ transcript }}",
+        prompt="{{ text }}",
         output_type="JSON",
-        output_schema=PHQ8_FIELDS,
+        output_schema=FIELDS,
     )
-    batch = [VariableEnvironment({"transcript": "hi ellie"})]
+    batch = [VariableEnvironment({"text": "some input"})]
 
     results = processor.batch_process_sample(batch, output_var)
 
-    assert results[0].get("phq8_scores") == {field: "1" for field in PHQ8_FIELDS}
+    assert results[0].get("scores") == {field: "1" for field in FIELDS}
 
 
-PHQ8_CONSTRAINED_SCHEMA = {
-    field: {"type": "int", "min": 0, "max": 3} for field in PHQ8_FIELDS
-}
+CONSTRAINED_SCHEMA = {field: {"type": "int", "min": 0, "max": 3} for field in FIELDS}
 
 
-def _phq8_output_var(output_schema) -> LLMOutputVar:
+def _json_output_var(output_schema) -> LLMOutputVar:
     return LLMOutputVar(
-        name="phq8_scores",
+        name="scores",
         type="llm",
-        prompt="{{ transcript }}",
+        prompt="{{ text }}",
         output_type="JSON",
         output_schema=output_schema,
     )
 
 
 def test_constrained_field_generates_min_max_in_json_schema():
-    model = _phq8_output_var(PHQ8_CONSTRAINED_SCHEMA).get_output_schema()
+    model = _json_output_var(CONSTRAINED_SCHEMA).get_output_schema()
     assert model is not None
     schema = model.model_json_schema()
 
-    for field in PHQ8_FIELDS:
+    for field in FIELDS:
         assert schema["properties"][field]["type"] == "integer"
         assert schema["properties"][field]["minimum"] == 0
         assert schema["properties"][field]["maximum"] == 3
-    assert set(schema["required"]) == set(PHQ8_FIELDS)
+    assert set(schema["required"]) == set(FIELDS)
 
 
 def test_constraint_with_single_bound():
-    model = _phq8_output_var(
-        {"NoInterest": {"type": "int", "min": 0}}
+    model = _json_output_var(
+        {"relevance": {"type": "int", "min": 0}}
     ).get_output_schema()
     assert model is not None
-    prop = model.model_json_schema()["properties"]["NoInterest"]
+    prop = model.model_json_schema()["properties"]["relevance"]
     assert prop["minimum"] == 0
     assert "maximum" not in prop
 
@@ -226,15 +212,15 @@ def test_constraint_with_single_bound():
 @pytest.mark.parametrize(
     ("schema", "match"),
     [
-        ({"NoInterest": {"type": "int", "min": 0, "clamp": True}}, "Unknown key"),
-        ({"NoInterest": {"min": 0, "max": 3}}, "missing required key 'type'"),
-        ({"NoInterest": {"type": "integerish"}}, "Unsupported type 'integerish'"),
-        ({"NoInterest": {"type": "str", "min": 0}}, "only allowed for numeric"),
-        ({"NoInterest": {"type": "int", "min": 3, "max": 0}}, "cannot be greater than"),
-        ({"NoInterest": {"type": "int", "min": "0", "max": "3"}}, "must be a number"),
-        ({"NoInterest": {"type": "int", "min": 0, "max": [3]}}, "must be a number"),
-        ({"NoInterest": {"type": "int", "min": True, "max": 3}}, "must be a number"),
-        ({"NoInterest": {"type": "int", "min": 0.5}}, "must be a whole number"),
+        ({"relevance": {"type": "int", "min": 0, "clamp": True}}, "Unknown key"),
+        ({"relevance": {"min": 0, "max": 3}}, "missing required key 'type'"),
+        ({"relevance": {"type": "integerish"}}, "Unsupported type 'integerish'"),
+        ({"relevance": {"type": "str", "min": 0}}, "only allowed for numeric"),
+        ({"relevance": {"type": "int", "min": 3, "max": 0}}, "cannot be greater than"),
+        ({"relevance": {"type": "int", "min": "0", "max": "3"}}, "must be a number"),
+        ({"relevance": {"type": "int", "min": 0, "max": [3]}}, "must be a number"),
+        ({"relevance": {"type": "int", "min": True, "max": 3}}, "must be a number"),
+        ({"relevance": {"type": "int", "min": 0.5}}, "must be a whole number"),
     ],
     ids=[
         "unknown-key",
@@ -250,7 +236,7 @@ def test_constraint_with_single_bound():
 )
 def test_invalid_nested_schema_raises(schema, match):
     with pytest.raises(ValueError, match=match):
-        _phq8_output_var(schema).get_output_schema()
+        _json_output_var(schema).get_output_schema()
 
 
 def test_output_var_loads_constrained_schema_from_config_dict():
@@ -259,53 +245,53 @@ def test_output_var_loads_constrained_schema_from_config_dict():
     output_var = from_dict(
         LLMOutputVar,
         {
-            "name": "phq8_scores",
+            "name": "scores",
             "type": "llm",
-            "prompt": "{{ transcript }}",
+            "prompt": "{{ text }}",
             "output_type": "JSON",
-            "output_schema": PHQ8_CONSTRAINED_SCHEMA,
+            "output_schema": CONSTRAINED_SCHEMA,
         },
     )
 
     model = output_var.get_output_schema()
     assert model is not None
-    assert model.model_json_schema()["properties"]["Sleep"]["maximum"] == 3
+    assert model.model_json_schema()["properties"]["clarity"]["maximum"] == 3
 
 
 def test_bounds_reach_the_engine_as_constrained_decoding_schema(monkeypatch):
     sampling_params_seen: list = []
     _make_processor(
         monkeypatch,
-        json.dumps({field: 1 for field in PHQ8_FIELDS}),
+        json.dumps({field: 1 for field in FIELDS}),
         sampling_params_seen,
     ).batch_process_sample(
-        [VariableEnvironment({"transcript": "hi ellie"})],
-        _phq8_output_var(PHQ8_CONSTRAINED_SCHEMA),
+        [VariableEnvironment({"text": "some input"})],
+        _json_output_var(CONSTRAINED_SCHEMA),
     )
 
     assert sampling_params_seen, "engine was never called"
     schema = json.loads(sampling_params_seen[0]["json_schema"])
-    assert schema["properties"]["Sleep"] == {
+    assert schema["properties"]["clarity"] == {
         "type": "integer",
         "minimum": 0,
         "maximum": 3,
-        "title": "Sleep",
+        "title": "Clarity",
     }
 
 
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
-        (PHQ8_CONSTRAINED_SCHEMA, True),
-        ({"NoInterest": {"type": "int"}}, False),
-        ({"NoInterest": {"type": "int", "min": None}}, False),
-        ({"NoInterest": "int"}, False),
-        (PHQ8_FIELDS, False),
+        (CONSTRAINED_SCHEMA, True),
+        ({"relevance": {"type": "int"}}, False),
+        ({"relevance": {"type": "int", "min": None}}, False),
+        ({"relevance": "int"}, False),
+        (FIELDS, False),
     ],
     ids=["bounded", "no-keys", "null-bound", "shorthand", "list-form"],
 )
 def test_has_schema_constraints_agrees_with_the_built_model(schema, expected):
-    output_var = _phq8_output_var(schema)
+    output_var = _json_output_var(schema)
     model = output_var.get_output_schema()
     assert model is not None
     model_has_bounds = any(
@@ -318,61 +304,61 @@ def test_has_schema_constraints_agrees_with_the_built_model(schema, expected):
 
 
 def test_missing_fields_are_reported_without_the_parent_dict(monkeypatch, caplog):
-    processor = _make_processor(monkeypatch, json.dumps({"NoInterest": 1}))
-    batch = [VariableEnvironment({"transcript": "hi ellie"})]
+    processor = _make_processor(monkeypatch, json.dumps({"relevance": 1}))
+    batch = [VariableEnvironment({"text": "some input"})]
 
     with caplog.at_level(logging.WARNING, logger=llm_processor_module.__name__):
         results = processor.batch_process_sample(
-            batch, _phq8_output_var(PHQ8_CONSTRAINED_SCHEMA)
+            batch, _json_output_var(CONSTRAINED_SCHEMA)
         )
 
-    assert results[0].get("phq8_scores") == {"NoInterest": 1}
+    assert results[0].get("scores") == {"relevance": 1}
     reported_errors = caplog.records[0].getMessage().split("keeping parsed value.")[1]
-    assert "Sleep: Field required" in reported_errors
-    assert "NoInterest" not in reported_errors
+    assert "clarity: Field required" in reported_errors
+    assert "relevance" not in reported_errors
 
 
 def test_out_of_range_value_logs_warning_and_keeps_value(monkeypatch, caplog):
-    scores = {field: 1 for field in PHQ8_FIELDS} | {"Appetite": -1}
+    scores = {field: 1 for field in FIELDS} | {"fluency": -1}
     processor = _make_processor(monkeypatch, json.dumps(scores))
 
-    output_var = _phq8_output_var(PHQ8_CONSTRAINED_SCHEMA)
-    batch = [VariableEnvironment({"transcript": "hi ellie"})]
+    output_var = _json_output_var(CONSTRAINED_SCHEMA)
+    batch = [VariableEnvironment({"text": "some input"})]
 
     with caplog.at_level(logging.WARNING, logger=llm_processor_module.__name__):
         results = processor.batch_process_sample(batch, output_var)
 
-    assert results[0].get("phq8_scores") == scores
+    assert results[0].get("scores") == scores
     violation_logs = [
         record.getMessage()
         for record in caplog.records
-        if "phq8_scores" in record.getMessage() and "Appetite" in record.getMessage()
+        if "scores" in record.getMessage() and "fluency" in record.getMessage()
     ]
     assert violation_logs, "expected a constraint-violation warning naming the field"
 
 
 def test_unconstrained_schema_does_not_validate_parsed_output(monkeypatch, caplog):
-    processor = _make_processor(monkeypatch, json.dumps({"NoInterest": 1}))
+    processor = _make_processor(monkeypatch, json.dumps({"relevance": 1}))
 
-    output_var = _phq8_output_var(["NoInterest"])
-    batch = [VariableEnvironment({"transcript": "hi ellie"})]
+    output_var = _json_output_var(["relevance"])
+    batch = [VariableEnvironment({"text": "some input"})]
 
     with caplog.at_level(logging.WARNING, logger=llm_processor_module.__name__):
         results = processor.batch_process_sample(batch, output_var)
 
-    assert results[0].get("phq8_scores") == {"NoInterest": 1}
+    assert results[0].get("scores") == {"relevance": 1}
     assert not caplog.records
 
 
 def test_in_range_values_do_not_warn(monkeypatch, caplog):
-    scores = {field: 1 for field in PHQ8_FIELDS}
+    scores = {field: 1 for field in FIELDS}
     processor = _make_processor(monkeypatch, json.dumps(scores))
 
-    output_var = _phq8_output_var(PHQ8_CONSTRAINED_SCHEMA)
-    batch = [VariableEnvironment({"transcript": "hi ellie"})]
+    output_var = _json_output_var(CONSTRAINED_SCHEMA)
+    batch = [VariableEnvironment({"text": "some input"})]
 
     with caplog.at_level(logging.WARNING, logger=llm_processor_module.__name__):
         results = processor.batch_process_sample(batch, output_var)
 
-    assert results[0].get("phq8_scores") == scores
+    assert results[0].get("scores") == scores
     assert not caplog.records
