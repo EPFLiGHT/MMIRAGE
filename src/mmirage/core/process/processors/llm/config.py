@@ -1,10 +1,12 @@
 """Configuration for LLM processor in MMIRAGE."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 
+import builtins
 import logging
 import os
-from typing import ClassVar, Dict, Optional, Sequence, Type, Any, List
+import re
+from typing import Annotated, ClassVar, Dict, Optional, Sequence, Type, Any
 from pydantic import BaseModel, Field as PydanticField, create_model
 
 from mmirage.config.batch_provider import BatchProviderConfig
@@ -97,6 +99,124 @@ class SGLangLLMConfig(BaseProcessorConfig):
     batch_provider: Optional[BatchProviderConfig] = None
 
 
+_NUMERIC_BOUND_RE = re.compile(r"^-?\d+(\.\d+)?$")
+
+
+@dataclass
+class LLMSchemaField:
+    """One field of a JSON `output_schema`: a type name plus optional bounds.
+
+    Validates itself on construction, so an invalid spec fails as soon as it
+    is built.
+
+    Attributes:
+        type: Schema type name ("str", "int", "float" or "bool", or one of
+            their aliases "string", "integer", "number", "boolean").
+        min: Inclusive lower bound, numeric types only. Numeric strings
+            (e.g. produced by `${ENV_VAR}` expansion) are coerced.
+        max: Inclusive upper bound, same rules as `min`.
+    """
+
+    TYPE_MAP: ClassVar[dict[str, type]] = {
+        "str": str,
+        "string": str,
+        "int": int,
+        "integer": int,
+        "float": float,
+        "number": float,
+        "bool": bool,
+        "boolean": bool,
+    }
+
+    type: str
+    min: int | float | str | None = None
+    max: int | float | str | None = None
+
+    def __post_init__(self) -> None:
+        py_type = self.python_type()
+        if self.min is None and self.max is None:
+            return
+
+        if py_type not in (int, float):
+            raise ValueError(
+                f"'min'/'max' are only allowed for numeric types, "
+                f"got type '{self.type}'."
+            )
+        self.min = min_val = self._coerce_bound("min", self.min)
+        self.max = max_val = self._coerce_bound("max", self.max)
+        if min_val is not None and max_val is not None and min_val > max_val:
+            raise ValueError(f"min {min_val} cannot be greater than max {max_val}.")
+
+    @classmethod
+    def from_spec(cls, spec: "SchemaFieldSpec") -> "LLMSchemaField":
+        """Normalize any accepted `output_schema` entry form into a field."""
+        if isinstance(spec, LLMSchemaField):
+            return spec
+        if isinstance(spec, str):
+            return cls(type=spec)
+
+        allowed = {f.name for f in fields(cls)}
+        unknown = set(spec) - allowed
+        if unknown:
+            raise ValueError(
+                f"Unknown key(s) {sorted(unknown)}. Allowed keys: {sorted(allowed)}."
+            )
+        if "type" not in spec:
+            raise ValueError("missing required key 'type'.")
+        return cls(type=str(spec["type"]), min=spec.get("min"), max=spec.get("max"))
+
+    def python_type(self) -> builtins.type:
+        """Map the schema type name ("int", "str", ...) to its Python type."""
+        py_type = self.TYPE_MAP.get(str(self.type).strip().lower())
+        if py_type is None:
+            raise ValueError(
+                f"Unsupported type '{self.type}'. "
+                f"Supported types: {sorted(self.TYPE_MAP)}."
+            )
+        return py_type
+
+    def field_type(self) -> object:
+        """The field's type for `create_model`, carrying any declared bounds."""
+        py_type = self.python_type()
+        if not self.has_bounds:
+            return py_type
+        return Annotated[py_type, PydanticField(ge=self.min, le=self.max)]
+
+    @property
+    def has_bounds(self) -> bool:
+        """Whether the field declares a `min`/`max` bound."""
+        return self.min is not None or self.max is not None
+
+    def _coerce_bound(
+        self, key: str, value: int | float | str | None
+    ) -> int | float | None:
+        """Validate one bound and coerce it to the field's numeric type."""
+        if value is None:
+            return None
+        number: int | float
+        if isinstance(value, str):
+            if not _NUMERIC_BOUND_RE.match(value.strip()):
+                raise ValueError(f"'{key}' must be a number, got {value!r}.")
+            number = float(value)
+        elif isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"'{key}' must be a number, got {value!r}.")
+        else:
+            number = value
+        if self.python_type() is int:
+            if int(number) != number:
+                raise ValueError(
+                    f"'{key}' must be a whole number for an int field, got {value!r}."
+                )
+            return int(number)
+        return float(number)
+
+
+SchemaFieldSpec = str | dict[str, str | int | float | None] | LLMSchemaField
+"""Accepted forms for one `output_schema` entry: a type-name shorthand, a raw
+`type`/`min`/`max` mapping (kept raw so unknown keys are still rejected), or an
+already-built `LLMSchemaField`."""
+
+
 @dataclass
 class LLMOutputVar(OutputVar):
     """Output variable generated by LLM processor.
@@ -109,100 +229,38 @@ class LLMOutputVar(OutputVar):
         type: Type identifier (must be "llm").
         prompt: Jinja2 template for the LLM prompt.
         output_schema: JSON output fields, either a list of field names
-            (all typed as strings) or a mapping of field name to a type name
-            ("str", "int", "float" or "bool") or to a nested mapping with keys
-            `type` (required) and, for numeric types, optional `min`/`max`
-            bounds enforced during constrained decoding. Empty for plain text.
+            (all typed as strings) or a mapping of field name to an
+            `LLMSchemaField` spec: a type name ("str", "int", "float" or
+            "bool") or a nested mapping with keys `type` (required) and, for
+            numeric types, optional `min`/`max` bounds enforced during
+            constrained decoding. Empty for plain text.
         output_type: Output format - "JSON" or "plain".
     """
 
-    SCHEMA_TYPE_MAP: ClassVar[dict[str, type]] = {
-        "str": str,
-        "string": str,
-        "int": int,
-        "integer": int,
-        "float": float,
-        "number": float,
-        "bool": bool,
-        "boolean": bool,
-    }
-    SCHEMA_FIELD_KEYS: ClassVar[set[str]] = {"type", "min", "max"}
-
     prompt: str = ""
-    output_schema: list[str] | dict[str, Any] = field(default_factory=list)
+    output_schema: list[str] | dict[str, SchemaFieldSpec] = field(default_factory=list)
     output_type: str = ""
 
-    def _resolve_type(self, var: str, type_name: Any) -> type:
-        """Map a schema type name ("int", "str", ...) to its Python type."""
-        py_type = self.SCHEMA_TYPE_MAP.get(str(type_name).strip().lower())
-        if py_type is None:
-            raise ValueError(
-                f"Unsupported type '{type_name}' for field '{var}' in output_schema "
-                f"of '{self.name}'. Supported types: {sorted(self.SCHEMA_TYPE_MAP)}."
-            )
-        return py_type
+    def __post_init__(self) -> None:
+        # Surface invalid schemas at config load, not mid-shard.
+        self.get_output_schema()
 
-    def _coerce_bound(self, var: str, key: str, py_type: type, value: Any) -> Any:
-        """Validate a `min`/`max` bound and coerce it to the field's numeric type."""
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
+    def _parse_spec(self, var: str, spec: SchemaFieldSpec) -> LLMSchemaField:
+        """Validate one `output_schema` entry and normalize it to a field."""
+        try:
+            return LLMSchemaField.from_spec(spec)
+        except ValueError as exc:
             raise ValueError(
-                f"'{key}' for field '{var}' in output_schema of '{self.name}' must be "
-                f"a number, got {value!r}."
-            )
-        if py_type is int:
-            if int(value) != value:
-                raise ValueError(
-                    f"'{key}' for field '{var}' in output_schema of '{self.name}' must "
-                    f"be a whole number for an int field, got {value!r}."
-                )
-            return int(value)
-        return float(value)
-
-    def _build_field(self, var: str, spec: Any) -> tuple[type, Any]:
-        """Turn one output_schema entry into a `create_model` field spec."""
-        if not isinstance(spec, dict):
-            return (self._resolve_type(var, spec), ...)
-
-        unknown = set(spec) - self.SCHEMA_FIELD_KEYS
-        if unknown:
-            raise ValueError(
-                f"Unknown key(s) {sorted(unknown)} for field '{var}' in output_schema "
-                f"of '{self.name}'. Allowed keys: {sorted(self.SCHEMA_FIELD_KEYS)}."
-            )
-        if "type" not in spec:
-            raise ValueError(
-                f"Field '{var}' in output_schema of '{self.name}' is "
-                f"missing required key 'type'."
-            )
-        py_type = self._resolve_type(var, spec["type"])
-
-        min_val, max_val = spec.get("min"), spec.get("max")
-        if min_val is None and max_val is None:
-            return (py_type, ...)
-        if py_type not in (int, float):
-            raise ValueError(
-                f"'min'/'max' are only allowed for numeric types, but field '{var}' "
-                f"in output_schema of '{self.name}' has type '{spec['type']}'."
-            )
-        if min_val is not None:
-            min_val = self._coerce_bound(var, "min", py_type, min_val)
-        if max_val is not None:
-            max_val = self._coerce_bound(var, "max", py_type, max_val)
-        if min_val is not None and max_val is not None and min_val > max_val:
-            raise ValueError(
-                f"min {min_val} cannot be greater than max {max_val} for field "
-                f"'{var}' in output_schema of '{self.name}'."
-            )
-        return (py_type, PydanticField(ge=min_val, le=max_val))
+                f"Field '{var}' in output_schema of '{self.name}': {exc}"
+            ) from exc
 
     def has_schema_constraints(self) -> bool:
         """Whether any field declares a `min`/`max` bound."""
         if not isinstance(self.output_schema, dict):
             return False
         return any(
-            isinstance(spec, dict)
-            and (spec.get("min") is not None or spec.get("max") is not None)
-            for spec in self.output_schema.values()
+            self._parse_spec(var, spec).has_bounds
+            for var, spec in self.output_schema.items()
         )
 
     def get_output_schema(self) -> Optional[Type[BaseModel]]:
@@ -217,13 +275,14 @@ class LLMOutputVar(OutputVar):
                 name or to an invalid constraint mapping.
         """
         if self.output_type == "JSON" and self.output_schema:
-            fields: Dict[str, Any] = {}
             if isinstance(self.output_schema, dict):
-                for var, spec in self.output_schema.items():
-                    fields[var] = self._build_field(var, spec)
+                field_defs: dict[str, Any] = {
+                    var: (self._parse_spec(var, spec).field_type(), ...)
+                    for var, spec in self.output_schema.items()
+                }
             else:
-                fields = {var: (str, ...) for var in self.output_schema}
-            return create_model("OutputSchema", **fields)
+                field_defs = {var: (str, ...) for var in self.output_schema}
+            return create_model("OutputSchema", **field_defs)
         return None
 
     def is_computable(self, vars: Sequence[BaseVar]) -> bool:

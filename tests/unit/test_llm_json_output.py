@@ -9,6 +9,7 @@ import pytest
 import mmirage.core.process.processors.llm.llm_processor as llm_processor_module
 from mmirage.core.process.processors.llm.config import (
     LLMOutputVar,
+    LLMSchemaField,
     SGLangLLMConfig,
     SGLangServerArgs,
 )
@@ -53,17 +54,15 @@ def test_list_output_schema_defaults_to_str_fields():
         assert schema["properties"][field]["type"] == "string"
 
 
-def test_unknown_type_name_in_output_schema_raises():
-    output_var = LLMOutputVar(
-        name="scores",
-        type="llm",
-        prompt="{{ text }}",
-        output_type="JSON",
-        output_schema={"relevance": "integerish"},
-    )
-
+def test_unknown_type_name_in_output_schema_raises_at_construction():
     with pytest.raises(ValueError, match="integerish"):
-        output_var.get_output_schema()
+        LLMOutputVar(
+            name="scores",
+            type="llm",
+            prompt="{{ text }}",
+            output_type="JSON",
+            output_schema={"relevance": "integerish"},
+        )
 
 
 def test_output_var_loads_typed_schema_from_config_dict():
@@ -217,10 +216,11 @@ def test_constraint_with_single_bound():
         ({"relevance": {"type": "integerish"}}, "Unsupported type 'integerish'"),
         ({"relevance": {"type": "str", "min": 0}}, "only allowed for numeric"),
         ({"relevance": {"type": "int", "min": 3, "max": 0}}, "cannot be greater than"),
-        ({"relevance": {"type": "int", "min": "0", "max": "3"}}, "must be a number"),
+        ({"relevance": {"type": "int", "min": "zero"}}, "must be a number"),
         ({"relevance": {"type": "int", "min": 0, "max": [3]}}, "must be a number"),
         ({"relevance": {"type": "int", "min": True, "max": 3}}, "must be a number"),
         ({"relevance": {"type": "int", "min": 0.5}}, "must be a whole number"),
+        ({"relevance": {"type": "int", "min": "0.5"}}, "must be a whole number"),
     ],
     ids=[
         "unknown-key",
@@ -228,15 +228,54 @@ def test_constraint_with_single_bound():
         "bad-type",
         "bound-on-str",
         "min-gt-max",
-        "string-bounds",
+        "non-numeric-string-bound",
         "list-bound",
         "bool-bound",
         "fractional-bound-on-int",
+        "fractional-string-bound-on-int",
     ],
 )
 def test_invalid_nested_schema_raises(schema, match):
     with pytest.raises(ValueError, match=match):
-        _json_output_var(schema).get_output_schema()
+        _json_output_var(schema)
+
+
+def test_numeric_string_bounds_are_accepted():
+    model = _json_output_var(
+        {"relevance": {"type": "int", "min": "0", "max": "3"}}
+    ).get_output_schema()
+    assert model is not None
+    prop = model.model_json_schema()["properties"]["relevance"]
+    assert prop["minimum"] == 0
+    assert prop["maximum"] == 3
+
+
+def test_string_bounds_are_coerced_to_the_field_numeric_type():
+    int_field = LLMSchemaField(type="int", min="0", max="3")
+    assert int_field.min == 0 and isinstance(int_field.min, int)
+    assert int_field.max == 3 and isinstance(int_field.max, int)
+
+    float_field = LLMSchemaField(type="float", min="-1.5")
+    assert float_field.min == -1.5
+
+
+def test_env_var_style_string_bounds_load_from_config_dict():
+    from dacite import from_dict
+
+    output_var = from_dict(
+        LLMOutputVar,
+        {
+            "name": "scores",
+            "type": "llm",
+            "prompt": "{{ text }}",
+            "output_type": "JSON",
+            "output_schema": {"relevance": {"type": "int", "min": "0", "max": "3"}},
+        },
+    )
+
+    model = output_var.get_output_schema()
+    assert model is not None
+    assert model.model_json_schema()["properties"]["relevance"]["maximum"] == 3
 
 
 def test_output_var_loads_constrained_schema_from_config_dict():

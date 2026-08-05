@@ -232,8 +232,8 @@ output_schema:
 | Key | Type | Required | Description |
 |---|---|---|---|
 | `type` | `str` | ✓ | `str`/`string`, `int`/`integer`, `float`/`number`, or `bool`/`boolean` |
-| `min` | `int` or `float` | — | Inclusive lower bound. Numeric types only |
-| `max` | `int` or `float` | — | Inclusive upper bound. Numeric types only |
+| `min` | `int`, `float`, or numeric `str` | — | Inclusive lower bound. Numeric types only |
+| `max` | `int`, `float`, or numeric `str` | — | Inclusive upper bound. Numeric types only |
 
 Bounds become JSON-schema `minimum`/`maximum`, which the grammar backend enforces
 while decoding, and are re-checked after parsing (see [Pipeline](pipeline.md)).
@@ -244,8 +244,10 @@ unknown key, a missing or unsupported `type`, `min`/`max` on a non-numeric field
 a non-numeric bound, a fractional bound on an `int` field, or `min` greater than
 `max`.
 
-Because `${ENV_VAR}` expansion always produces a string, `min: ${MIN_SCORE}` is
-rejected as a non-numeric bound — write bounds as literals.
+Bounds given as strings are accepted when they look like a number (matching
+`-?\d+(\.\d+)?`) and coerced to the field's numeric type. Because `${ENV_VAR}`
+expansion always produces a string, this is what keeps `min: ${MIN_SCORE}`
+working; a string that is not numeric is still rejected.
 
 ### `processing_params.output_schema`
 

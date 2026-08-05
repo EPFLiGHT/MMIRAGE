@@ -253,6 +253,7 @@ class LLMProcessor(BaseProcessor[LLMOutputVar]):
         """Warn when a parsed JSON output does not match its declared schema."""
         if model is None:
             return
+
         try:
             model.model_validate(value)
         except ValidationError as exc:
