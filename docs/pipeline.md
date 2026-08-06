@@ -118,7 +118,14 @@ For each `OutputVar` in `processing_params.outputs`, MMIRAGE:
 The processor is the SGLang engine (for local inference) or the OpenAI Batch
 API orchestrator (for batch mode).
 
-If `output_type: JSON`, the response is parsed as JSON before storage.
+If `output_type: JSON`, the response is parsed as JSON before storage. A response
+that fails to parse is stored as an empty dict and logged as a warning carrying a
+truncated copy of the raw output; the full text is logged at `DEBUG`.
+
+When the output variable declares typed fields or `min`/`max` bounds, the parsed
+value is validated against the full schema after decoding (missing fields, type
+mismatches, and bound violations). Failures are logged as a warning and the
+parsed value is stored unchanged, nothing is clamped or discarded.
 
 ### 4c. Render the output schema
 
