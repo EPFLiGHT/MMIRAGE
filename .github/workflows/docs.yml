@@ -21,10 +21,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -32,7 +32,7 @@ jobs:
 
       - name: Configure GitHub Pages
         if: github.event_name != 'pull_request'
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Install Sphinx dependencies
         run: pip install -r docs/requirements.txt
@@ -51,7 +51,7 @@ jobs:
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs/_build/html
           include-hidden-files: true
