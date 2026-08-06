@@ -66,7 +66,9 @@ class ExecutionParams:
     def __post_init__(self):
         """Validate execution parameters."""
         if self.mode not in ("local", "slurm"):
-            raise ValueError(f"Invalid execution mode: {self.mode!r}. Must be 'local' or 'slurm'.")
+            raise ValueError(
+                f"Invalid execution mode: {self.mode!r}. Must be 'local' or 'slurm'."
+            )
         if self.mode == "slurm" and not self.account:
             raise ValueError("account is required when mode='slurm'")
         if self.max_retries < 0:

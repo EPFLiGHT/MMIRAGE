@@ -12,9 +12,7 @@ _PKG = types.ModuleType("mmirage")
 _PKG.__path__ = [str(_SRC / "mmirage")]
 sys.modules.setdefault("mmirage", _PKG)
 
-_CONFIG_MODULE = types.ModuleType(
-    "mmirage.core.process.processors.image_gen.config"
-)
+_CONFIG_MODULE = types.ModuleType("mmirage.core.process.processors.image_gen.config")
 
 
 @dataclass
@@ -83,7 +81,9 @@ def test_shared_sglang_server_sets_internal_base_url_on_selected_port(monkeypatc
     stopped = []
     monkeypatch.setattr(sglang_server, "launch_sglang_server", fake_launch)
     monkeypatch.setattr(sglang_server, "wait_for_sglang_server", fake_wait)
-    monkeypatch.setattr(sglang_server, "stop_sglang_server", lambda proc: stopped.append(proc))
+    monkeypatch.setattr(
+        sglang_server, "stop_sglang_server", lambda proc: stopped.append(proc)
+    )
     monkeypatch.delenv(sglang_server.MMIRAGE_SGLANG_BASE_URL, raising=False)
 
     config = SGLangBackendConfig(model_path="Qwen/Qwen-Image")

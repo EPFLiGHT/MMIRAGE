@@ -9,7 +9,7 @@ processors:
       top_p: 0.9
       max_new_tokens: 1024
       custom_params:
-        chat_template_kwargs: 
+        chat_template_kwargs:
           enable_thinking: false
 
 loading_params:
@@ -40,7 +40,7 @@ processing_params:
         ```
         {{ text }}
         ```
-  
+
   remove_columns: true
   output_schema:
     conversations:

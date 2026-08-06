@@ -2,28 +2,33 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from mmirage.config.batch_provider import BatchProviderConfig
-from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubmissionResult
+from mmirage.core.process.batch.adapter import (
+    BatchSubmissionAdapter,
+    BatchSubmissionResult,
+)
 from mmirage.core.process.batch.chunking import BatchRequestChunker, RequestChunk
 
 
 @dataclass
 class _PendingRequest:
     request: Mapping[str, Any]
-    source_index: int # original row index of the data sample within the input dataset
+    source_index: int  # original row index of the data sample within the input dataset
 
 
 class BatchSubmissionOrchestrator:
     """Accumulate requests across map iterations and submit full-ready chunks."""
 
-    def __init__(self, adapter: BatchSubmissionAdapter, config: BatchProviderConfig) -> None:
+    def __init__(
+        self, adapter: BatchSubmissionAdapter, config: BatchProviderConfig
+    ) -> None:
         self.adapter = adapter
         self.config = config
         self.chunker = BatchRequestChunker(adapter=adapter, config=config)
@@ -45,7 +50,9 @@ class BatchSubmissionOrchestrator:
             raise ValueError("requests and source_indices must have identical lengths")
 
         for request, source_index in zip(requests, source_indices):
-            self._pending.append(_PendingRequest(request=request, source_index=source_index))
+            self._pending.append(
+                _PendingRequest(request=request, source_index=source_index)
+            )
 
         return self._emit_ready_chunks(
             model_params_snapshot=model_params_snapshot,
@@ -151,7 +158,9 @@ class BatchSubmissionOrchestrator:
             return
 
         custom_to_source = {
-            str(entry.request.get("custom_id", f"idx-{entry.source_index}")): entry.source_index
+            str(
+                entry.request.get("custom_id", f"idx-{entry.source_index}")
+            ): entry.source_index
             for entry in chunk_entries
         }
 

@@ -180,6 +180,7 @@ A custom provider configuration class extends `BatchProviderConfig` with fields 
 from dataclasses import dataclass
 from mmirage.config.batch_provider import BatchProviderConfig
 
+
 @dataclass
 class AnthropicBatchConfig(BatchProviderConfig):
     provider: str = "anthropic"
@@ -192,8 +193,12 @@ A custom adapter implements the core lifecycle logic for the custom provider:
 
 ```python
 from typing import Any, Dict, Sequence
-from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubmissionResult
+from mmirage.core.process.batch.adapter import (
+    BatchSubmissionAdapter,
+    BatchSubmissionResult,
+)
 from mmirage.config.batch_provider import BatchProviderConfig
+
 
 class AnthropicBatchAdapter(BatchSubmissionAdapter):
     # Defines required keys for config.credentials (or environment variable fallbacks)
@@ -212,12 +217,13 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
             "params": {
                 "model": config.model,
                 "messages": payload["messages"],
-            }
+            },
         }
 
     def estimate_request_bytes(self, request: Dict[str, Any]) -> int:
         # Returns the estimated serialized UTF-8 bytes for request size-based chunking
         import json
+
         return len(json.dumps(request).encode("utf-8"))
 
     def submit_chunk(

@@ -4,10 +4,11 @@ from dataclasses import dataclass
 from typing import Optional
 
 from datasets import (
-    load_from_disk,
-    IterableDatasetDict,
     IterableDataset,
+    IterableDatasetDict,
+    load_from_disk,
 )
+
 from mmirage.core.loader.base import (
     BaseDataLoader,
     BaseDataLoaderConfig,

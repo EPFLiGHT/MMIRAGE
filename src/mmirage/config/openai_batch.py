@@ -1,7 +1,7 @@
 """OpenAI-specific batch configuration."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Literal, Optional
+from typing import Dict, Optional
 
 from mmirage.config.batch_provider import BatchProviderConfig
 

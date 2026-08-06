@@ -9,7 +9,6 @@ from typing import Optional, Sequence
 
 from mmirage.config.config import MMirageConfig
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -52,28 +51,39 @@ def add_file_logging(log_file: str, level: str) -> None:
     try:
         resolved_log_file.parent.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        logger.warning("Unable to create log directory for %s: %s", resolved_log_file, exc)
+        logger.warning(
+            "Unable to create log directory for %s: %s", resolved_log_file, exc
+        )
         return
 
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
-        if isinstance(handler, logging.FileHandler) and Path(handler.baseFilename).resolve() == resolved_log_file:
+        if (
+            isinstance(handler, logging.FileHandler)
+            and Path(handler.baseFilename).resolve() == resolved_log_file
+        ):
             return
 
     try:
-        file_handler = logging.FileHandler(resolved_log_file, mode="a", encoding="utf-8")
+        file_handler = logging.FileHandler(
+            resolved_log_file, mode="a", encoding="utf-8"
+        )
     except OSError as exc:
         logger.warning("Unable to open log file %s: %s", resolved_log_file, exc)
         return
 
     file_handler.setLevel(getattr(logging, level.upper(), logging.INFO))
-    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    )
     root_logger.addHandler(file_handler)
 
 
 def setup_runtime(cfg: MMirageConfig, log_level: str) -> None:
     """Initialize runtime-level logging."""
-    report_dir = Path(expand_path(cfg.execution_params.report_dir, get_project_root(cfg)))
+    report_dir = Path(
+        expand_path(cfg.execution_params.report_dir, get_project_root(cfg))
+    )
     log_file = report_dir / f"{cfg.execution_params.job_name}.out"
     add_file_logging(str(log_file), log_level)
     logger.info("Writing logs to %s", log_file)

@@ -11,18 +11,15 @@ except ImportError:
     from typing_extensions import override  # type: ignore
 
 from datasets import (
-    Dataset,
-    DatasetDict,
     IterableDataset,
     IterableDatasetDict,
     load_dataset,
 )
 
-
 from mmirage.core.loader.base import (
     BaseDataLoader,
-    DataLoaderRegistry,
     BaseDataLoaderConfig,
+    DataLoaderRegistry,
     DatasetLike,
 )
 

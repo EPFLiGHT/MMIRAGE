@@ -4,9 +4,9 @@ This module defines the shared configuration shape used by any future batch
 submission provider (OpenAI, Anthropic, etc.).
 """
 
-from enum import Enum
 from dataclasses import dataclass, field
-from typing import Any, Dict, Literal, Optional
+from enum import Enum
+from typing import Any, Dict, Optional
 
 
 class OversizedRequestPolicy(str, Enum):
@@ -71,7 +71,9 @@ class BatchProviderConfig:
     max_requests_per_chunk: Optional[int] = None
     metadata_output_path: str = ""
     retry_policy: BatchRetryPolicy = field(default_factory=BatchRetryPolicy)
-    oversized_request_policy: OversizedRequestPolicy | str = OversizedRequestPolicy.ISOLATE
+    oversized_request_policy: OversizedRequestPolicy | str = (
+        OversizedRequestPolicy.ISOLATE
+    )
     extras: Dict[str, Any] = field(default_factory=dict)
     credentials: Dict[str, str] = field(default_factory=dict)
 

@@ -8,14 +8,16 @@ import os
 import re
 import socket
 import tempfile
-import uuid
 import time
+import uuid
 from typing import Any, Dict, List, Optional
 
 import jinja2
 
 from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCounts
-from mmirage.core.process.processors.image_gen.backends.base import ImageGenerationBackend
+from mmirage.core.process.processors.image_gen.backends.base import (
+    ImageGenerationBackend,
+)
 from mmirage.core.process.processors.image_gen.config import (
     ImageGenConfig,
     ImageGenOutputVar,
@@ -142,7 +144,12 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                 current mapper batch (0 for the first chunk).
             count: Number of seeds to produce.
         """
-        base = base_seed + self._shard_id * 1_000_000_000 + self._sample_counter + batch_offset
+        base = (
+            base_seed
+            + self._shard_id * 1_000_000_000
+            + self._sample_counter
+            + batch_offset
+        )
         return [base + i for i in range(count)]
 
     def _build_params(self, output_var: ImageGenOutputVar) -> Dict[str, Any]:
@@ -236,7 +243,9 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
             if output_var.output_mode == ImageOutputMode.PIL:
                 value = image
             else:
-                filename = self._render_filename(filename_template, output_var, env, sample_index)
+                filename = self._render_filename(
+                    filename_template, output_var, env, sample_index
+                )
                 value = self._save_image(image, filename)
             updated.append(env.with_variable(output_var.name, value, is_image=True))
         return updated
@@ -264,7 +273,9 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
         )
         params = self._build_params(output_var)
         images = self._backend.generate_batch(prompts, neg_prompts, params, seeds)
-        return self._collect_results(chunk, images, output_var, filename_template, batch_offset)
+        return self._collect_results(
+            chunk, images, output_var, filename_template, batch_offset
+        )
 
     def _generate_chunk_sequential(
         self,
@@ -302,7 +313,9 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                 if output_var.output_mode == ImageOutputMode.PIL:
                     value = image
                 else:
-                    filename = self._render_filename(filename_template, output_var, env, sample_index)
+                    filename = self._render_filename(
+                        filename_template, output_var, env, sample_index
+                    )
                     value = self._save_image(image, filename)
                 updated.append(env.with_variable(output_var.name, value, is_image=True))
             except _RECOVERABLE_IMAGE_GEN_ERRORS as exc:
@@ -427,7 +440,7 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
                 negative_prompt_template,
                 filename_template,
             )
-    
+
     @override
     def get_token_counts(self) -> TokenCounts:
         """Return token counts for this processor.
@@ -446,4 +459,3 @@ class ImageGenProcessor(BaseProcessor[ImageGenOutputVar]):
     def shutdown(self) -> None:
         """Release backend resources (GPU memory, HTTP connections, …)."""
         self._backend.shutdown()
-

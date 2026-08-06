@@ -1,7 +1,10 @@
 import pytest
 
 from mmirage.config.batch_provider import BatchProviderConfig
-from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubmissionResult
+from mmirage.core.process.batch.adapter import (
+    BatchSubmissionAdapter,
+    BatchSubmissionResult,
+)
 
 
 class SizeAwareTestAdapter(BatchSubmissionAdapter):

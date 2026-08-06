@@ -34,6 +34,7 @@ class BaseVar(abc.ABC):
     Attributes:
         name: Name of the variable.
     """
+
     name: str = ""
 
 
@@ -45,6 +46,7 @@ class InputVar(BaseVar):
         key: JMESPath query to extract the variable from a sample.
         type: Variable type - "text" or "image".
     """
+
     key: str = ""
     type: Literal["text", "image"] = "text"
 
@@ -68,6 +70,7 @@ class OutputVar(BaseVar):
         name: Name of the variable.
         type: Type identifier for the processor that generates this variable.
     """
+
     type: str = ""
 
     @abc.abstractmethod
@@ -143,7 +146,9 @@ def _resolve_image_input(value: Any, image_base_path: Optional[str] = None) -> A
     cwd_path = _to_abs_path(value)
     if os.path.exists(cwd_path):
         if not os.path.isfile(cwd_path):
-            raise RuntimeError(f"Relative image path exists but is not a file: {cwd_path}")
+            raise RuntimeError(
+                f"Relative image path exists but is not a file: {cwd_path}"
+            )
         return cwd_path
 
     raise FileNotFoundError(
@@ -155,7 +160,9 @@ def _resolve_image_input(value: Any, image_base_path: Optional[str] = None) -> A
 class VariableEnvironment:
     """Environment for storing and accessing variables during processing."""
 
-    def __init__(self, var_env: Dict[str, Any], image_vars: Optional[set] = None) -> None:
+    def __init__(
+        self, var_env: Dict[str, Any], image_vars: Optional[set] = None
+    ) -> None:
         """Initialize a variable environment.
 
         Args:
@@ -165,7 +172,9 @@ class VariableEnvironment:
         self._vars_env = var_env
         self._image_vars = image_vars or set()
 
-    def with_variable(self, key: str, value: Any, is_image: bool = False) -> "VariableEnvironment":
+    def with_variable(
+        self, key: str, value: Any, is_image: bool = False
+    ) -> "VariableEnvironment":
         """Create a new environment with an additional variable.
 
         Args:
@@ -222,7 +231,9 @@ class VariableEnvironment:
 
     def get_images(self) -> List[Any]:
         """Get image values in a deterministic order."""
-        return [self._vars_env[k] for k in sorted(self._image_vars) if k in self._vars_env]
+        return [
+            self._vars_env[k] for k in sorted(self._image_vars) if k in self._vars_env
+        ]
 
     def has_images(self) -> bool:
         """Check if the environment contains any image variables.
@@ -233,7 +244,11 @@ class VariableEnvironment:
         return any(k in self._vars_env for k in self._image_vars)
 
     @staticmethod
-    def from_input_variables(sample: Dict[str, Any], input_vars: List[InputVar], image_base_path: Optional[str] = None) -> "VariableEnvironment":
+    def from_input_variables(
+        sample: Dict[str, Any],
+        input_vars: List[InputVar],
+        image_base_path: Optional[str] = None,
+    ) -> "VariableEnvironment":
         """Create a variable environment from a single sample.
 
         Args:
@@ -268,7 +283,9 @@ class VariableEnvironment:
 
     @staticmethod
     def from_batch_input_variables(
-        batch: Dict[str, List[Any]], input_vars: List[InputVar], image_base_path: Optional[str] = None
+        batch: Dict[str, List[Any]],
+        input_vars: List[InputVar],
+        image_base_path: Optional[str] = None,
     ) -> List["VariableEnvironment"]:
         """Extract input variables from a batch of samples.
 
@@ -288,6 +305,10 @@ class VariableEnvironment:
         ]
 
         for sample in batch_list:
-            vars_samples.append(VariableEnvironment.from_input_variables(sample, input_vars, image_base_path))
+            vars_samples.append(
+                VariableEnvironment.from_input_variables(
+                    sample, input_vars, image_base_path
+                )
+            )
 
         return vars_samples
