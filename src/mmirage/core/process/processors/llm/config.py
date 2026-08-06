@@ -1,20 +1,19 @@
 """Configuration for LLM processor in MMIRAGE."""
 
-from dataclasses import dataclass, field, fields
-
 import builtins
 import logging
 import os
 import re
-from typing import Annotated, ClassVar, Dict, Optional, Sequence, Type, Any
-from pydantic import BaseModel, Field as PydanticField, create_model
+from dataclasses import dataclass, field, fields
+from typing import Annotated, Any, ClassVar, Dict, Optional, Sequence, Type
+
+from jinja2 import Environment, meta
+from pydantic import BaseModel, create_model
+from pydantic import Field as PydanticField
 
 from mmirage.config.batch_provider import BatchProviderConfig
+from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry
 from mmirage.core.process.variables import BaseVar, OutputVar
-
-from mmirage.core.process.base import BaseProcessorConfig
-from mmirage.core.process.base import ProcessorRegistry
-from jinja2 import Environment, meta
 
 logger = logging.getLogger(__name__)
 env = Environment()
@@ -22,20 +21,20 @@ env = Environment()
 
 def _parse_tp_size_from_env() -> int:
     """Parse tensor parallelism size from SLURM_GPUS_ON_NODE environment variable.
-    
+
     Defensively parses the environment variable, handling invalid values:
     - Returns 1 if the variable is None or empty
     - Strips whitespace before parsing
     - Returns 1 for non-integer values
     - Returns 1 for values <= 0
-    
+
     Returns:
         Tensor parallelism size (>= 1), defaults to 1 on any parsing error.
     """
     env_value = os.environ.get("SLURM_GPUS_ON_NODE")
     if not env_value:
         return 1
-    
+
     try:
         tp_size = int(env_value.strip())
         # Ensure tp_size is positive (must be >= 1)

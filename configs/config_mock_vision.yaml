@@ -34,7 +34,7 @@ processing_params:
       output_type: plain
       prompt: |
         Describe what you see in this image in one concise sentence.
-  
+
   remove_columns: false
   output_schema:
     image: "{{ image_input }}"

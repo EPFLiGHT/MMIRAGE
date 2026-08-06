@@ -1,8 +1,8 @@
 """Merge processed dataset shards."""
 
 import argparse
-import os
 import logging
+import os
 from typing import Dict, List, Optional
 
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_from_disk
@@ -10,13 +10,13 @@ from datasets import Dataset, DatasetDict, concatenate_datasets, load_from_disk
 from mmirage.config.config import MMirageConfig
 from mmirage.core.loader.base import DatasetLike
 from mmirage.shard_utils import (
-    _count_rows,
-    _save_dataset_atomic,
-    _validate_safe_output_dir,
     MergeReport,
-    _list_shard_dirs,
+    _count_rows,
     _dataset_dirs,
+    _list_shard_dirs,
+    _save_dataset_atomic,
     _validate_input_dir,
+    _validate_safe_output_dir,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,9 +62,7 @@ def _merge_shards(shard_dsets: List[DatasetLike]) -> DatasetLike:
         )
     if any(isinstance(ds, DatasetDict) for ds in shard_dsets):
         raise RuntimeError("Cannot merge mix of Dataset and DatasetDict shards.")
-    return concatenate_datasets(
-        [ds for ds in shard_dsets if isinstance(ds, Dataset)]
-    )
+    return concatenate_datasets([ds for ds in shard_dsets if isinstance(ds, Dataset)])
 
 
 def merge_dataset_dir(dataset_dir: str, output_dir: str) -> MergeReport:
@@ -78,7 +76,9 @@ def merge_dataset_dir(dataset_dir: str, output_dir: str) -> MergeReport:
         MergeReport with summary details.
     """
     dataset_dir = os.path.abspath(os.path.expandvars(os.path.expanduser(dataset_dir)))
-    normalized_output_dir = os.path.abspath(os.path.expandvars(os.path.expanduser(output_dir)))
+    normalized_output_dir = os.path.abspath(
+        os.path.expandvars(os.path.expanduser(output_dir))
+    )
     _validate_input_dir(dataset_dir, "dataset_dir")
     _validate_safe_output_dir(dataset_dir, normalized_output_dir)
 

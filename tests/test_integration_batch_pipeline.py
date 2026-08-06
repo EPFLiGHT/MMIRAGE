@@ -1,12 +1,17 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from datasets import load_dataset
 
 from mmirage.config.openai_batch import OpenAIBatchConfig
-from mmirage.core.process import LLMProcessor  # Ensures processor registration.
 from mmirage.core.process.mapper import MMIRAGEMapper
-from mmirage.core.process.processors.llm.config import LLMOutputVar, SGLangLLMConfig, SGLangServerArgs
+from mmirage.core.process.processors.llm import llm_processor
+from mmirage.core.process.processors.llm.config import (
+    LLMOutputVar,
+    SGLangLLMConfig,
+    SGLangServerArgs,
+)
 from mmirage.core.process.variables import InputVar
 from mmirage.core.writer.renderer import TemplateRenderer
 
@@ -56,13 +61,17 @@ def test_integration_batch_pipeline_with_stateful_accumulator(monkeypatch, tmp_p
             captured["engine_init_calls"] += 1
 
         def generate(self, **_kwargs):
-            raise AssertionError("Synchronous generation path should not run in batch mode")
+            raise AssertionError(
+                "Synchronous generation path should not run in batch mode"
+            )
 
         def shutdown(self):
             return None
 
     class FakeTokenizer:
-        def apply_chat_template(self, user_prompt, tokenize=False, add_generation_prompt=True):
+        def apply_chat_template(
+            self, user_prompt, tokenize=False, add_generation_prompt=True
+        ):
             assert tokenize is False
             assert add_generation_prompt is True
             return user_prompt[0]["content"]
@@ -71,9 +80,9 @@ def test_integration_batch_pipeline_with_stateful_accumulator(monkeypatch, tmp_p
         "mmirage.core.process.batch.openai_adapter.OpenAI",
         FakeOpenAIClient,
     )
+    monkeypatch.setattr(llm_processor, "SGLANG_AVAILABLE", True)
     monkeypatch.setattr(
-        "mmirage.core.process.processors.llm.llm_processor.sgl.Engine",
-        FakeEngine,
+        llm_processor, "sgl", SimpleNamespace(Engine=FakeEngine), raising=False
     )
     monkeypatch.setattr(
         "mmirage.core.process.processors.llm.llm_processor.AutoTokenizer.from_pretrained",
@@ -135,7 +144,10 @@ def test_integration_batch_pipeline_with_stateful_accumulator(monkeypatch, tmp_p
     # 2) Map output is placeholder-based and does not wait for completion.
     answers = ds_out["answer"]
     assert len(answers) == len(dataset)
-    assert all(isinstance(v, str) and v.startswith("__BATCH_SUBMITTED__:answer:") for v in answers)
+    assert all(
+        isinstance(v, str) and v.startswith("__BATCH_SUBMITTED__:answer:")
+        for v in answers
+    )
 
     # 3) Metadata receipts are written and include both full_chunk and finalize flush reasons.
     metadata_text_matches = sorted(tmp_path.glob("batch_receipts.text.*.jsonl"))

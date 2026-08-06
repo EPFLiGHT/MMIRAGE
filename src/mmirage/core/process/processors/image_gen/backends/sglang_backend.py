@@ -352,7 +352,9 @@ class SGLangImageBackend:
                 f"SGLang server returned HTTP {exc.code} for {url}: {body_text}"
             ) from exc
         except urllib.error.URLError as exc:
-            raise RuntimeError(f"Could not reach SGLang server at {url}: {exc}") from exc
+            raise RuntimeError(
+                f"Could not reach SGLang server at {url}: {exc}"
+            ) from exc
 
         try:
             parsed = json.loads(raw)
@@ -367,6 +369,7 @@ class SGLangImageBackend:
             )
 
         return parsed
+
 
 def _prompt_preview(prompt: str, limit: int = 80) -> str:
     compact = " ".join(prompt.split())

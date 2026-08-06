@@ -4,16 +4,19 @@ import base64
 import copy
 import io
 import json
+import logging
 import mimetypes
 import os
-import logging
 from typing import Any, Dict, List, Mapping, Sequence
 
 from openai import AuthenticationError, OpenAI
 
 from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.config.openai_batch import OpenAIBatchConfig
-from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubmissionResult
+from mmirage.core.process.batch.adapter import (
+    BatchSubmissionAdapter,
+    BatchSubmissionResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,9 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
     ) -> Dict[str, Any]:
         openai_config = self._check_openai_config(config)
         body = copy.deepcopy(payload)
-        expected_schema = body.pop("expected_schema", None) # expected_schema needs to be popped from body before submission, as it was in the normalized request but is not an OpenAI API parameter.
+        expected_schema = body.pop(
+            "expected_schema", None
+        )  # expected_schema needs to be popped from body before submission, as it was in the normalized request but is not an OpenAI API parameter.
         if expected_schema is not None and (
             not isinstance(expected_schema, list)
             or not all(isinstance(key, str) for key in expected_schema)
@@ -43,7 +48,9 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         body.setdefault("model", openai_config.model)
         self._convert_local_images_to_data_uris(body)
 
-        if isinstance(expected_schema, list) and all(isinstance(k, str) for k in expected_schema):
+        if isinstance(expected_schema, list) and all(
+            isinstance(k, str) for k in expected_schema
+        ):
             properties = {key: {"type": "string"} for key in expected_schema}
             body["response_format"] = {
                 "type": "json_schema",
@@ -78,10 +85,16 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
                     if not isinstance(url, str):
                         continue
                     # Keep remote/data URLs untouched.
-                    if url.startswith("http://") or url.startswith("https://") or url.startswith("data:"):
+                    if (
+                        url.startswith("http://")
+                        or url.startswith("https://")
+                        or url.startswith("data:")
+                    ):
                         continue
                     if os.path.exists(url):
-                        part["image_url"]["url"] = OpenAIBatchAdapter._local_file_to_data_uri(url)
+                        part["image_url"]["url"] = (
+                            OpenAIBatchAdapter._local_file_to_data_uri(url)
+                        )
         except (KeyError, IndexError, TypeError, AttributeError):
             # Ignore malformed shapes.
             pass
@@ -111,7 +124,8 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         client = self._create_client(openai_config)
 
         jsonl_lines = [
-            json.dumps(req, ensure_ascii=False, separators=(",", ":")) for req in requests
+            json.dumps(req, ensure_ascii=False, separators=(",", ":"))
+            for req in requests
         ]
         jsonl_payload = "\n".join(jsonl_lines).encode("utf-8")
 
@@ -216,7 +230,9 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
                 return obj.get(attr, default)
             return default
 
-        batch_id = str(_attr_or_get(raw_result, "id") or _attr_or_get(raw_result, "batch_id", ""))
+        batch_id = str(
+            _attr_or_get(raw_result, "id") or _attr_or_get(raw_result, "batch_id", "")
+        )
         status = _attr_or_get(raw_result, "status", "unknown")
 
         return BatchSubmissionResult(
@@ -278,7 +294,10 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
 
     @staticmethod
     def _create_client(config: OpenAIBatchConfig) -> OpenAI:
-        api_key = (config.credentials.get("api_key", "").strip() or os.environ.get("OPENAI_API_KEY", "").strip() )
+        api_key = (
+            config.credentials.get("api_key", "").strip()
+            or os.environ.get("OPENAI_API_KEY", "").strip()
+        )
 
         if not api_key:
             raise ValueError(
@@ -311,7 +330,11 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         if isinstance(content, bytes):
             return content.decode("utf-8")
 
-        logger.debug("Unable to extract content from response of type %s", type(content_response))
-        raise ValueError("Unable to parse OpenAI files.content response: missing text or content bytes")
+        logger.debug(
+            "Unable to extract content from response of type %s", type(content_response)
+        )
+        raise ValueError(
+            "Unable to parse OpenAI files.content response: missing text or content bytes"
+        )
 
     # _read_attr removed: code now expects OpenAI SDK v1 response objects with attributes.
