@@ -16,11 +16,14 @@ sys.path.insert(0, os.path.abspath("../src"))
 # DatasetDict so that the PEP-604 union ``Dataset | DatasetDict`` in
 # mmirage.core.loader.base works without a TypeError.
 
+
 class _FakeDataset:
     """Stand-in for datasets.Dataset."""
 
+
 class _FakeDatasetDict(dict):
     """Stand-in for datasets.DatasetDict."""
+
 
 _datasets_mock = MagicMock()
 _datasets_mock.Dataset = _FakeDataset
@@ -36,9 +39,12 @@ sys.modules["datasets.dataset_dict"] = MagicMock()
 # `override` was added to `typing` in Python 3.12.  The source uses it without
 # a try/except in some files, so we inject a no-op shim before importing.
 import typing as _typing
+
 if not hasattr(_typing, "override"):
+
     def _override(f):  # type: ignore[return]
         return f
+
     _typing.override = _override  # type: ignore[attr-defined]
 
 # -- Project information -------------------------------------------------------
@@ -62,7 +68,13 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 
 # MyST parser settings
-myst_enable_extensions = ["colon_fence", "deflist", "fieldlist", "html_admonition", "html_image"]
+myst_enable_extensions = [
+    "colon_fence",
+    "deflist",
+    "fieldlist",
+    "html_admonition",
+    "html_image",
+]
 myst_heading_anchors = 3
 
 # -- Autodoc configuration -----------------------------------------------------

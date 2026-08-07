@@ -1,11 +1,11 @@
 """Configuration for image generation processor in MMIRAGE."""
 
-from dataclasses import dataclass, field
-from enum import Enum
-
 import logging
 import os
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Sequence
+
 from jinja2 import Environment, meta
 
 from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry
@@ -44,6 +44,7 @@ class ExternalImageBackendConfig:
 @dataclass
 class SGLangBackendConfig:
     """Configuration for one MMIRAGE-launched shared SGLang server."""
+
     api_key: Optional[str] = None
     timeout_seconds: int = 900
     model_path: str = ""
@@ -159,7 +160,9 @@ class ImageGenOutputVar(OutputVar):
     prompt: str = ""
     negative_prompt: str = ""
     output_mode: ImageOutputMode = ImageOutputMode.PATH
-    filename_template: str = "generated_{{ __shard_id }}_{{ __sample_index }}_{{ __source_hash }}"
+    filename_template: str = (
+        "generated_{{ __shard_id }}_{{ __sample_index }}_{{ __source_hash }}"
+    )
     width: Optional[int] = None
     height: Optional[int] = None
     num_inference_steps: Optional[int] = None

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import abc
-from typing import Any, Callable, Generic, Optional, Type, TypeVar
 from dataclasses import dataclass
+from typing import Any, Callable, Generic, Optional, Type, TypeVar
 
 from datasets import Dataset, DatasetDict
 

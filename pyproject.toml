@@ -47,8 +47,8 @@ gpu = [
 ]
 
 dev = [
-  "ruff>=0.5.0",
-  "black>=24.3.0",
+  "ruff>=0.16",
+  "pre-commit>=4.0",
   "mypy>=1.8.0",
   "ipykernel",
   "pytest",
@@ -65,3 +65,14 @@ packages = ["src/mmirage"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/mmirage/**", "pyproject.toml", "README.md"]
+
+[tool.ruff]
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Sphinx conf.py adjusts sys.path before imports
+"docs/conf.py" = ["E402"]

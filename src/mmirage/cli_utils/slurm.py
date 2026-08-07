@@ -9,10 +9,11 @@ import subprocess
 import time
 from typing import Optional, Sequence
 
-from mmirage.config.config import MMirageConfig
 from mmirage.cli_utils.runtime import create_directories, expand_path, get_project_root
-from mmirage.core.process.processors.image_gen.sglang_server import get_sglang_server_config
-
+from mmirage.config.config import MMirageConfig
+from mmirage.core.process.processors.image_gen.sglang_server import (
+    get_sglang_server_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -83,11 +84,13 @@ def build_sbatch_script(
         lines.append(
             f"export MMIRAGE_SHARD_IDS={_bash_double_quote(','.join(map(str, shard_ids or [])))}"
         )
-    lines.extend([
-        f"mkdir -p {_bash_double_quote(hf_home)}",
-        f"mkdir -p {_bash_double_quote(state_root)}",
-        "srun_args=(--cpus-per-task ${SLURM_CPUS_PER_TASK:-1} --wait 60)",
-    ])
+    lines.extend(
+        [
+            f"mkdir -p {_bash_double_quote(hf_home)}",
+            f"mkdir -p {_bash_double_quote(state_root)}",
+            "srun_args=(--cpus-per-task ${SLURM_CPUS_PER_TASK:-1} --wait 60)",
+        ]
+    )
 
     if cfg.execution_params.edf_env:
         edf_env = expand_path(cfg.execution_params.edf_env, project_root)
@@ -99,11 +102,13 @@ def build_sbatch_script(
     lines.append(f"srun_args+=(-A {shlex.quote(account)})")
 
     if cfg.execution_params.reservation:
-        lines.append(f"srun_args+=(--reservation={shlex.quote(cfg.execution_params.reservation)})")
+        lines.append(
+            f"srun_args+=(--reservation={shlex.quote(cfg.execution_params.reservation)})"
+        )
 
     python_setup = (
-        'if command -v python3 >/dev/null 2>&1; then PYTHON_CMD=python3; '
-        'elif command -v python >/dev/null 2>&1; then PYTHON_CMD=python; '
+        "if command -v python3 >/dev/null 2>&1; then PYTHON_CMD=python3; "
+        "elif command -v python >/dev/null 2>&1; then PYTHON_CMD=python; "
         'else echo "python3/python not found in PATH" >&2; exit 127; fi; '
         'echo "Using Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version 2>&1))"; '
         '${PYTHON_CMD} -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 2)" '
@@ -111,7 +116,7 @@ def build_sbatch_script(
     )
     if sglang is not None:
         lines.append(
-            "srun \"${srun_args[@]}\" bash -c '"
+            'srun "${srun_args[@]}" bash -c \''
             + python_setup
             + 'exec ${PYTHON_CMD} -m mmirage.sglang_job --config "$MMIRAGE_CONFIG" '
             '--shard-ids "$MMIRAGE_SHARD_IDS"\''
@@ -119,7 +124,7 @@ def build_sbatch_script(
         lines.append('echo "Shared SGLang MMIRAGE job completed"')
     else:
         lines.append(
-            "srun \"${srun_args[@]}\" bash -c '"
+            'srun "${srun_args[@]}" bash -c \''
             + python_setup
             + 'exec ${PYTHON_CMD} "$SHARD_PROCESS" --config "$MMIRAGE_CONFIG"\''
         )
@@ -162,9 +167,13 @@ def submit_slurm_job(
     requested_shards = list(shard_ids or [])
     if sglang is not None:
         if cfg.execution_params.nodes != 1:
-            raise ValueError("backend='sglang' currently supports only execution_params.nodes=1")
+            raise ValueError(
+                "backend='sglang' currently supports only execution_params.nodes=1"
+            )
     elif requested_shards:
-        command.append(f"--array={','.join(str(shard_id) for shard_id in requested_shards)}")
+        command.append(
+            f"--array={','.join(str(shard_id) for shard_id in requested_shards)}"
+        )
     else:
         num_shards = cfg.loading_params.get_num_shards()
         last_shard_id = num_shards - 1
@@ -192,7 +201,9 @@ def submit_slurm_job(
     try:
         return int(raw_job_id)
     except ValueError:
-        logger.error("Unable to parse job id from sbatch output: %s", result.stdout.strip())
+        logger.error(
+            "Unable to parse job id from sbatch output: %s", result.stdout.strip()
+        )
         return None
 
 
@@ -211,7 +222,10 @@ def wait_for_slurm_job(job_id: int, cfg: MMirageConfig) -> None:
         time.sleep(cfg.execution_params.poll_interval_seconds)
 
     if cfg.execution_params.settle_time_seconds > 0:
-        logger.info("Waiting %ss for state files to settle", cfg.execution_params.settle_time_seconds)
+        logger.info(
+            "Waiting %ss for state files to settle",
+            cfg.execution_params.settle_time_seconds,
+        )
         time.sleep(cfg.execution_params.settle_time_seconds)
 
 

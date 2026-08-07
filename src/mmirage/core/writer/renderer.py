@@ -1,13 +1,14 @@
 """Template renderer for generating output from variable environments."""
 
+import logging
 from collections import defaultdict
-from typing import Any, Dict, Optional, List
-from jinja2 import Template, Environment
-from jinja2.nodes import Output, Name
+from typing import Any, Dict, List, Optional
+
+from jinja2 import Environment, Template
+from jinja2.nodes import Name, Output
 from PIL import Image
 
 from mmirage.core.process.variables import VariableEnvironment
-import logging
 
 logger = logging.getLogger(__name__)
 
