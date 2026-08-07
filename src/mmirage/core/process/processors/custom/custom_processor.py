@@ -20,15 +20,19 @@ logger = logging.getLogger(__name__)
 
 class CustomProcessor(BaseProcessor[CustomOutputVar]):
     """Processor that runs user-provided Python scripts in a persistent, isolated process pool.
-    
+
     Ensures safe execution by using a 'spawn' context and implements strict circuit breaking
     for misbehaving scripts.
+
+    Args:
+        config: Custom module configuration.
+        shard_id: Shard index for this worker.
     """
 
-    def __init__(self, config: CustomProcessorConfig) -> None:
+    def __init__(self, config: CustomProcessorConfig, shard_id : int = 0 ) -> None:
    
         start_time = time.time()
-        super().__init__(config)
+        super().__init__(config=config,shard_id=shard_id)
         self.config: CustomProcessorConfig = config
         self._error_count = 0
         self._timeout_count = 0
