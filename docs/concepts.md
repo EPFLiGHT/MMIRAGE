@@ -168,6 +168,7 @@ A **processor** is the inference engine that generates outputs.
 Generation is available as two processors, sharing the same prompt and output schema:
 
 - **`llm`** — starts an SGLang engine on the current machine (or SLURM node).
+- **`image_gen`** — starts a Diffusers pipeline for text-to-image generation on the current machine (or SLURM node).
 - **`batch_api`** — sends requests asynchronously to a provider batch API
   (see [Batch API](batch_api.md)).
 
