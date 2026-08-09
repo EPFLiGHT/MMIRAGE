@@ -32,13 +32,13 @@ def extract_address(row: dict) -> str:
     """
     # Extract your target variable from the dictionary
     text = row.get("original_text_column", "")
-    
+
     # Perform your custom logic
     addresses = re.findall(r'\b0x[a-fA-F0-9]{40}\b', text)
-    
+
     if not addresses:
         return "NO_ADDRESS"
-        
+
     return ", ".join(addresses)
 
 ```
@@ -106,14 +106,14 @@ loading_params:
 
 processing_params:
   inputs:
-    - name: "my_text"      
+    - name: "my_text"  
       key: "original_text_column"  
-  
+
   outputs:
     - name: "custom_result"
-      type: "custom"           
-  
-  output_schema:   
+      type: "custom"  
+
+  output_schema:  
     source_text: "{{ my_text }}"
     analysis_result: "{{ custom_result }}"
 
@@ -141,4 +141,3 @@ See the [CLI Reference](cli.md) for the full set of flags.
 | `fallback_value` | `Any` | `None` | The default value safely written to the output variable if the script soft-fails. Should have the same type as a normal return value. |
 
 > **Tip:** The two counters are cumulative and never reset, so on a large shard a tolerant `max_errors: 3` will eventually trip on any script that fails even occasionally. Size them against the total number of rows in a shard, not against a batch — and keep them low deliberately if you would rather fail fast than produce a file silently full of `fallback_value`.
-

@@ -1,13 +1,16 @@
 """Tests for the CustomProcessor and its configuration/lifecycle."""
 
 import concurrent.futures
-import os
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from mmirage.config.utils import load_mmirage_config
-from mmirage.core.process.base import AutoProcessor, ProcessorRegistry
-from mmirage.core.process.processors.custom.config import CustomProcessorConfig, CustomOutputVar
+from mmirage.core.process.base import AutoProcessor
+from mmirage.core.process.processors.custom.config import (
+    CustomOutputVar,
+    CustomProcessorConfig,
+)
 from mmirage.core.process.processors.custom.custom_processor import CustomProcessor
 from mmirage.core.process.variables import VariableEnvironment
 
@@ -15,12 +18,14 @@ from mmirage.core.process.variables import VariableEnvironment
 @pytest.fixture(autouse=True)
 def mock_pebble_pool():
     """Mock the pebble ProcessPool to prevent real multiprocessing overhead in tests.
-    
+
     This patches the pool precisely at the module level where CustomProcessor imports it.
     """
-    with patch("mmirage.core.process.processors.custom.custom_processor.ProcessPool") as MockPool:
+    with patch(
+        "mmirage.core.process.processors.custom.custom_processor.ProcessPool"
+    ) as mock_pool:
         pool_instance = MagicMock()
-        MockPool.return_value = pool_instance
+        mock_pool.return_value = pool_instance
         yield pool_instance
 
 
@@ -43,7 +48,7 @@ def base_config(dummy_script) -> CustomProcessorConfig:
         timeout_ms=1000,
         max_timeouts=2,
         max_errors=2,
-        fallback_value="TEST_FALLBACK"
+        fallback_value="TEST_FALLBACK",
     )
 
 
@@ -63,7 +68,7 @@ def test_config_registration_and_loading(tmp_path, dummy_script):
     loading_params:
       num_shards: 1
       batch_size: 10
-      
+
     processing_params:
       inputs: []
       outputs:
@@ -76,7 +81,7 @@ def test_config_registration_and_loading(tmp_path, dummy_script):
 
     # Load configuration
     config = load_mmirage_config(str(conf_file))
-    
+
     # Assert Processor Config parsing
     proc_config = config.processors[0]
     assert isinstance(proc_config, CustomProcessorConfig)

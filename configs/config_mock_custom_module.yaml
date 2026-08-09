@@ -1,7 +1,7 @@
 processors:
   - type: "custom"
-    script_path: "./tests/mock_script/mock_script.py"  
-    function_name: "process_text" 
+    script_path: "./tests/mock_script/mock_script.py"
+    function_name: "process_text"
     max_workers: 4
     timeout_ms: 2000 # by sample
     max_timeouts: 5
@@ -27,7 +27,7 @@ processing_params:
   outputs:
     - name: custom_result
       type: custom
-  
-  output_schema:   
+
+  output_schema:
     source: "{{ text }}"
     processed: "{{ custom_result }}"
