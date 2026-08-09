@@ -11,14 +11,12 @@ import argparse
 import json
 import logging
 import os
-import sys
 from typing import Any, Dict, List, Mapping, MutableMapping, Sequence, Tuple
 
 from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.core.process.batch.metadata_paths import resolve_metadata_paths_from_config
 from mmirage.core.process.batch.metadata_utils import (
     BatchMetadataRecord,
-    _normalize_metadata_paths,
     _read_metadata_records,
 )
 from mmirage.core.process.batch.provider_resolution import (
@@ -86,7 +84,9 @@ def collect_and_merge(
             raise ValueError(f"No provider config found for '{provider}'.")
 
         if provider not in adapters:
-            adapters[provider] = BatchAdapterFactory.from_config(provider_configs[provider])
+            adapters[provider] = BatchAdapterFactory.from_config(
+                provider_configs[provider]
+            )
 
         pair = (provider, provider_batch_id)
         pair_to_results[pair] = adapters[provider].retrieve_results(
@@ -111,7 +111,8 @@ def collect_and_merge(
     # Sort primarily by source_index and secondarily by custom_id to ensure
     # deterministic ordering when multiple rows share the same source_index.
     ordered_rows = sorted(
-        indexed_rows.values(), key=lambda row: (row.get("source_index", 0), row.get("custom_id", ""))
+        indexed_rows.values(),
+        key=lambda row: (row.get("source_index", 0), row.get("custom_id", "")),
     )
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
@@ -122,7 +123,9 @@ def collect_and_merge(
     return ordered_rows
 
 
-def _build_output_payload(result_row: Mapping[str, Any], custom_id: str = "") -> Dict[str, Any]:
+def _build_output_payload(
+    result_row: Mapping[str, Any], custom_id: str = ""
+) -> Dict[str, Any]:
     """Convert provider content into the receiver's output schema.
 
     The collector preserves raw text for opaque generations, but maps structured
@@ -232,7 +235,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             metadata_paths = resolve_metadata_paths_from_config(metadata_paths)
 
         if not metadata_paths:
-            raise ValueError("No metadata paths provided and none found in config batch_api processor blocks.")
+            raise ValueError(
+                "No metadata paths provided and none found in config batch_api processor blocks."
+            )
 
         records = _read_metadata_records(metadata_paths)
         provider_configs = resolve_provider_configs(records, cfg)
@@ -242,7 +247,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ValueError as exc:
         logger.error(str(exc))
         return 1
-    except Exception as exc:
+    except Exception:
         logger.exception("Collector failed")
         return 1
 

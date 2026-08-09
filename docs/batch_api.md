@@ -77,7 +77,7 @@ processors:
 ## API key
 
 API provider require an API key. You can set it via the environment variable before running:
-Exemple for OpenAI: 
+Exemple for OpenAI:
 
 ```bash
 export OPENAI_API_KEY=sk-...
@@ -164,6 +164,7 @@ A custom provider configuration class extends `BatchProviderConfig` with fields 
 from dataclasses import dataclass
 from mmirage.config.batch_provider import BatchProviderConfig
 
+
 @dataclass
 class AnthropicBatchConfig(BatchProviderConfig):
     provider: str = "anthropic"
@@ -176,8 +177,12 @@ A custom adapter implements the core lifecycle logic for the custom provider:
 
 ```python
 from typing import Any, Dict, Sequence
-from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubmissionResult
+from mmirage.core.process.batch.adapter import (
+    BatchSubmissionAdapter,
+    BatchSubmissionResult,
+)
 from mmirage.config.batch_provider import BatchProviderConfig
+
 
 class AnthropicBatchAdapter(BatchSubmissionAdapter):
     # Each key must be set as an <PROVIDER>_<KEY> environment variable, e.g. ANTHROPIC_API_KEY
@@ -196,12 +201,13 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
             "params": {
                 "model": config.model,
                 "messages": payload["messages"],
-            }
+            },
         }
 
     def estimate_request_bytes(self, request: Dict[str, Any]) -> int:
         # Returns the estimated serialized UTF-8 bytes for request size-based chunking
         import json
+
         return len(json.dumps(request).encode("utf-8"))
 
     def submit_chunk(

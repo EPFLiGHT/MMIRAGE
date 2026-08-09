@@ -67,7 +67,9 @@ class BatchProviderConfigRegistry:
         )
 
 
-def _discover_required_providers(metadata_records: Sequence[BatchMetadataRecord]) -> List[str]:
+def _discover_required_providers(
+    metadata_records: Sequence[BatchMetadataRecord],
+) -> List[str]:
     providers: List[str] = []
     seen = set()
     for record in metadata_records:
@@ -113,7 +115,9 @@ def _extract_batch_provider_blocks(cfg: MMirageConfig) -> Dict[str, Dict[str, An
     return provider_blocks
 
 
-def _instantiate_provider_config(provider: str, raw_block: Mapping[str, Any]) -> BatchProviderConfig:
+def _instantiate_provider_config(
+    provider: str, raw_block: Mapping[str, Any]
+) -> BatchProviderConfig:
     """Instantiate the provider config, falling back to the shared base config."""
     payload = dict(raw_block)
     payload.setdefault("provider", provider)
@@ -195,7 +199,9 @@ def resolve_provider_configs(
     if not required_providers:
         return {}
 
-    missing = [provider for provider in required_providers if provider not in available_configs]
+    missing = [
+        provider for provider in required_providers if provider not in available_configs
+    ]
     if missing:
         raise ValueError(
             "Metadata references provider(s) missing from YAML batch config: "

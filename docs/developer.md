@@ -22,9 +22,16 @@ The `dev` extra installs:
 | Tool | Purpose |
 |---|---|
 | `ruff` | Fast Python linter and formatter |
+| `pre-commit` | Git hooks running ruff lint/format before each commit |
 | `mypy` | Static type checker |
 | `pytest` | Test runner |
 | `ipykernel` | Jupyter kernel for exploratory notebooks |
+
+Enable the git hooks once after installing:
+
+```bash
+pre-commit install
+```
 
 ---
 
@@ -61,17 +68,20 @@ These tests require a functional GPU environment and a working SGLang install (i
 
 ## Code Style
 
-Format code with Ruff:
+Lint and format with Ruff via pre-commit (this is exactly what CI runs):
 
 ```bash
-ruff format src/ tests/
+pre-commit run --all-files
 ```
 
-Lint with Ruff:
+Or invoke Ruff directly:
 
 ```bash
-ruff check src/ tests/
+ruff check --fix .
+ruff format .
 ```
+
+Ruff configuration (rule selection, ignores) lives in `pyproject.toml` under `[tool.ruff.lint]`. The `Lint` GitHub Actions workflow enforces both lint and formatting on every pull request.
 
 Type-check with mypy:
 
@@ -101,17 +111,23 @@ Example skeleton:
 
 ```python
 from dataclasses import dataclass
-from mmirage.core.loader.base import BaseDataLoader, BaseDataLoaderConfig, DataLoaderRegistry, DatasetLike
+from mmirage.core.loader.base import (
+    BaseDataLoader,
+    BaseDataLoaderConfig,
+    DataLoaderRegistry,
+    DatasetLike,
+)
+
 
 @dataclass
 class MyLoaderConfig(BaseDataLoaderConfig):
     type: str = "mytype"
     path: str = ""
 
+
 @DataLoaderRegistry.register("mytype", MyLoaderConfig)
 class MyLoader(BaseDataLoader[MyLoaderConfig]):
-    def from_config(self, ds_config: MyLoaderConfig) -> DatasetLike:
-        ...
+    def from_config(self, ds_config: MyLoaderConfig) -> DatasetLike: ...
 ```
 
 ---

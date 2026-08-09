@@ -97,6 +97,11 @@ outputs:
 
 Inside the prompt, you can reference any input variable by name using `{{ variable }}`.
 
+With `output_type: JSON`, an output variable also declares an **output_schema**
+listing the fields the model must produce, optionally with per-field types and
+numeric bounds that constrain generation. See
+[Configuration](configuration.md) for the full field reference.
+
 ---
 
 ## JMESPath

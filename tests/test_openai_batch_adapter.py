@@ -1,11 +1,14 @@
-import json
 import base64
+import json
 
 import pytest
 
 from mmirage.config.openai_batch import OpenAIBatchConfig
 from mmirage.core.process.batch.adapter import BatchSubmissionResult
-from mmirage.core.process.batch.registry import BatchAdapterFactory, BatchAdapterRegistry
+from mmirage.core.process.batch.registry import (
+    BatchAdapterFactory,
+    BatchAdapterRegistry,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -91,7 +94,9 @@ def test_openai_build_request_converts_local_image_path_to_data_uri(tmp_path):
         ]
     }
 
-    request = adapter.build_request(custom_id="vision-1", payload=payload, config=config)
+    request = adapter.build_request(
+        custom_id="vision-1", payload=payload, config=config
+    )
 
     url = request["body"]["messages"][0]["content"][1]["image_url"]["url"]
     assert url.startswith("data:image/jpeg;base64,")
@@ -173,7 +178,9 @@ def test_openai_submit_chunk_uses_mocked_openai_client(monkeypatch):
         )
     ]
 
-    raw_result = adapter.submit_chunk(chunk_id="chunk-01", requests=requests, config=config)
+    raw_result = adapter.submit_chunk(
+        chunk_id="chunk-01", requests=requests, config=config
+    )
 
     assert captured["client_kwargs"]["api_key"] == "test-key"
     assert captured["batch_create_kwargs"] == {
@@ -380,7 +387,7 @@ def test_openai_retrieve_results_prefers_message_content(monkeypatch):
                 text = (
                     '{"custom_id":"c1","response":{"body":{"choices":['
                     '{"message":{"content":"{\\"question\\":\\"Q\\",\\"answer\\":\\"A\\"}"}}'
-                    ']}}}\n'
+                    "]}}}\n"
                 )
 
             return _ContentResp()
@@ -484,7 +491,9 @@ def test_openai_retrieve_results_raises_if_batch_not_completed(monkeypatch):
 
             class _Files:
                 def content(self, output_file_id):
-                    raise AssertionError("content() should not be called when batch is not completed")
+                    raise AssertionError(
+                        "content() should not be called when batch is not completed"
+                    )
 
             self.files = _Files()
 
@@ -525,7 +534,7 @@ def test_openai_retrieve_results_uses_error_file_when_output_missing(monkeypatch
 
                     class _ContentResp:
                         text = (
-                            '{"custom_id":"c1","response":{"body":{"error":{' 
+                            '{"custom_id":"c1","response":{"body":{"error":{'
                             '"message":"Unrecognized request argument supplied: expected_schema"}}}}\n'
                         )
 
@@ -547,7 +556,13 @@ def test_openai_retrieve_results_uses_error_file_when_output_missing(monkeypatch
     assert rows == [
         {
             "custom_id": "c1",
-            "response": {"body": {"error": {"message": "Unrecognized request argument supplied: expected_schema"}}},
+            "response": {
+                "body": {
+                    "error": {
+                        "message": "Unrecognized request argument supplied: expected_schema"
+                    }
+                }
+            },
             "status": "error",
             "error_message": "Unrecognized request argument supplied: expected_schema",
         }

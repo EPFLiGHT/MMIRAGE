@@ -1,8 +1,14 @@
 <h1 align="center">
 
-![image](https://raw.githubusercontent.com/EPFLiGHT/MMIRAGE/main/mmirage_logo_with_text.png)
+![image](https://raw.githubusercontent.com/LiGHTers-playground/MMIRAGE/main/mmirage_logo_with_text.png)
 
 </h1>
+
+<p align="center">
+  <a href="https://github.com/LiGHTers-playground/MMIRAGE/actions/workflows/ruff.yml"><img src="https://github.com/LiGHTers-playground/MMIRAGE/actions/workflows/ruff.yml/badge.svg" alt="Lint"></a>
+  <a href="https://github.com/LiGHTers-playground/MMIRAGE/actions/workflows/tests.yml"><img src="https://github.com/LiGHTers-playground/MMIRAGE/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
+</p>
 
 # MMIRAGE
 
@@ -191,7 +197,7 @@ MMIRAGE still keeps datasets separate by creating one subdirectory per dataset u
 Suppose you have a dataset with samples of the following format
 
 ```json
-{ 
+{
     "conversations" : [{"role": "user", "content": "Describe the image"}, {"role": "assistant", "content": "This is a badly formmatted answer"}],
     "modalities" : ["<the images>"]
 }
@@ -234,10 +240,10 @@ processing_params:
     - name: formatted_answer
       type: llm
       output_type: plain
-      prompt: | 
+      prompt: |
         Reformat the answer in a markdown format without adding anything else:
         {{ assistant_answer }}
-      
+
   remove_columns: false
   output_schema:
     conversations:
@@ -319,7 +325,7 @@ processing_params:
       prompt: |
         Describe the medical image in detail.
         Original caption for context: {{ original_caption }}
-        
+
   remove_columns: false
   output_schema:
     image: "{{ medical_image }}"
@@ -493,8 +499,9 @@ Download the dataset before running:
 
 ```python
 from datasets import load_dataset
-ds = load_dataset('simplescaling/s1K-1.1', split='train')
-ds.save_to_disk('data/s1K-1.1')
+
+ds = load_dataset("simplescaling/s1K-1.1", split="train")
+ds.save_to_disk("data/s1K-1.1")
 ```
 
 Then run with stats collection enabled:

@@ -108,7 +108,10 @@ def test_integration_batch_pipeline_with_stateful_accumulator(monkeypatch, tmp_p
     # 2) Map output is placeholder-based and does not wait for completion.
     answers = ds_out["answer"]
     assert len(answers) == len(dataset)
-    assert all(isinstance(v, str) and v.startswith("__BATCH_SUBMITTED__:answer:") for v in answers)
+    assert all(
+        isinstance(v, str) and v.startswith("__BATCH_SUBMITTED__:answer:")
+        for v in answers
+    )
 
     # 3) Metadata receipts are written and include both full_chunk and finalize flush reasons.
     metadata_text_matches = sorted(tmp_path.glob("batch_receipts.text.*.jsonl"))

@@ -1,12 +1,16 @@
 import json
 from types import SimpleNamespace
 
-import pytest
 from mmirage.config.openai_batch import OpenAIBatchConfig
 
 
-def test_collect_and_merge_reconstructs_rows_deterministically(tmp_path, monkeypatch, caplog):
-    from mmirage.core.process.batch.collector import _read_metadata_records, collect_and_merge
+def test_collect_and_merge_reconstructs_rows_deterministically(
+    tmp_path, monkeypatch, caplog
+):
+    from mmirage.core.process.batch.collector import (
+        _read_metadata_records,
+        collect_and_merge,
+    )
 
     metadata_path = tmp_path / "receipts.jsonl"
     metadata_path.write_text(
@@ -86,13 +90,19 @@ def test_collect_and_merge_reconstructs_rows_deterministically(tmp_path, monkeyp
     assert [r["conversations"][1]["content"] for r in rows] == ["a0", "a1", "a2"]
     assert fake_adapter.calls == [("batch_1", "openai"), ("batch_2", "openai")]
 
-    written = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines()]
+    written = [
+        json.loads(line)
+        for line in output_path.read_text(encoding="utf-8").splitlines()
+    ]
     assert [r["source_index"] for r in written] == [0, 1, 2]
     assert [r["conversations"][0]["content"] for r in written] == ["q0", "q1", "q2"]
 
 
 def test_collect_and_merge_raises_for_missing_provider_config(tmp_path):
-    from mmirage.core.process.batch.collector import _read_metadata_records, collect_and_merge
+    from mmirage.core.process.batch.collector import (
+        _read_metadata_records,
+        collect_and_merge,
+    )
 
     metadata_path = tmp_path / "receipts.jsonl"
     metadata_path.write_text(
@@ -119,8 +129,13 @@ def test_collect_and_merge_raises_for_missing_provider_config(tmp_path):
         assert "No provider config" in str(e)
 
 
-def test_collect_and_merge_outputs_caption_for_plain_text_content(tmp_path, monkeypatch):
-    from mmirage.core.process.batch.collector import _read_metadata_records, collect_and_merge
+def test_collect_and_merge_outputs_caption_for_plain_text_content(
+    tmp_path, monkeypatch
+):
+    from mmirage.core.process.batch.collector import (
+        _read_metadata_records,
+        collect_and_merge,
+    )
 
     metadata_path = tmp_path / "receipts.jsonl"
     metadata_path.write_text(
@@ -170,7 +185,10 @@ def test_collect_and_merge_outputs_caption_for_plain_text_content(tmp_path, monk
 def test_collect_and_merge_keeps_rows_with_duplicate_custom_ids_across_batches(
     tmp_path, monkeypatch
 ):
-    from mmirage.core.process.batch.collector import _read_metadata_records, collect_and_merge
+    from mmirage.core.process.batch.collector import (
+        _read_metadata_records,
+        collect_and_merge,
+    )
 
     metadata_path = tmp_path / "receipts.jsonl"
     metadata_path.write_text(
@@ -230,12 +248,18 @@ def test_collect_and_merge_keeps_rows_with_duplicate_custom_ids_across_batches(
     assert [row["custom_id"] for row in rows] == ["shared", "shared"]
     assert [row["caption"] for row in rows] == ["openai", "unit"]
 
-    written = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines()]
+    written = [
+        json.loads(line)
+        for line in output_path.read_text(encoding="utf-8").splitlines()
+    ]
     assert written == rows
 
 
 def test_collect_and_merge_uses_openai_adapter_generated_text(tmp_path, monkeypatch):
-    from mmirage.core.process.batch.collector import _read_metadata_records, collect_and_merge
+    from mmirage.core.process.batch.collector import (
+        _read_metadata_records,
+        collect_and_merge,
+    )
     from mmirage.core.process.batch.openai_adapter import OpenAIBatchAdapter
 
     metadata_path = tmp_path / "receipts.jsonl"
@@ -265,9 +289,7 @@ def test_collect_and_merge_uses_openai_adapter_generated_text(tmp_path, monkeypa
     class FakeFiles:
         def content(self, output_file_id):
             class _ContentResp:
-                text = (
-                    '{"custom_id":"o1","response":{"body":{"choices":[{"message":{"content":"{\\"question\\":\\"Q\\",\\"answer\\":\\"A\\"}"}}]}}}\n'
-                )
+                text = '{"custom_id":"o1","response":{"body":{"choices":[{"message":{"content":"{\\"question\\":\\"Q\\",\\"answer\\":\\"A\\"}"}}]}}}\n'
 
             return _ContentResp()
 
@@ -304,7 +326,10 @@ def test_collect_and_merge_uses_openai_adapter_generated_text(tmp_path, monkeypa
         }
     ]
 
-    written = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines()]
+    written = [
+        json.loads(line)
+        for line in output_path.read_text(encoding="utf-8").splitlines()
+    ]
     assert written == rows
 
 
@@ -327,7 +352,9 @@ def test_collector_main_uses_config_and_records(tmp_path, monkeypatch):
     config_path = tmp_path / "dummy.yaml"
     config_path.write_text("processors: []\n", encoding="utf-8")
 
-    cfg = SimpleNamespace(processors=[SimpleNamespace(provider_config={"provider": "openai"})])
+    cfg = SimpleNamespace(
+        processors=[SimpleNamespace(provider_config={"provider": "openai"})]
+    )
     captured = {}
 
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
@@ -424,7 +451,9 @@ def test_collector_main_uses_config_metadata_path_when_missing_cli_arg(
     assert captured["output_path"] == str(output_path)
 
 
-def test_collector_main_raises_when_config_metadata_paths_missing(tmp_path, monkeypatch, caplog):
+def test_collector_main_raises_when_config_metadata_paths_missing(
+    tmp_path, monkeypatch, caplog
+):
     from mmirage.core.process.batch import collector
 
     metadata_base = tmp_path / "batch_metadata.jsonl"
@@ -453,10 +482,15 @@ def test_collector_main_raises_when_config_metadata_paths_missing(tmp_path, monk
         ]
     )
     assert rc == 1
-    assert "No metadata receipts matched config metadata_output_path patterns" in caplog.text
+    assert (
+        "No metadata receipts matched config metadata_output_path patterns"
+        in caplog.text
+    )
 
 
-def test_collector_main_raises_when_metadata_provider_missing_in_config(tmp_path, monkeypatch, caplog):
+def test_collector_main_raises_when_metadata_provider_missing_in_config(
+    tmp_path, monkeypatch, caplog
+):
     from mmirage.core.process.batch import collector
 
     metadata_path = tmp_path / "receipts.jsonl"
@@ -476,7 +510,9 @@ def test_collector_main_raises_when_metadata_provider_missing_in_config(tmp_path
     config_path.write_text("processors: []\n", encoding="utf-8")
 
     # Config intentionally only defines openai, not mistral.
-    cfg = SimpleNamespace(processors=[SimpleNamespace(provider_config={"provider": "openai"})])
+    cfg = SimpleNamespace(
+        processors=[SimpleNamespace(provider_config={"provider": "openai"})]
+    )
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
 
     rc = collector.main(
@@ -494,7 +530,10 @@ def test_collector_main_raises_when_metadata_provider_missing_in_config(tmp_path
 
 
 def test_collect_and_merge_routes_multiple_providers(tmp_path, monkeypatch):
-    from mmirage.core.process.batch.collector import _read_metadata_records, collect_and_merge
+    from mmirage.core.process.batch.collector import (
+        _read_metadata_records,
+        collect_and_merge,
+    )
     from mmirage.core.process.batch.provider_resolution import resolve_provider_configs
 
     metadata_path = tmp_path / "receipts.jsonl"
@@ -523,9 +562,7 @@ def test_collect_and_merge_routes_multiple_providers(tmp_path, monkeypatch):
 
     cfg = SimpleNamespace(
         processors=[
-            SimpleNamespace(
-                provider_config={"provider": "openai"}
-            ),
+            SimpleNamespace(provider_config={"provider": "openai"}),
             SimpleNamespace(provider_config={"provider": "unit"}),
         ]
     )
@@ -572,7 +609,9 @@ def test_collect_and_merge_routes_multiple_providers(tmp_path, monkeypatch):
     assert ("batch_unit", "unit") in adapters["unit"].calls
 
 
-def test_collector_main_raises_for_invalid_batch_provider_config(tmp_path, monkeypatch, caplog):
+def test_collector_main_raises_for_invalid_batch_provider_config(
+    tmp_path, monkeypatch, caplog
+):
     from mmirage.core.process.batch import collector
 
     metadata_path = tmp_path / "receipts.jsonl"
@@ -593,7 +632,9 @@ def test_collector_main_raises_for_invalid_batch_provider_config(tmp_path, monke
 
     cfg = SimpleNamespace(
         processors=[
-            SimpleNamespace(provider_config={"provider": "openai", "batch_endpoint": "v1"})
+            SimpleNamespace(
+                provider_config={"provider": "openai", "batch_endpoint": "v1"}
+            )
         ]
     )
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
@@ -613,7 +654,10 @@ def test_collector_main_raises_for_invalid_batch_provider_config(tmp_path, monke
 
 
 def test_collect_and_merge_tiebreaker_secondary_sort_key(tmp_path, monkeypatch):
-    from mmirage.core.process.batch.collector import _read_metadata_records, collect_and_merge
+    from mmirage.core.process.batch.collector import (
+        _read_metadata_records,
+        collect_and_merge,
+    )
 
     metadata_path = tmp_path / "receipts.jsonl"
     metadata_path.write_text(
@@ -678,14 +722,14 @@ def test_build_output_payload_keeps_plain_text_silent(caplog):
 
     result_row = {
         "custom_id": "caption:multimodal:1",
-        "generated_text": "The image features a solid orange background with the text \"A Cat\" displayed in a bold font.",
+        "generated_text": 'The image features a solid orange background with the text "A Cat" displayed in a bold font.',
     }
 
     with caplog.at_level("WARNING"):
         output = _build_output_payload(result_row, custom_id="caption:multimodal:1")
 
     assert output == {
-        "caption": "The image features a solid orange background with the text \"A Cat\" displayed in a bold font."
+        "caption": 'The image features a solid orange background with the text "A Cat" displayed in a bold font.'
     }
     assert "Failed to parse JSON for result row" not in caplog.text
 

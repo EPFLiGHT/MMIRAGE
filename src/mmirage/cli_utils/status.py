@@ -9,10 +9,14 @@ import sys
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 
-from mmirage.config.config import MMirageConfig
 from mmirage.cli_utils.slurm import submit_slurm_job
-from mmirage.shard_utils import ShardStatus, format_duration, read_status, shard_state_dir
-
+from mmirage.config.config import MMirageConfig
+from mmirage.shard_utils import (
+    ShardStatus,
+    format_duration,
+    read_status,
+    shard_state_dir,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +55,9 @@ def get_shard_status(state_dir: str) -> Tuple[str, int]:
         with open(status_file, "r", encoding="utf-8") as handle:
             data = json.load(handle)
             if not isinstance(data, dict):
-                logger.warning("Invalid shard status format in %s; expected object", status_file)
+                logger.warning(
+                    "Invalid shard status format in %s; expected object", status_file
+                )
                 return ("unknown", 0)
     except (OSError, json.JSONDecodeError) as exc:
         logger.warning("Failed to read shard status from %s: %s", status_file, exc)
@@ -111,7 +117,9 @@ def confirm_retry(count: int, confirm_mode: Literal["prompt", "yes"]) -> bool:
         return True
 
     if not sys.stdin.isatty():
-        logger.error("Interactive confirmation requested but stdin is not a TTY; use --yes")
+        logger.error(
+            "Interactive confirmation requested but stdin is not a TTY; use --yes"
+        )
         return False
 
     response = input(f"Retry {count} shard(s)? (y/N) ")
@@ -144,7 +152,9 @@ def submit_failed_shards(
     if not confirm_retry(len(failed_shards), confirm_mode):
         return 1
 
-    job_id = submit_slurm_job(cfg, config_path, failed_shards, collect_stats=collect_stats)
+    job_id = submit_slurm_job(
+        cfg, config_path, failed_shards, collect_stats=collect_stats
+    )
     if job_id is None:
         return 1
 
@@ -227,8 +237,11 @@ def collect_bench_stats(cfg: MMirageConfig) -> Dict[str, Any]:
     if earliest_start and latest_finish:
         try:
             from datetime import datetime as _dt
+
             wall_clock = round(
-                (_dt.fromisoformat(latest_finish) - _dt.fromisoformat(earliest_start)).total_seconds(),
+                (
+                    _dt.fromisoformat(latest_finish) - _dt.fromisoformat(earliest_start)
+                ).total_seconds(),
                 3,
             )
         except (ValueError, TypeError):
@@ -248,13 +261,23 @@ def collect_bench_stats(cfg: MMirageConfig) -> Dict[str, Any]:
     agg_tokens_per_sec_per_gpu: Optional[float] = None
     agg_gpu_days_per_billion_tokens: Optional[float] = None
     agg_inference_runtime: Optional[float] = None
-    if has_token_data and total_output_tokens > 0 and runtimes and num_gpus and num_gpus > 0:
+    if (
+        has_token_data
+        and total_output_tokens > 0
+        and runtimes
+        and num_gpus
+        and num_gpus > 0
+    ):
         agg_inference_runtime = max(0.0, sum_runtime - sum_model_load_seconds)
         if agg_inference_runtime > 0:
             total_gpu_seconds = agg_inference_runtime * num_gpus
-            agg_tokens_per_sec_per_gpu = round(total_output_tokens / total_gpu_seconds, 2)
+            agg_tokens_per_sec_per_gpu = round(
+                total_output_tokens / total_gpu_seconds, 2
+            )
             total_gpu_days = total_gpu_seconds / 86_400
-            agg_gpu_days_per_billion_tokens = round(total_gpu_days / (total_output_tokens / 1e9), 4)
+            agg_gpu_days_per_billion_tokens = round(
+                total_gpu_days / (total_output_tokens / 1e9), 4
+            )
 
     aggregate: Dict[str, Any] = {
         "total_shards": num_shards,
@@ -263,22 +286,31 @@ def collect_bench_stats(cfg: MMirageConfig) -> Dict[str, Any]:
         "wall_clock_runtime_seconds": wall_clock,
         "wall_clock_runtime_human": format_duration(wall_clock),
         "sum_shard_runtime_seconds": round(sum_runtime, 3) if runtimes else None,
-        "sum_shard_runtime_human": format_duration(round(sum_runtime, 3) if runtimes else None),
+        "sum_shard_runtime_human": format_duration(
+            round(sum_runtime, 3) if runtimes else None
+        ),
         "min_shard_runtime_seconds": round(min(runtimes), 3) if runtimes else None,
-        "min_shard_runtime_human": format_duration(round(min(runtimes), 3) if runtimes else None),
+        "min_shard_runtime_human": format_duration(
+            round(min(runtimes), 3) if runtimes else None
+        ),
         "max_shard_runtime_seconds": round(max(runtimes), 3) if runtimes else None,
-        "max_shard_runtime_human": format_duration(round(max(runtimes), 3) if runtimes else None),
+        "max_shard_runtime_human": format_duration(
+            round(max(runtimes), 3) if runtimes else None
+        ),
         "overall_throughput_rows_per_sec": overall_throughput,
         "mean_gpu_util_pct": mean_gpu_util,
         # Token-level benchmark metrics (DataTrove-compatible).
         "num_gpus": num_gpus,
         "total_input_tokens": total_input_tokens if has_token_data else None,
         "total_output_tokens": total_output_tokens if has_token_data else None,
-        "sum_model_load_seconds": round(sum_model_load_seconds, 3) if sum_model_load_seconds > 0 else None,
-        "sum_inference_runtime_seconds": round(agg_inference_runtime, 3) if agg_inference_runtime is not None else None,
+        "sum_model_load_seconds": round(sum_model_load_seconds, 3)
+        if sum_model_load_seconds > 0
+        else None,
+        "sum_inference_runtime_seconds": round(agg_inference_runtime, 3)
+        if agg_inference_runtime is not None
+        else None,
         "tokens_per_sec_per_gpu": agg_tokens_per_sec_per_gpu,
         "gpu_days_per_billion_tokens": agg_gpu_days_per_billion_tokens,
     }
 
     return {"per_shard": per_shard, "aggregate": aggregate}
-

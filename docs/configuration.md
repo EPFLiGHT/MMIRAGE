@@ -168,8 +168,11 @@ processing_params:
       prompt: |
         Do something with {{ my_var }}
       output_schema:                # Only for output_type: JSON
-        - field_a
-        - field_b
+        field_a: str                # field: type
+        field_b:                    # type plus optional numeric bounds
+          type: int
+          min: 0
+          max: 3
 
   remove_columns: false
   output_schema:
@@ -192,7 +195,57 @@ processing_params:
 | `type` | `str` | — | Processor type — must match a registered processor (`llm`) |
 | `output_type` | `str` | `plain` | `"plain"` (raw text) or `"JSON"` (structured object) |
 | `prompt` | `str` | — | Jinja2 template for the LLM prompt |
-| `output_schema` | `list[str]` | `[]` | Required field names when `output_type: JSON` |
+| `output_schema` | `list[str]` or `dict` | `[]` | Fields the model must produce when `output_type: JSON` (see below) |
+
+### `processing_params.outputs[*].output_schema`
+
+Declares the fields of a structured JSON output. Required when `output_type: JSON`,
+ignored otherwise. In local/SGLang mode the schema is compiled into a Pydantic
+model and handed to the engine as a JSON schema, so the model is constrained
+*at decode time* to emit exactly these fields with these types. In batch mode
+(OpenAI Batch API) only the field names are used: every field is requested as a
+string, and type or `min`/`max` constraints are not enforced.
+
+Three forms are accepted, and the two mapping forms may be mixed freely:
+
+```yaml
+output_schema:                 # list form — every field typed as str
+  - summary
+  - verdict
+
+output_schema:
+  summary: str                 # shorthand mapping — field: type
+  score: int
+
+output_schema:
+  score:                       # nested mapping — type plus optional bounds
+    type: int
+    min: 0
+    max: 3
+  summary: str                 # mixed with the shorthand form
+```
+
+**Nested field keys:**
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `type` | `str` | ✓ | `str`/`string`, `int`/`integer`, `float`/`number`, or `bool`/`boolean` |
+| `min` | `int`, `float`, or numeric `str` | — | Inclusive lower bound. Numeric types only |
+| `max` | `int`, `float`, or numeric `str` | — | Inclusive upper bound. Numeric types only |
+
+Bounds become JSON-schema `minimum`/`maximum`, which the grammar backend enforces
+while decoding, and are re-checked after parsing (see [Pipeline](pipeline.md)).
+Either bound may be given on its own.
+
+The schema is validated when the config loads. A `ValueError` is raised for an
+unknown key, a missing or unsupported `type`, `min`/`max` on a non-numeric field,
+a non-numeric bound, a fractional bound on an `int` field, or `min` greater than
+`max`.
+
+Bounds given as strings are accepted when they look like a number (matching
+`-?\d+(\.\d+)?`) and coerced to the field's numeric type. Because `${ENV_VAR}`
+expansion always produces a string, this is what keeps `min: ${MIN_SCORE}`
+working; a string that is not numeric is still rejected.
 
 ### `processing_params.output_schema`
 
