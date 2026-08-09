@@ -13,8 +13,10 @@ then follow [Quickstart](quickstart.md) for a minimal working example.
 
 ## `processors`
 
-A list of processor definitions. Generation is available as two processors: `llm` runs a
-local SGLang server, `batch_api` submits the same requests to an API provider.
+A list of processor definitions. Generation is available as three processors:
+- **`llm`** — runs a local SGLang server.
+- **`image_gen`** — runs a local Diffusers pipeline for text-to-image generation.
+- **`batch_api`** — submits the same requests to an API provider.
 
 ### `llm` — Local execution
 
