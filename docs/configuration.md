@@ -13,7 +13,10 @@ then follow [Quickstart](quickstart.md) for a minimal working example.
 
 ## `processors`
 
-A list of processor definitions. Currently the only supported type is `llm`.
+A list of processor definitions. MMIRAGE supports `llm` for text and
+vision-language inference and `image_gen` for image generation. The fields below
+describe `llm`; see [Image Generation](image_generation.md) for the complete
+`image_gen` processor and output reference.
 
 ```yaml
 processors:
