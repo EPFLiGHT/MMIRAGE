@@ -13,8 +13,6 @@ then follow [Quickstart](quickstart.md) for a minimal working example.
 
 ## `processors`
 
-
-
 A list of processor definitions. Generation is available as two processors: `llm` runs a
 local SGLang server, `batch_api` submits the same requests to an API provider.
 
