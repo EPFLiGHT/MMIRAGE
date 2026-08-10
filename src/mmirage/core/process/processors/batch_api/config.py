@@ -5,7 +5,9 @@ from typing import Any, Dict, Optional
 
 from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry
-from mmirage.core.process.batch.provider_resolution import resolve_single_provider_config
+from mmirage.core.process.batch.provider_resolution import (
+    resolve_single_provider_config,
+)
 from mmirage.core.process.processors.llm.config import LLMOutputVar
 
 
@@ -31,16 +33,9 @@ class BatchApiProcessorConfig(BaseProcessorConfig):
     def from_raw(cls, data: Dict[str, Any]) -> "BatchApiProcessorConfig":
         """Build the config from a raw YAML block, dispatching on ``provider``."""
         block = {key: value for key, value in data.items() if key != "type"}
-        return cls(type=data["type"], provider_config=resolve_single_provider_config(block))
+        return cls(
+            type=data["type"], provider_config=resolve_single_provider_config(block)
+        )
 
 
-@dataclass
-class BatchApiOutputVar(LLMOutputVar):
-    """LLM output variable submitted to a provider batch API.
-
-    Values are placeholders (``__BATCH_SUBMITTED__:<custom_id>``) until the
-    receiver utilities collect the provider results.
-    """
-
-
-ProcessorRegistry.register_types("batch_api", BatchApiProcessorConfig, BatchApiOutputVar)
+ProcessorRegistry.register_types("batch_api", BatchApiProcessorConfig, LLMOutputVar)

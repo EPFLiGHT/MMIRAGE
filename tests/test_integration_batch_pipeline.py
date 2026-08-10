@@ -1,14 +1,14 @@
 import json
 from pathlib import Path
 
+import pytest
 from datasets import load_dataset
 
 from mmirage.config.openai_batch import OpenAIBatchConfig
+from mmirage.core.process.base import ProcessorRegistry
 from mmirage.core.process.mapper import MMIRAGEMapper
-from mmirage.core.process.processors.batch_api.config import (
-    BatchApiOutputVar,
-    BatchApiProcessorConfig,
-)
+from mmirage.core.process.processors.batch_api.config import BatchApiProcessorConfig
+from mmirage.core.process.processors.llm.config import LLMOutputVar
 from mmirage.core.process.variables import InputVar
 from mmirage.core.writer.renderer import TemplateRenderer
 
@@ -73,7 +73,7 @@ def test_integration_batch_pipeline_with_stateful_accumulator(monkeypatch, tmp_p
         processor_configs=[batch_cfg],
         input_vars=[InputVar(name="text", key="text")],
         output_vars=[
-            BatchApiOutputVar(
+            LLMOutputVar(
                 name="answer",
                 type="batch_api",
                 prompt="{{ text }}",
@@ -131,3 +131,25 @@ def test_integration_batch_pipeline_with_stateful_accumulator(monkeypatch, tmp_p
 
     assert all(record["provider"] == "openai" for record in records)
     assert all("custom_id_to_source_index" in record for record in records)
+
+
+def test_batch_api_rejects_typed_output_schema(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    config = BatchApiProcessorConfig(
+        type="batch_api",
+        provider_config=OpenAIBatchConfig(
+            metadata_output_path=str(tmp_path / "receipts.jsonl")
+        ),
+    )
+    processor = ProcessorRegistry.get_processor("batch_api")(config)
+    output_var = LLMOutputVar(
+        name="rating",
+        type="batch_api",
+        output_type="JSON",
+        output_schema={"score": {"type": "int", "min": 1, "max": 5}},
+        prompt="{{ text }}",
+    )
+
+    with pytest.raises(ValueError, match="does not support typed output_schema"):
+        processor.batch_process_sample([], output_var)

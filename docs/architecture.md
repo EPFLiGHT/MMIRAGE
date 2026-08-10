@@ -89,7 +89,7 @@ src/mmirage/
     │   │   │   ├── config.py         SGLangLLMConfig, SGLangServerArgs, LLMOutputVar
     │   │   │   └── llm_processor.py  LLMProcessor — SGLang engine wrapper
     │   │   └── batch_api/
-    │   │       ├── config.py              BatchApiProcessorConfig, BatchApiOutputVar
+    │   │       ├── config.py              BatchApiProcessorConfig
     │   │       └── batch_api_processor.py BatchApiProcessor — provider batch submission
     │   └── batch/           Async/batch inference subsystem
     │       ├── orchestrator.py       End-to-end batch pipeline
