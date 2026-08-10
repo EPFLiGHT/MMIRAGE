@@ -1,5 +1,5 @@
 processors:
-  - type: "custom"
+  - type: custom
     script_path: "./tests/mock_script/mock_script.py"
     function_name: "process_text"
     max_workers: 4
@@ -13,7 +13,7 @@ loading_params:
   batch_size: 500
   datasets:
     - type: JSONL
-      path: tests/mock_data/data.jsonl
+      path: "./tests/mock_data/data.jsonl"
       output_dir: "./tests/output/data_mock_custom_feature"
 
 execution_params:
