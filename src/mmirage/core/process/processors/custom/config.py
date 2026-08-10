@@ -1,7 +1,7 @@
 """Configuration for the custom processor."""
 
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any, Literal, Sequence
 
 from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry
 from mmirage.core.process.variables import BaseVar, OutputVar
@@ -11,7 +11,7 @@ from mmirage.core.process.variables import BaseVar, OutputVar
 class CustomProcessorConfig(BaseProcessorConfig):
     """Configuration for executing a user-provided Python function."""
 
-    type: str = "custom"
+    type: Literal["custom"] = "custom"
     script_path: str = ""
     function_name: str = ""
     max_workers: int = 1
@@ -21,11 +21,6 @@ class CustomProcessorConfig(BaseProcessorConfig):
     fallback_value: Any = None
 
     def __post_init__(self) -> None:
-        if not self.type.strip():
-            self.type = "custom"
-        else:
-            self.type = self.type.strip().lower()
-
         self.script_path = self.script_path.strip()
         self.function_name = self.function_name.strip()
 

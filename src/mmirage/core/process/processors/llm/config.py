@@ -5,7 +5,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field, fields
-from typing import Annotated, Any, ClassVar, Dict, Optional, Sequence, Type
+from typing import Annotated, Any, ClassVar, Dict, Literal, Optional, Sequence, Type
 
 from jinja2 import Environment, meta
 from pydantic import BaseModel, create_model
@@ -92,6 +92,7 @@ class SGLangLLMConfig(BaseProcessorConfig):
         batch_provider: Optional provider batch settings for async submission.
     """
 
+    type: Literal["llm"] = "llm"
     server_args: SGLangServerArgs = field(default_factory=SGLangServerArgs)
     default_sampling_params: Dict[str, Any] = field(default_factory=dict)
     chat_template: str = ""  # Empty means use tokenizer's default
