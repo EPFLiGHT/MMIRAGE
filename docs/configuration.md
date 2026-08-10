@@ -18,7 +18,9 @@ A list of processor definitions. Generation is available as three processors:
 - **`image_gen`** — runs a local Diffusers pipeline for text-to-image generation.
 - **`batch_api`** — submits the same requests to an API provider.
 
-### `llm` — Local execution
+vision-language inference and `image_gen` for image generation. The fields below
+describe `llm` and `batch_api`; see [Image Generation](image_generation.md) for the complete
+`image_gen` processor and output reference.
 
 ```yaml
 processors:
