@@ -8,6 +8,7 @@ from dataclasses import replace
 from typing import Any, Dict, List, Tuple
 
 import jinja2
+from PIL import Image
 
 from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCounts
 from mmirage.core.process.batch.orchestrator import BatchSubmissionOrchestrator
@@ -103,24 +104,16 @@ class BatchApiProcessor(BaseProcessor[LLMOutputVar]):
 
     def build_multimodal_prompt(
         self, prompt_template: str, var_env: VariableEnvironment
-    ) -> Tuple[str, Any]:
+    ) -> Tuple[str, List[Image.Image | str]]:
         """Build a prompt and extract its images.
 
         Returns:
-            (formatted_prompt, image_data_element)
+            (formatted_prompt, images)
         """
         jinja_template = jinja2.Template(prompt_template)
         base_prompt = jinja_template.render(**var_env.to_dict())
 
-        imgs = var_env.get_images()
-        if not imgs:
-            image_data_elem: Any = None
-        elif len(imgs) == 1:
-            image_data_elem = imgs[0]
-        else:
-            image_data_elem = imgs
-
-        return base_prompt, image_data_elem
+        return base_prompt, var_env.get_images()
 
     @override
     def batch_process_sample(
@@ -197,23 +190,18 @@ class BatchApiProcessor(BaseProcessor[LLMOutputVar]):
             requests = []
             source_indices = []
             for global_i in multimodal_indices:
-                base_prompt, image_data = self.build_multimodal_prompt(
+                base_prompt, images = self.build_multimodal_prompt(
                     output_var.prompt, batch[global_i]
                 )
                 content: List[Dict[str, Any]] = [{"type": "text", "text": base_prompt}]
 
-                if image_data is not None:
-                    if isinstance(image_data, list):
-                        images = image_data
-                    else:
-                        images = [image_data]
-                    for image_ref in images:
-                        content.append(
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": str(image_ref)},
-                            }
-                        )
+                for image_ref in images:
+                    content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": str(image_ref)},
+                        }
+                    )
 
                 payload = {
                     "messages": [
