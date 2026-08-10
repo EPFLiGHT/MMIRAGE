@@ -210,6 +210,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
                 generated_text = self._extract_generated_text(row)
                 if generated_text:
                     row["generated_text"] = generated_text
+            row.update(self._extract_usage(row))
             rows.append(row)
 
         return rows
@@ -278,6 +279,18 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
             pass
 
         return ""
+
+    @staticmethod
+    def _extract_usage(row: Dict[str, Any]) -> Dict[str, int]:
+        # Return an empty mapping when the provider reports no usage, e.g. on failed rows
+        try:
+            usage = row["response"]["body"]["usage"]
+            return {
+                "input_tokens": int(usage["prompt_tokens"]),
+                "output_tokens": int(usage["completion_tokens"]),
+            }
+        except (KeyError, TypeError, ValueError):
+            return {}
 
     @staticmethod
     def _extract_error_message(row: Dict[str, Any]) -> str:

@@ -369,6 +369,52 @@ def test_openai_retrieve_results_downloads_and_parses_jsonl(monkeypatch):
     assert rows[1]["generated_text"] == "B"
 
 
+def test_openai_retrieve_results_normalizes_usage(monkeypatch):
+    from mmirage.core.process.batch.openai_adapter import OpenAIBatchAdapter
+
+    class FakeBatches:
+        def retrieve(self, provider_batch_id):
+            class _RetrieveResp:
+                id = provider_batch_id
+                status = "completed"
+                output_file_id = "file_output_1"
+
+            return _RetrieveResp()
+
+    class FakeFiles:
+        def content(self, output_file_id):
+            class _ContentResp:
+                text = (
+                    '{"custom_id":"c1","response":{"body":{"text":"A","usage":'
+                    '{"prompt_tokens":67,"completion_tokens":22,"total_tokens":89}}}}\n'
+                    '{"custom_id":"c2","response":{"body":{"text":"B"}}}\n'
+                )
+
+            return _ContentResp()
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.batches = FakeBatches()
+            self.files = FakeFiles()
+
+    monkeypatch.setattr(
+        "mmirage.core.process.batch.openai_adapter.OpenAI",
+        FakeClient,
+    )
+
+    adapter = OpenAIBatchAdapter()
+
+    rows = adapter.retrieve_results(
+        provider_batch_id="batch_usage", config=OpenAIBatchConfig()
+    )
+
+    assert rows[0]["input_tokens"] == 67
+    assert rows[0]["output_tokens"] == 22
+    # Rows without provider usage keep the keys absent rather than reporting zero.
+    assert "input_tokens" not in rows[1]
+    assert "output_tokens" not in rows[1]
+
+
 def test_openai_retrieve_results_prefers_message_content(monkeypatch):
     from mmirage.core.process.batch.openai_adapter import OpenAIBatchAdapter
 

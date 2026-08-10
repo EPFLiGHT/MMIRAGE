@@ -94,7 +94,11 @@ class BatchApiProcessor(BaseProcessor[LLMOutputVar]):
         return 0.0
 
     def get_token_counts(self) -> TokenCounts:
-        """Return zero counts: tokens are only known once results are collected."""
+        """Return zero counts: no generation happens at submission time.
+
+        Provider usage is reported with the batch results, so it is read by the
+        receiver (``mmirage.core.process.batch.collector``) instead.
+        """
         return TokenCounts(input_tokens=0, output_tokens=0)
 
     def build_multimodal_prompt(

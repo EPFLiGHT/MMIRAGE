@@ -98,6 +98,55 @@ def test_collect_and_merge_reconstructs_rows_deterministically(
     assert [r["conversations"][0]["content"] for r in written] == ["q0", "q1", "q2"]
 
 
+def test_collect_and_merge_carries_provider_usage(tmp_path, monkeypatch):
+    from mmirage.core.process.batch.collector import (
+        _read_metadata_records,
+        collect_and_merge,
+    )
+
+    metadata_path = tmp_path / "receipts.jsonl"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "provider": "openai",
+                "provider_batch_id": "batch_1",
+                "custom_id_to_source_index": {"c1": 0, "c2": 1},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class FakeAdapter:
+        def retrieve_results(self, provider_batch_id, config):
+            return [
+                {
+                    "custom_id": "c1",
+                    "generated_text": "first",
+                    "input_tokens": 67,
+                    "output_tokens": 22,
+                },
+                {"custom_id": "c2", "generated_text": "second"},
+            ]
+
+    monkeypatch.setattr(
+        "mmirage.core.process.batch.collector.BatchAdapterFactory.from_config",
+        lambda config: FakeAdapter(),
+    )
+
+    output_path = tmp_path / "merged.jsonl"
+    rows = collect_and_merge(
+        records=_read_metadata_records(str(metadata_path)),
+        provider_configs={"openai": OpenAIBatchConfig()},
+        output_path=str(output_path),
+    )
+
+    assert rows[0]["input_tokens"] == 67
+    assert rows[0]["output_tokens"] == 22
+    # Adapters that report no usage leave the merged row without the keys.
+    assert "input_tokens" not in rows[1]
+    assert "output_tokens" not in rows[1]
+
+
 def test_collect_and_merge_raises_for_missing_provider_config(tmp_path):
     from mmirage.core.process.batch.collector import (
         _read_metadata_records,

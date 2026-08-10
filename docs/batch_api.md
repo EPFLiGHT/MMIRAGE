@@ -143,6 +143,8 @@ python -m mmirage.core.process.batch.collector \
   --output-path /path/to/final_merged_output.jsonl
 ```
 
+The collector prints the run totals, and each merged row carries `input_tokens` and `output_tokens` when the provider reports usage. Token counts are unknown at submission time, so they never appear in the [benchmark report](benchmarking.md).
+
 ---
 
 ## Provider-Agnostic Architecture & Custom Providers
@@ -246,6 +248,8 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         # Downloads/retrieves completed outputs and normalizes each row.
         # Ensure text generations are mapped to the "generated_text" key so
         # the collector can reconstruct the original dataset rows neutrally.
+        # Expose any reported usage as "input_tokens" and "output_tokens",
+        # omitting both keys when the provider reports none.
         ...
 ```
 

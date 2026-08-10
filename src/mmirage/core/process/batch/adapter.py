@@ -138,6 +138,8 @@ class BatchSubmissionAdapter(abc.ABC):
         Implementations should normalize each returned row into a plain mapping
         and, when a text payload is available, expose it as ``generated_text``
         so downstream collectors can consume a provider-agnostic result shape.
+        Reported usage should likewise be exposed as ``input_tokens`` and
+        ``output_tokens``, omitted when the provider reports none.
 
         Args:
             provider_batch_id: Provider-side batch/job identifier.

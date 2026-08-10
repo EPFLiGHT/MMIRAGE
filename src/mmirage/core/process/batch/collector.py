@@ -102,10 +102,16 @@ def collect_and_merge(
             if not custom_id or custom_id not in mapping:
                 continue
             row_payload = _build_output_payload(result_row, custom_id=custom_id)
+            usage = {
+                key: result_row[key]
+                for key in ("input_tokens", "output_tokens")
+                if key in result_row
+            }
             indexed_rows[(pair[0], pair[1], custom_id)] = {
                 "source_index": int(mapping[custom_id]),
                 "custom_id": custom_id,
                 **row_payload,
+                **usage,
             }
 
     # Sort primarily by source_index and secondarily by custom_id to ensure
@@ -244,6 +250,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         rows = collect_and_merge(records, provider_configs, args.output_path)
         print(f"Merged {len(rows)} rows and saved to {args.output_path}")
+
+        input_tokens = sum(row.get("input_tokens", 0) for row in rows)
+        output_tokens = sum(row.get("output_tokens", 0) for row in rows)
+        if input_tokens or output_tokens:
+            print(
+                f"Provider usage: {input_tokens} input tokens, "
+                f"{output_tokens} output tokens"
+            )
     except ValueError as exc:
         logger.error(str(exc))
         return 1
