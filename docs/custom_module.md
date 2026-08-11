@@ -87,7 +87,7 @@ execution_params:
   merge: true                          # Automatically merge .arrow
 
 processors:
-  - type: "custom"
+  - type: custom
     script_path: "./my_custom_logic.py"  # Path to your python file
     function_name: "extract_address"    # Target function to execute inside the file
     max_workers: 4                       # Number of isolated worker processes running at the same time
