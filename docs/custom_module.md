@@ -101,7 +101,7 @@ loading_params:
   num_shards: 1
   batch_size: 500
   datasets:
-    - type: "jsonl"
+    - type: JSONL
       path: "./data/input_data.jsonl"
       output_dir: "./output_data"
 
