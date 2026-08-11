@@ -168,6 +168,21 @@ def test_custom_processor_fallback_injection(base_config, mock_pebble_pool):
     assert processor._is_broken is False
 
 
+def test_start_method_defaults_to_spawn(base_config):
+    """Verify the pool context defaults to 'spawn' and follows the config otherwise."""
+    assert base_config.start_method == "spawn"
+
+    with patch(
+        "mmirage.core.process.processors.custom.custom_processor.multiprocessing.get_context"
+    ) as mock_get_context:
+        CustomProcessor(base_config)
+        mock_get_context.assert_called_once_with("spawn")
+
+        base_config.start_method = "fork"
+        CustomProcessor(base_config)
+        assert mock_get_context.call_args.args == ("fork",)
+
+
 def test_unset_timeout_schedules_untimed(base_config, mock_pebble_pool):
     """Verify that leaving timeout_ms unset schedules rows without any timeout."""
     base_config.timeout_ms = None

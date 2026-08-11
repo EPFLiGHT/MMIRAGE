@@ -19,6 +19,7 @@ class CustomProcessorConfig(BaseProcessorConfig):
     max_timeouts: int = 1
     max_errors: int = 1
     fallback_value: Any = None
+    start_method: Literal["spawn", "fork", "forkserver"] = "spawn"
 
     def __post_init__(self) -> None:
         self.script_path = self.script_path.strip()

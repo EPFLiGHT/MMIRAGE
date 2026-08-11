@@ -4,7 +4,7 @@ The **Custom Processor** allows you to inject arbitrary, user-defined Python log
 
 ## Key Architectural Features
 
-* **Memory Isolated:** Worker pools are initialized using a strict `"spawn"` multiprocessing context. Your custom logic runs in separate processes, so a memory leak, a segfault or a fatal crash inside your script cannot corrupt MMIRAGE's main process.
+* **Memory Isolated:** Worker pools are initialized using a `"spawn"` multiprocessing context by default (see `start_method`). Your custom logic runs in separate processes, so a memory leak, a segfault or a fatal crash inside your script cannot corrupt MMIRAGE's main process.
 * **Concurrency:** Inside one shard, many workers can work at the same time, independently.
 * **Strict Order Preservation:** The processor guarantees that the output of each row is written at their original position into the batch.
 * **Fault Tolerance:**
@@ -51,7 +51,7 @@ Return plain data only — strings, numbers, lists, dicts, None. Returning a fun
 
 #### Beware of module-level code
 
-Because the pool uses `"spawn"`, your script is imported **once per worker process**, not once per run. Anything at module scope — compiling regex patterns, reading a lookup file — runs `max_workers` times, at pool startup:
+Your script is imported **once per worker process**, not once per run. Anything at module scope — compiling regex patterns, reading a lookup file — runs `max_workers` times at pool startup, and once more each time a worker is replaced after a timeout:
 
 ```python
 import json, re
@@ -139,5 +139,16 @@ See the [CLI Reference](cli.md) for the full set of flags.
 | `max_timeouts` | `int` | `1` | Number of `TimeoutError` occurrences allowed before the circuit breaker trips and fails the shard. Counted cumulatively over the whole shard, the counter is never reset between batches. Inert when `timeout_ms` is unset. |
 | `max_errors` | `int` | `1` | Number of standard `Exceptions` allowed before the circuit breaker trips. Cumulative over the shard, same as `max_timeouts`. |
 | `fallback_value` | `Any` | `None` | The default value safely written to the output variable if the script soft-fails. Should have the same type as a normal return value. |
+| `start_method` | `str` | `"spawn"` | How worker processes are created: `spawn`, `fork` or `forkserver`. See below. |
 
 > **Tip:** The two counters are cumulative and never reset, so on a large shard a tolerant `max_errors: 3` will eventually trip on any script that fails even occasionally. Size them against the total number of rows in a shard, not against a batch — and keep them low deliberately if you would rather fail fast than produce a file silently full of `fallback_value`.
+
+### Choosing a `start_method`
+
+This only affects how long it takes to create a worker: rows are processed at the same speed under all three. Workers are created at pool startup, and a new one replaces any worker killed by a timeout or a fatal crash, so a script that times out pays this cost again — up to `max_timeouts` times before the shard fails.
+
+* **`spawn` (default):** each worker is a fresh interpreter that re-imports `mmirage` and your script and inherits nothing from the shard process. Slowest to start, correct in every pipeline.
+* **`fork`:** copies the shard process, so the pool starts much faster. But it copies memory without threads, and a lock held by one of those threads at fork time stays locked forever in the worker — the worker hangs, and you see timeouts instead of the real cause. Only safe when `custom` is the first entry of `processors:`; after `llm` or `image_gen` the shard process is already multi-threaded.
+* **`forkserver`:** forks from a clean server process, avoiding the inherited locks. That server is started fresh for the single pool a shard creates, so it costs about as much as `spawn` without the safety of it.
+
+Keep `spawn` unless shard startup is measurably a problem, which happens only with many very short shards.

@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 class CustomProcessor(BaseProcessor[CustomOutputVar]):
     """Processor that runs user-provided Python scripts in a persistent, isolated process pool.
 
-    Ensures safe execution by using a 'spawn' context and implements strict circuit breaking
-    for misbehaving scripts.
+    Workers are started with the configured ``start_method`` ('spawn' by default, which
+    isolates them from the parent's state) and misbehaving scripts trip a circuit breaker.
 
     Failure counters are cumulative over the whole shard and are never reset between
     batches; once either threshold is crossed the pool is stopped and every later batch
@@ -58,18 +58,24 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
                 f"CustomProcessor failed to boot: script_path '{self.config.script_path}' does not exist."
             )
 
+        if self.config.start_method == "fork":
+            logger.warning(
+                "start_method='fork' copies this process, which already holds whatever earlier "
+                "processors left behind. Threads are not copied, so any lock they held at fork "
+                "time stays locked forever in the workers. Safe only if 'custom' is the first "
+                "processor of the pipeline."
+            )
+
         self._pool = ProcessPool(
             max_workers=self.config.max_workers,
-            context=multiprocessing.get_context(
-                "spawn"
-            ),  # use 'spawn' context for safe and memory-efficient execution (but slower than 'fork')
+            context=multiprocessing.get_context(self.config.start_method),
             initializer=initialize_worker,
             initargs=(self.config.script_path, self.config.function_name),
         )
 
         self._load_time = time.time() - start_time
         logger.info(
-            f"Initialized CustomProcessor pool with {self.config.max_workers} workers "
+            f"Initialized CustomProcessor pool with {self.config.max_workers} '{self.config.start_method}' workers "
             f"(target: {self.config.function_name} in {self.config.script_path})"
         )
 
