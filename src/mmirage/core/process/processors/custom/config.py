@@ -1,7 +1,7 @@
 """Configuration for the custom processor."""
 
 from dataclasses import dataclass
-from typing import Any, Literal, Sequence
+from typing import Any, Literal, Optional, Sequence
 
 from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry
 from mmirage.core.process.variables import BaseVar, OutputVar
@@ -15,7 +15,7 @@ class CustomProcessorConfig(BaseProcessorConfig):
     script_path: str = ""
     function_name: str = ""
     max_workers: int = 1
-    timeout_ms: int = 1000
+    timeout_ms: Optional[int] = None
     max_timeouts: int = 1
     max_errors: int = 1
     fallback_value: Any = None
@@ -30,8 +30,8 @@ class CustomProcessorConfig(BaseProcessorConfig):
             raise ValueError("function_name must be a non-empty string")
         if self.max_workers < 1:
             raise ValueError("max_workers must be >= 1")
-        if self.timeout_ms < 1:
-            raise ValueError("timeout_ms must be >= 1")
+        if self.timeout_ms is not None and self.timeout_ms < 1:
+            raise ValueError("timeout_ms must be >= 1, or unset to disable the timeout")
         if self.max_timeouts < 1:
             raise ValueError("max_timeouts must be >= 1")
         if self.max_errors < 1:

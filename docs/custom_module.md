@@ -135,8 +135,8 @@ See the [CLI Reference](cli.md) for the full set of flags.
 | `script_path` | `str` | *None* | **Required.** Path to your `.py` file. Relative paths are resolved against the working directory of the run, not against the config file. |
 | `function_name` | `str` | *None* | **Required.** The exact name of the callable function inside your script. |
 | `max_workers` | `int` | `1` | Number of concurrent processes spawned. Scale this based on CPU availability. |
-| `timeout_ms` | `int` | `1000` | Maximum time (in milliseconds) a single row is allowed to process before soft-failing. |
-| `max_timeouts` | `int` | `1` | Number of `TimeoutError` occurrences allowed before the circuit breaker trips and fails the shard. Counted cumulatively over the whole shard, the counter is never reset between batches. |
+| `timeout_ms` | `int` | *None* | Maximum time (in milliseconds) a single row is allowed to process before soft-failing. Left unset, rows run untimed and a hanging script stalls the shard indefinitely. |
+| `max_timeouts` | `int` | `1` | Number of `TimeoutError` occurrences allowed before the circuit breaker trips and fails the shard. Counted cumulatively over the whole shard, the counter is never reset between batches. Inert when `timeout_ms` is unset. |
 | `max_errors` | `int` | `1` | Number of standard `Exceptions` allowed before the circuit breaker trips. Cumulative over the shard, same as `max_timeouts`. |
 | `fallback_value` | `Any` | `None` | The default value safely written to the output variable if the script soft-fails. Should have the same type as a normal return value. |
 

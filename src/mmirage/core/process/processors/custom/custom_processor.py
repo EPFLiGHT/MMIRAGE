@@ -84,7 +84,12 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
 
         row_dicts = [dict(env.to_dict()) for env in batch]
 
-        timeout_seconds = self.config.timeout_ms / 1000.0
+        # None disables the per-row timeout
+        timeout_seconds = (
+            self.config.timeout_ms / 1000.0
+            if self.config.timeout_ms is not None
+            else None
+        )
         future_to_index = {}
         for index, row_dict in enumerate(row_dicts):
             future = self._pool.schedule(
