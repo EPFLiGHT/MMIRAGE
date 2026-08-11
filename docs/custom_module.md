@@ -91,6 +91,7 @@ processors:
     script_path: "./my_custom_logic.py"  # Path to your python file
     function_name: "extract_address"    # Target function to execute inside the file
     max_workers: 4                       # Number of isolated worker processes running at the same time
+    start_method: "spawn"                # How to start worker processes: spawn, fork, or forkserver
     timeout_ms: 2000                     # Max execution time (in millisecond) per row
     max_timeouts: 5                      # Trip circuit breaker after 5 timeouts
     max_errors: 3                        # Trip circuit breaker after 3 script crashes

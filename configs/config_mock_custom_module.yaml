@@ -3,6 +3,7 @@ processors:
     script_path: "./tests/mock_script/mock_script.py"
     function_name: "process_text"
     max_workers: 4
+    start_method: "spawn"
     timeout_ms: 2000 # by sample
     max_timeouts: 5
     max_errors: 1
