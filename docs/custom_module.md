@@ -69,7 +69,7 @@ def scrub(row: dict) -> str:
 
 That is the right place for setup that is worth reusing across the rows a worker handles, as long as duplicating it `max_workers` times is cheap — compiled patterns, a small lookup table, a config file. It is the wrong place for anything large, since each worker keeps its own full copy in memory.
 
->Note : also that workers share no memory: a global counter or cache mutated by your function is local to one worker and is not visible to the others or to the main process.
+>**Note:** Workers share no memory, a global counter or cache updated by your function is local to one worker and is not visible to the others or to the main process.
 
 
 ---
