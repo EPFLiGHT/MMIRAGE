@@ -1,6 +1,6 @@
 # Custom Processor (Dynamic Python Functions)
 
-The **Custom Processor** allows you to inject arbitrary, user-defined Python logic to process your dataset. MMIRAGE will execute it in a highly optimized, asynchronous process pool.
+The **Custom Processor** allows you to inject arbitrary, user-defined Python logic to process your dataset. MMIRAGE will execute it in a optimized, asynchronous process pool.
 
 ## Key Architectural Features
 
