@@ -30,13 +30,21 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
     Ensures safe execution by using a 'spawn' context and implements strict circuit breaking
     for misbehaving scripts.
 
-    Args:
-        config: Custom module configuration.
-        shard_id: Shard index for this worker.
+    Failure counters are cumulative over the whole shard and are never reset between
+    batches; once either threshold is crossed the pool is stopped and every later batch
+    fails immediately.
     """
 
     def __init__(self, config: CustomProcessorConfig, shard_id: int = 0) -> None:
+        """Initialize the processor and eagerly start the worker pool.
 
+        Args:
+            config: Custom module configuration.
+            shard_id: Shard index for this worker.
+
+        Raises:
+            FileNotFoundError: If ``config.script_path`` does not exist.
+        """
         start_time = time.time()
         super().__init__(config=config, shard_id=shard_id)
         self.config: CustomProcessorConfig = config
