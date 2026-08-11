@@ -13,8 +13,10 @@ then follow [Quickstart](quickstart.md) for a minimal working example.
 
 ## `processors`
 
-A list of processor definitions. The `llm` type is documented below; for `type: custom`,
-which runs your own Python function instead of a model, see [Custom Module](custom_module.md).
+The list of supported processor types:
+- **`llm`** — runs a local SGLang server.
+- **`image_gen`** — runs a local Diffusers pipeline for text-to-image generation, see [Image Generation](image_generation.md).
+- **`custom`** — runs your own Python function instead of a model, see [Custom Module](custom_module.md).
 
 ```yaml
 processors:
