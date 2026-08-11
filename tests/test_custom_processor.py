@@ -1,12 +1,14 @@
 """Tests for the CustomProcessor and its configuration/lifecycle."""
 
 import concurrent.futures
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from mmirage.config.utils import load_mmirage_config
 from mmirage.core.process.base import AutoProcessor
+from mmirage.core.process.processors.custom import worker
 from mmirage.core.process.processors.custom.config import (
     CustomOutputVar,
     CustomProcessorConfig,
@@ -35,6 +37,15 @@ def dummy_script(tmp_path) -> str:
     script_file = tmp_path / "dummy_script.py"
     script_file.write_text("def analyze_text(row): return 'analyzed'")
     return str(script_file)
+
+
+@pytest.fixture
+def clean_worker_state():
+    """Reset the worker module globals, which persist in-process between tests."""
+    original_path = list(sys.path)
+    yield
+    worker._USER_FUNCTION = None
+    sys.path[:] = original_path
 
 
 @pytest.fixture
@@ -249,3 +260,36 @@ def test_circuit_breaker_error_threshold(base_config, mock_pebble_pool):
     assert processor._is_broken is True
     assert mock_pebble_pool.stop.called
     assert mock_pebble_pool.join.called
+
+
+def test_worker_loads_and_executes_user_function(dummy_script, clean_worker_state):
+    """Verify the worker loads the target function and returns its value."""
+    worker.initialize_worker(dummy_script, "analyze_text")
+    assert worker.execute_custom_function({"text": "anything"}) == "analyzed"
+
+
+def test_worker_supports_local_imports(tmp_path, clean_worker_state):
+    """Verify the script's own directory is importable from within the worker."""
+    (tmp_path / "helper.py").write_text("VALUE = 'from_helper'")
+    script = tmp_path / "importing_script.py"
+    script.write_text("import helper\n\ndef run(row): return helper.VALUE")
+
+    worker.initialize_worker(str(script), "run")
+    assert worker.execute_custom_function({}) == "from_helper"
+
+
+def test_worker_rejects_invalid_targets(tmp_path, dummy_script, clean_worker_state):
+    """Verify each unusable target fails at initialization, not at row execution."""
+    with pytest.raises(RuntimeError, match="not initialized"):
+        worker.execute_custom_function({})
+
+    with pytest.raises(AttributeError, match="not found"):
+        worker.initialize_worker(dummy_script, "missing_function")
+
+    not_callable = tmp_path / "not_callable.py"
+    not_callable.write_text("analyze_text = 42")
+    with pytest.raises(TypeError, match="is not callable"):
+        worker.initialize_worker(str(not_callable), "analyze_text")
+
+    with pytest.raises(FileNotFoundError):
+        worker.initialize_worker(str(tmp_path / "absent.py"), "analyze_text")
