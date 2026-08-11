@@ -168,6 +168,22 @@ def test_custom_processor_fallback_injection(base_config, mock_pebble_pool):
     assert processor._is_broken is False
 
 
+def test_unset_timeout_schedules_untimed(base_config, mock_pebble_pool):
+    """Verify that leaving timeout_ms unset schedules rows without any timeout."""
+    base_config.timeout_ms = None
+    processor = CustomProcessor(base_config)
+    out_var = CustomOutputVar(name="result_var")
+
+    mock_future = MagicMock()
+    mock_future.result.return_value = "success"
+    mock_pebble_pool.schedule.return_value = mock_future
+
+    with patch("concurrent.futures.as_completed", return_value=[mock_future]):
+        processor.batch_process_sample([VariableEnvironment({})], out_var)
+
+    assert mock_pebble_pool.schedule.call_args.kwargs["timeout"] is None
+
+
 def test_circuit_breaker_timeout_threshold(base_config, mock_pebble_pool):
     """Verify that hitting the max_timeouts threshold actively stops the pool and fails the run."""
     processor = CustomProcessor(base_config)  # config sets max_timeouts = 2
