@@ -67,7 +67,9 @@ def scrub(row: dict) -> str:
     return " ".join(w for w in text.split() if w.lower() not in BLOCKLIST)
 ```
 
-That is the right place for setup that is worth reusing across the rows a worker handles, as long as duplicating it `max_workers` times is cheap — compiled patterns, a small lookup table, a config file. It is the wrong place for anything large, since each worker keeps its own full copy in memory.
+Put setup here only if each worker can afford its own copy: compiled patterns, a small lookup table, a config file. Loading a large file at module scope multiplies its memory by `max_workers`.
+
+If it is too large to duplicate, memory-map it instead (`np.load(..., mmap_mode="r")`, `pa.memory_map`, `sqlite3`): the OS then keeps a single copy in the page cache for all workers. Otherwise, lower `max_workers`. Note that `start_method: fork` does not help here, since your script is imported inside each worker, never in the parent.
 
 >**Note:** Workers share no memory, a global counter or cache updated by your function is local to one worker and is not visible to the others or to the main process.
 
