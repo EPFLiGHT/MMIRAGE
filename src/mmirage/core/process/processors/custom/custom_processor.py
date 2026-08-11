@@ -106,7 +106,7 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
             except concurrent.futures.TimeoutError:
                 self._timeout_count += 1
                 logger.warning(f"Row {index} timed out. Applying fallback value.")
-                results[index] = self.config.fallback_value
+                results[index] = copy.deepcopy(self.config.fallback_value)
 
                 if self._timeout_count >= self.config.max_timeouts:
                     self._trip_circuit_breaker(
