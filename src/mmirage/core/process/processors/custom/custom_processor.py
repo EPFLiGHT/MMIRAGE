@@ -128,8 +128,8 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
                     )
 
         updated_batch = []
-        for i, env in enumerate(batch):
-            updated_batch.append(env.with_variable(output_var.name, results[i]))
+        for env, result in zip(batch, results):
+            updated_batch.append(env.with_variable(output_var.name, result))
 
         return updated_batch
 
