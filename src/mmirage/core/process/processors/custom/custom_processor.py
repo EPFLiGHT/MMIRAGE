@@ -101,8 +101,7 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
             index = future_to_index[future]
 
             try:
-                result = future.result()
-                results[index] = result
+                results[index] = future.result()
 
             except concurrent.futures.TimeoutError:
                 self._timeout_count += 1
