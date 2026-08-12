@@ -13,8 +13,10 @@ from PIL import Image
 from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCounts
 from mmirage.core.process.batch.orchestrator import BatchSubmissionOrchestrator
 from mmirage.core.process.batch.registry import BatchAdapterFactory
-from mmirage.core.process.processors.batch_api.config import BatchApiProcessorConfig
-from mmirage.core.process.processors.llm.config import LLMOutputVar
+from mmirage.core.process.processors.batch_api.config import (
+    BatchApiOutputVar,
+    BatchApiProcessorConfig,
+)
 from mmirage.core.process.variables import VariableEnvironment
 
 try:
@@ -26,8 +28,8 @@ except ImportError:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 
-@ProcessorRegistry.register("batch_api", BatchApiProcessorConfig, LLMOutputVar)
-class BatchApiProcessor(BaseProcessor[LLMOutputVar]):
+@ProcessorRegistry.register("batch_api", BatchApiProcessorConfig, BatchApiOutputVar)
+class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
     """Processor that submits generation requests to a provider batch API.
 
     No model runs locally: each sample is serialized into a provider request and
@@ -119,7 +121,7 @@ class BatchApiProcessor(BaseProcessor[LLMOutputVar]):
     def batch_process_sample(
         self,
         batch: List[VariableEnvironment],
-        output_var: LLMOutputVar,
+        output_var: BatchApiOutputVar,
     ) -> List[VariableEnvironment]:
         """Serialize a batch of samples into provider requests.
 
@@ -129,17 +131,7 @@ class BatchApiProcessor(BaseProcessor[LLMOutputVar]):
 
         Returns:
             The variable environments with a placeholder set for ``output_var``.
-
-        Raises:
-            ValueError: If ``output_schema`` declares field types or bounds,
-                which providers are not given here.
         """
-        if isinstance(output_var.output_schema, dict):
-            raise ValueError(
-                f"Output '{output_var.name}': the batch_api processor does not support "
-                "typed output_schema mappings, use a list of field names instead."
-            )
-
         nb_samples = len(batch)
         text_only_indices: List[int] = []
         multimodal_indices: List[int] = []
