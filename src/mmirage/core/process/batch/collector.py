@@ -220,6 +220,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     line.
     """
     args = _build_arg_parser().parse_args(argv)
+    logging.basicConfig(level=logging.INFO)
     from mmirage.config.utils import load_mmirage_config
 
     try:
@@ -249,12 +250,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         provider_configs = resolve_provider_configs(records, cfg)
 
         rows = collect_and_merge(records, provider_configs, args.output_path)
-        print(f"Merged {len(rows)} rows and saved to {args.output_path}")
+        logger.info(f"Merged {len(rows)} rows and saved to {args.output_path}")
 
         input_tokens = sum(row.get("input_tokens", 0) for row in rows)
         output_tokens = sum(row.get("output_tokens", 0) for row in rows)
         if input_tokens or output_tokens:
-            print(
+            logger.info(
                 f"Provider usage: {input_tokens} input tokens, "
                 f"{output_tokens} output tokens"
             )
