@@ -65,7 +65,9 @@ class BatchAdapterRegistry:
         missing = [
             f"{config.provider.upper()}_{req_key.upper()}"
             for req_key in adapter_cls.required_credentials
-            if not os.environ.get(f"{config.provider.upper()}_{req_key.upper()}", "").strip()
+            if not os.environ.get(
+                f"{config.provider.upper()}_{req_key.upper()}", ""
+            ).strip()
         ]
         if missing:
             raise ValueError(
