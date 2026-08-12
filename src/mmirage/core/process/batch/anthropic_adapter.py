@@ -4,18 +4,21 @@ from __future__ import annotations
 
 import base64
 import copy
+import hashlib
 import json
 import logging
 import mimetypes
 import os
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
-import hashlib
 
 from anthropic import Anthropic
 
 from mmirage.config.anthropic_batch import AnthropicBatchConfig
 from mmirage.config.batch_provider import BatchProviderConfig
-from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubmissionResult
+from mmirage.core.process.batch.adapter import (
+    BatchSubmissionAdapter,
+    BatchSubmissionResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +61,9 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         if isinstance(messages, list):
             body["messages"] = self._normalize_messages(messages)
 
-        if isinstance(expected_schema, list) and all(isinstance(k, str) for k in expected_schema):
+        if isinstance(expected_schema, list) and all(
+            isinstance(k, str) for k in expected_schema
+        ):
             properties = {key: {"type": "string"} for key in expected_schema}
             body["output_config"] = {
                 "format": {
@@ -71,7 +76,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
                     },
                 }
             }
-        
+
         payload_request = {
             "custom_id": normalized_custom_id,
             "params": body,
@@ -106,7 +111,9 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
             "chunk_id": chunk_id,
         }
 
-    def parse_submission_result(self, raw_result: Dict[str, Any]) -> BatchSubmissionResult:
+    def parse_submission_result(
+        self, raw_result: Dict[str, Any]
+    ) -> BatchSubmissionResult:
         coerced = self._coerce_mapping(raw_result)
         batch_id = str(self._attr_or_get(raw_result, "id", "") or "")
         status = self._attr_or_get(raw_result, "status", None)
@@ -146,7 +153,9 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         batches_client = self._resolve_batches_client(client)
 
         retrieved = batches_client.retrieve(provider_batch_id)
-        status = self._normalize_status(self.parse_submission_result(raw_result=retrieved).status)
+        status = self._normalize_status(
+            self.parse_submission_result(raw_result=retrieved).status
+        )
         if status not in {"completed", "succeeded"}:
             raise ValueError(
                 f"Batch '{provider_batch_id}' is not completed yet (status={status})."
@@ -184,7 +193,9 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
             if isinstance(content, str):
                 content_blocks = [{"type": "text", "text": content}]
             elif isinstance(content, list):
-                content_blocks = AnthropicBatchAdapter._normalize_content_blocks(content)
+                content_blocks = AnthropicBatchAdapter._normalize_content_blocks(
+                    content
+                )
             else:
                 content_blocks = []
             normalized.append({"role": role, "content": content_blocks})
@@ -269,7 +280,9 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         if ";base64" not in header:
             raise ValueError("Data URI must be base64 encoded")
 
-        media_type = header.replace("data:", "").split(";", 1)[0] or "application/octet-stream"
+        media_type = (
+            header.replace("data:", "").split(";", 1)[0] or "application/octet-stream"
+        )
         return media_type, encoded
 
     @staticmethod
@@ -285,7 +298,11 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
             message = result.get("message", {})
             content = message.get("content", [])
             if isinstance(content, list):
-                texts = [block.get("text", "") for block in content if block.get("type") == "text"]
+                texts = [
+                    block.get("text", "")
+                    for block in content
+                    if block.get("type") == "text"
+                ]
                 return "".join(texts)
         except Exception:
             pass
@@ -335,7 +352,14 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
     @staticmethod
     def _normalize_status(status: Any) -> str:
         value = str(status or "").strip().lower()
-        if value in {"ended", "finished", "complete", "completed", "succeeded", "success"}:
+        if value in {
+            "ended",
+            "finished",
+            "complete",
+            "completed",
+            "succeeded",
+            "success",
+        }:
             return "completed"
         if value in {"in_progress", "processing", "running", "queued"}:
             return "in_progress"

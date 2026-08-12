@@ -16,7 +16,9 @@ def _base_path_to_patterns(base_path: str) -> List[str]:
     return [f"{trimmed}.{suffix}.*.jsonl" for suffix in _METADATA_SUFFIXES]
 
 
-def resolve_metadata_paths_from_config(metadata_output_paths: Sequence[str]) -> List[str]:
+def resolve_metadata_paths_from_config(
+    metadata_output_paths: Sequence[str],
+) -> List[str]:
     """Return metadata receipt paths for config-provided base paths.
 
     Submission writes suffixed receipts using .text.<run>.jsonl and
@@ -52,7 +54,9 @@ def resolve_metadata_paths(
     if metadata_paths:
         return list(metadata_paths)
 
-    from mmirage.core.process.batch.provider_resolution import build_all_provider_configs
+    from mmirage.core.process.batch.provider_resolution import (
+        build_all_provider_configs,
+    )
 
     base_paths = list(
         dict.fromkeys(

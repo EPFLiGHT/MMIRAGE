@@ -1,15 +1,20 @@
 """Mapper for orchestrating variable transformations."""
 
-from dataclasses import dataclass
+import logging
 from typing import Any, Dict, List, Optional, cast
 
-from mmirage.core.process.base import AutoProcessor, BaseProcessor, BaseProcessorConfig, TokenCounts
-from mmirage.core.process.variables import BaseVar, InputVar, OutputVar
-
-
-import logging
-
-from mmirage.core.process.variables import VariableEnvironment
+from mmirage.core.process.base import (
+    AutoProcessor,
+    BaseProcessor,
+    BaseProcessorConfig,
+    TokenCounts,
+)
+from mmirage.core.process.variables import (
+    BaseVar,
+    InputVar,
+    OutputVar,
+    VariableEnvironment,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +151,7 @@ class MMIRAGEMapper:
         """Finalize processors that expose a finalize lifecycle hook."""
         for processor in self.processors.values():
             processor.finalize()
-            
+
     def shutdown(self) -> None:
         """Shut down all processors and release their resources."""
         for processor in self.processors.values():

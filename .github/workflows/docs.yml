@@ -1,20 +1,19 @@
-name: Deploy Sphinx docs to GitHub Pages
+name: Docs
 
 on:
   push:
     branches:
       - main
       - feature/doc
+  pull_request:
   workflow_dispatch:
 
-# Only one deployment runs at a time; ongoing deployments are not cancelled.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: docs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
-    name: Build documentation
     runs-on: ubuntu-latest
 
     permissions:
@@ -22,17 +21,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: docs/requirements.txt
 
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v6
 
       - name: Install Sphinx dependencies
         run: pip install -r docs/requirements.txt
@@ -50,15 +50,21 @@ jobs:
         run: touch docs/_build/html/.nojekyll
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs/_build/html
           include-hidden-files: true
 
   deploy:
-    name: Deploy to GitHub Pages
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
+
+    # Only one deployment runs at a time; ongoing deployments are not cancelled.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
 
     permissions:
       contents: read

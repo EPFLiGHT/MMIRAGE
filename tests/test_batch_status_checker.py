@@ -31,8 +31,12 @@ def test_extract_unique_provider_batches_handles_malformed_and_duplicates(tmp_pa
 
 
 def test_run_status_checker_prints_summary_with_factory_dispatch(tmp_path, monkeypatch):
-    from mmirage.core.process.batch.status_checker import _read_metadata_records, run_status_checker
     from unittest.mock import patch
+
+    from mmirage.core.process.batch.status_checker import (
+        _read_metadata_records,
+        run_status_checker,
+    )
 
     metadata_path = tmp_path / "receipts.jsonl"
     metadata_path.write_text(
@@ -88,8 +92,12 @@ def test_run_status_checker_prints_summary_with_factory_dispatch(tmp_path, monke
 
     # Verify logger.info was called with expected messages
     logger_calls = [call[0][0] for call in mock_logger.info.call_args_list]
-    assert any("Batch batch_1 (openai): completed" in str(call) for call in logger_calls)
-    assert any("Batch batch_2 (openai): in_progress" in str(call) for call in logger_calls)
+    assert any(
+        "Batch batch_1 (openai): completed" in str(call) for call in logger_calls
+    )
+    assert any(
+        "Batch batch_2 (openai): in_progress" in str(call) for call in logger_calls
+    )
 
 
 def test_status_checker_main_uses_config_and_runs(tmp_path, monkeypatch):
@@ -103,7 +111,9 @@ def test_status_checker_main_uses_config_and_runs(tmp_path, monkeypatch):
     config_path = tmp_path / "dummy.yaml"
     config_path.write_text("processors: []\n", encoding="utf-8")
 
-    cfg = SimpleNamespace(processors=[SimpleNamespace(provider_config={"provider": "openai"})])
+    cfg = SimpleNamespace(
+        processors=[SimpleNamespace(provider_config={"provider": "openai"})]
+    )
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
 
     called = {}
@@ -136,8 +146,9 @@ def test_status_checker_main_uses_config_and_runs(tmp_path, monkeypatch):
 def test_status_checker_main_returns_error_when_metadata_provider_missing_in_config(
     tmp_path, monkeypatch
 ):
-    from mmirage.core.process.batch import status_checker
     from unittest.mock import patch
+
+    from mmirage.core.process.batch import status_checker
 
     metadata_path = tmp_path / "receipts.jsonl"
     metadata_path.write_text(
@@ -148,7 +159,9 @@ def test_status_checker_main_returns_error_when_metadata_provider_missing_in_con
     config_path.write_text("processors: []\n", encoding="utf-8")
 
     # Config intentionally only defines openai, not mistral.
-    cfg = SimpleNamespace(processors=[SimpleNamespace(provider_config={"provider": "openai"})])
+    cfg = SimpleNamespace(
+        processors=[SimpleNamespace(provider_config={"provider": "openai"})]
+    )
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
 
     with patch("mmirage.core.process.batch.status_checker.logger") as mock_logger:
@@ -165,11 +178,10 @@ def test_status_checker_main_returns_error_when_metadata_provider_missing_in_con
     assert mock_logger.error.called or mock_logger.exception.called
 
 
-def test_status_checker_main_returns_error_when_api_key_missing(
-    tmp_path, monkeypatch
-):
-    from mmirage.core.process.batch import status_checker
+def test_status_checker_main_returns_error_when_api_key_missing(tmp_path, monkeypatch):
     from unittest.mock import patch
+
+    from mmirage.core.process.batch import status_checker
 
     metadata_path = tmp_path / "receipts.jsonl"
     metadata_path.write_text(
@@ -248,8 +260,9 @@ def test_status_checker_main_uses_config_metadata_path_when_missing_cli_arg(
 def test_status_checker_main_returns_error_when_config_metadata_paths_missing(
     tmp_path, monkeypatch
 ):
-    from mmirage.core.process.batch import status_checker
     from unittest.mock import patch
+
+    from mmirage.core.process.batch import status_checker
 
     metadata_base = tmp_path / "batch_metadata.jsonl"
     config_path = tmp_path / "dummy.yaml"

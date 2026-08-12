@@ -4,9 +4,6 @@ This module contains helper functions for dataset sharding, state management,
 and file operations used in the MMIRAGE shard processing pipeline.
 """
 
-from datetime import datetime
-from dataclasses import dataclass
-import humanize
 import json
 import logging
 import os
@@ -15,8 +12,11 @@ import socket
 import subprocess
 import threading
 import uuid
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import humanize
 from datasets import DatasetDict
 
 from mmirage.core.loader.base import BaseDataLoaderConfig, DatasetLike
@@ -92,7 +92,9 @@ class ShardStats:
         inference_runtime: Optional[float] = None
         if self.runtime_seconds is not None:
             if self.model_load_seconds is not None:
-                inference_runtime = max(0.0, self.runtime_seconds - self.model_load_seconds)
+                inference_runtime = max(
+                    0.0, self.runtime_seconds - self.model_load_seconds
+                )
             else:
                 inference_runtime = self.runtime_seconds
         if (
@@ -107,14 +109,20 @@ class ShardStats:
                 self.output_tokens / (inference_runtime * self.num_gpus), 2
             )
             gpu_days_per_billion_tokens = round(
-                (self.num_gpus * inference_runtime / 86_400) / (self.output_tokens / 1e9), 4
+                (self.num_gpus * inference_runtime / 86_400)
+                / (self.output_tokens / 1e9),
+                4,
             )
 
         return {
             "runtime_seconds": self.runtime_seconds,
             "runtime_human": format_duration(self.runtime_seconds),
-            "model_load_seconds": round(self.model_load_seconds, 3) if self.model_load_seconds is not None else None,
-            "inference_runtime_seconds": round(inference_runtime, 3) if inference_runtime is not None else None,
+            "model_load_seconds": round(self.model_load_seconds, 3)
+            if self.model_load_seconds is not None
+            else None,
+            "inference_runtime_seconds": round(inference_runtime, 3)
+            if inference_runtime is not None
+            else None,
             "rows_processed": self.rows_processed,
             "throughput_rows_per_sec": self.throughput_rows_per_sec,
             "gpu_util_mean": self.gpu_util_mean,
@@ -142,7 +150,9 @@ class GpuUtilizationPoller:
     If ``nvidia-smi`` is unavailable all values are ``None`` and samples is 0.
     """
 
-    def __init__(self, interval_seconds: float = 5.0, gpu_indices: Optional[List[str]] = None) -> None:
+    def __init__(
+        self, interval_seconds: float = 5.0, gpu_indices: Optional[List[str]] = None
+    ) -> None:
         self._interval = interval_seconds
         self._samples: List[float] = []
         self._thread: Optional[threading.Thread] = None
@@ -345,9 +355,7 @@ def _save_dataset_atomic(ds_processed: DatasetLike, out_dir: str):
     parent_dir = os.path.dirname(out_dir)
     os.makedirs(parent_dir, exist_ok=True)
 
-    tmp_dir = (
-        f"{out_dir}.tmp.{socket.gethostname()}.{os.getpid()}.{uuid.uuid4().hex}"
-    )
+    tmp_dir = f"{out_dir}.tmp.{socket.gethostname()}.{os.getpid()}.{uuid.uuid4().hex}"
     if os.path.exists(tmp_dir):
         shutil.rmtree(tmp_dir)
 
@@ -587,6 +595,7 @@ def _dataset_dirs(input_dir: str) -> List[str]:
         if _list_shard_dirs(path):
             candidates.append(path)
     return sorted(candidates)
+
 
 def _validate_input_dir(path: str, arg_name: str) -> None:
     """Ensure a user-provided input path exists and is a directory."""

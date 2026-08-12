@@ -165,6 +165,8 @@ mmirage merge \
   --output-path /path/to/final_merged_output.jsonl
 ```
 
+The collector prints the run totals, and each merged row carries `input_tokens` and `output_tokens` when the provider reports usage. Token counts are unknown at submission time, so they never appear in the [benchmark report](benchmarking.md).
+
 ---
 
 ## Provider-Agnostic Architecture & Custom Providers
@@ -186,6 +188,7 @@ A custom provider configuration class extends `BatchProviderConfig` with fields 
 from dataclasses import dataclass
 from mmirage.config.batch_provider import BatchProviderConfig
 
+
 @dataclass
 class MistralBatchConfig(BatchProviderConfig):
     provider: str = "mistral"
@@ -198,7 +201,10 @@ A custom adapter implements the core lifecycle logic for the custom provider:
 
 ```python
 from typing import Any, Dict, Sequence
-from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubmissionResult
+from mmirage.core.process.batch.adapter import (
+    BatchSubmissionAdapter,
+    BatchSubmissionResult,
+)
 from mmirage.config.batch_provider import BatchProviderConfig
 
 class MistralBatchAdapter(BatchSubmissionAdapter):
@@ -218,12 +224,13 @@ class MistralBatchAdapter(BatchSubmissionAdapter):
             "params": {
                 "model": config.model,
                 "messages": payload["messages"],
-            }
+            },
         }
 
     def estimate_request_bytes(self, request: Dict[str, Any]) -> int:
         # Returns the estimated serialized UTF-8 bytes for request size-based chunking
         import json
+
         return len(json.dumps(request).encode("utf-8"))
 
     def submit_chunk(
@@ -262,6 +269,8 @@ class MistralBatchAdapter(BatchSubmissionAdapter):
         # Downloads/retrieves completed outputs and normalizes each row.
         # Ensure text generations are mapped to the "generated_text" key so
         # the collector can reconstruct the original dataset rows neutrally.
+        # Expose any reported usage as "input_tokens" and "output_tokens",
+        # omitting both keys when the provider reports none.
         ...
 ```
 

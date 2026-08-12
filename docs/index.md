@@ -35,6 +35,7 @@ Depending on what you want to do, start in different places:
 - to understand core concepts and terminology, read [Concepts](concepts.md)
 - to understand the full pipeline data flow, read [Pipeline](pipeline.md)
 - to process images with a VLM, read [Multimodal Processing](multimodal.md)
+- to generate images from dataset prompts, read [Image Generation](image_generation.md)
 - to run at scale on a cluster, read [SLURM & Cluster Deployment](slurm.md)
 - to use a provider batch API (OpenAI, Anthropic), read [Batch API](batch_api.md)
 - to measure throughput and GPU efficiency, read [Benchmarking](benchmarking.md)
@@ -76,6 +77,12 @@ Step-by-step walkthrough of what MMIRAGE does with your data.
 :link: multimodal
 :link-type: doc
 Running VLMs on image datasets.
+:::
+
+:::{grid-item-card} Image Generation
+:link: image_generation
+:link-type: doc
+Generating image datasets from templated prompts.
 :::
 
 :::{grid-item-card} 🔀 SLURM & Cluster Deployment
@@ -131,6 +138,7 @@ Testing, code style, extending MMIRAGE, and debugging.
 - [Concepts](concepts.md): learn the vocabulary used throughout the documentation
 - [Pipeline](pipeline.md): understand what happens at each stage of the pipeline
 - [Multimodal Processing](multimodal.md): configure image inputs and VLM chat templates
+- [Image Generation](image_generation.md): generate images with an external or managed SGLang server
 - [SLURM & Cluster Deployment](slurm.md): submit, monitor, and retry jobs on HPC clusters
 - [Batch API](batch_api.md): send requests asynchronously to a provider batch API
 - [Benchmarking](benchmarking.md): collect and interpret throughput and GPU efficiency metrics
@@ -156,6 +164,7 @@ concepts
 
 pipeline
 multimodal
+image_generation
 slurm
 batch_api
 ```

@@ -3,8 +3,13 @@ import json
 from mmirage.config.openai_batch import OpenAIBatchConfig
 
 
-def test_integration_receiver_reads_receipt_and_writes_merged_output(tmp_path, monkeypatch):
-    from mmirage.core.process.batch.collector import _read_metadata_records, collect_and_merge
+def test_integration_receiver_reads_receipt_and_writes_merged_output(
+    tmp_path, monkeypatch
+):
+    from mmirage.core.process.batch.collector import (
+        _read_metadata_records,
+        collect_and_merge,
+    )
 
     metadata_path = tmp_path / "receipt.text.jsonl"
     metadata_path.write_text(
@@ -67,6 +72,9 @@ def test_integration_receiver_reads_receipt_and_writes_merged_output(tmp_path, m
     assert [r["custom_id"] for r in rows] == ["id_b", "id_a", "id_c"]
     assert [r["conversations"][1]["content"] for r in rows] == ["zero", "one", "two"]
 
-    written = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines()]
+    written = [
+        json.loads(line)
+        for line in output_path.read_text(encoding="utf-8").splitlines()
+    ]
     assert [r["custom_id"] for r in written] == ["id_b", "id_a", "id_c"]
     assert [r["conversations"][1]["content"] for r in written] == ["zero", "one", "two"]

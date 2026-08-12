@@ -3,13 +3,18 @@ from dataclasses import dataclass
 import pytest
 
 from mmirage.config.batch_provider import BatchProviderConfig
-from mmirage.config.openai_batch import OpenAIBatchConfig
-from mmirage.core.process.batch.adapter import BatchSubmissionAdapter, BatchSubmissionResult
+from mmirage.core.process.batch.adapter import (
+    BatchSubmissionAdapter,
+    BatchSubmissionResult,
+)
 from mmirage.core.process.batch.provider_resolution import (
     BatchProviderConfigRegistry,
     resolve_single_provider_config,
 )
-from mmirage.core.process.batch.registry import BatchAdapterFactory, BatchAdapterRegistry
+from mmirage.core.process.batch.registry import (
+    BatchAdapterFactory,
+    BatchAdapterRegistry,
+)
 
 
 class CompleteTestAdapter(BatchSubmissionAdapter):
@@ -24,7 +29,11 @@ class CompleteTestAdapter(BatchSubmissionAdapter):
         return "1.0.0"
 
     def build_request(self, custom_id, payload, config):
-        return {"custom_id": custom_id, "payload": dict(payload), "provider": config.provider}
+        return {
+            "custom_id": custom_id,
+            "payload": dict(payload),
+            "provider": config.provider,
+        }
 
     def estimate_request_bytes(self, request):
         # Deterministic approximation for tests.
@@ -112,7 +121,9 @@ def test_complete_adapter_is_interface_compliant():
     estimated_bytes = adapter.estimate_request_bytes(request)
     assert estimated_bytes > 0
 
-    raw_result = adapter.submit_chunk(chunk_id="chunk-1", requests=[request], config=config)
+    raw_result = adapter.submit_chunk(
+        chunk_id="chunk-1", requests=[request], config=config
+    )
     parsed = adapter.parse_submission_result(raw_result=raw_result)
 
     assert parsed.provider_batch_id == "unit-chunk-1"
@@ -164,7 +175,9 @@ class UnitBatchConfig(BatchProviderConfig):
 
 
 def test_resolve_single_provider_config_raises_for_missing_provider():
-    with pytest.raises(ValueError, match="batch config must include a non-empty provider"):
+    with pytest.raises(
+        ValueError, match="batch config must include a non-empty provider"
+    ):
         resolve_single_provider_config({})
 
 

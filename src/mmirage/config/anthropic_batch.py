@@ -47,7 +47,7 @@ class AnthropicBatchConfig(BatchProviderConfig):
         # Either temperature or top_p can be set or both can be None, but not both can be set, raise error if both are set
         if self.temperature is not None and self.top_p is not None:
             raise ValueError(
-                            "Both temperature and top_p are set in batch configuration, temperature and top_p are mutually exclusive parameters. Please set only one of them."
-                        )
+                "Both temperature and top_p are set in batch configuration, temperature and top_p are mutually exclusive parameters. Please set only one of them."
+            )
         if self.temperature is None and self.top_p is None:
             self.temperature = 0.0

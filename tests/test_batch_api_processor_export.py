@@ -1,9 +1,9 @@
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 
-from mmirage.core.process.processors.batch_api.config import BatchApiProcessorConfig
-from mmirage.core.process.batch.adapter import BatchSubmissionAdapter
 from mmirage.config.batch_provider import BatchProviderConfig
+from mmirage.core.process.batch.adapter import BatchSubmissionAdapter
+from mmirage.core.process.processors.batch_api.config import BatchApiProcessorConfig
 
 
 class RecordingAdapter(BatchSubmissionAdapter):
@@ -23,12 +23,18 @@ class RecordingAdapter(BatchSubmissionAdapter):
     def parse_submission_result(self, raw_result):
         from mmirage.core.process.batch.adapter import BatchSubmissionResult
 
-        return BatchSubmissionResult(provider_batch_id=str(raw_result["id"]), status=str(raw_result["status"]), raw_response=raw_result)
+        return BatchSubmissionResult(
+            provider_batch_id=str(raw_result["id"]),
+            status=str(raw_result["status"]),
+            raw_response=raw_result,
+        )
 
     def check_batch_status(self, provider_batch_id, config):
         from mmirage.core.process.batch.adapter import BatchSubmissionResult
 
-        return BatchSubmissionResult(provider_batch_id=provider_batch_id, status="submitted", raw_response={})
+        return BatchSubmissionResult(
+            provider_batch_id=provider_batch_id, status="submitted", raw_response={}
+        )
 
     def retrieve_results(self, provider_batch_id, config):
         return []
@@ -45,10 +51,14 @@ class UnitBatchConfig(BatchProviderConfig):
             raise ValueError("unit_setting must be a non-empty string")
 
 
-def test_batch_api_processor_exports_to_single_file_with_batch_ids(tmp_path, monkeypatch):
-    from mmirage.core.process.batch.registry import BatchAdapterRegistry
-    from mmirage.core.process.batch.provider_resolution import BatchProviderConfigRegistry
+def test_batch_api_processor_exports_to_single_file_with_batch_ids(
+    tmp_path, monkeypatch
+):
     from mmirage.core.process.base import ProcessorRegistry
+    from mmirage.core.process.batch.provider_resolution import (
+        BatchProviderConfigRegistry,
+    )
+    from mmirage.core.process.batch.registry import BatchAdapterRegistry
 
     # Register provider config and adapter
     BatchProviderConfigRegistry.register("unit", UnitBatchConfig)
@@ -79,18 +89,27 @@ def test_batch_api_processor_exports_to_single_file_with_batch_ids(tmp_path, mon
 
     # Submit one chunk to each orchestrator
     processor._text_orchestrator.add_requests(
-        requests=[{"custom_id": "t1", "size_bytes": 6}, {"custom_id": "t2", "size_bytes": 6}],
+        requests=[
+            {"custom_id": "t1", "size_bytes": 6},
+            {"custom_id": "t2", "size_bytes": 6},
+        ],
         source_indices=[0, 1],
     )
 
     processor._multimodal_orchestrator.add_requests(
-        requests=[{"custom_id": "m1", "size_bytes": 6}, {"custom_id": "m2", "size_bytes": 6}],
+        requests=[
+            {"custom_id": "m1", "size_bytes": 6},
+            {"custom_id": "m2", "size_bytes": 6},
+        ],
         source_indices=[2, 3],
     )
 
     assert export_file.exists()
 
-    lines = [json.loads(l) for l in export_file.read_text(encoding="utf-8").splitlines()]
+    lines = [
+        json.loads(line)
+        for line in export_file.read_text(encoding="utf-8").splitlines()
+    ]
     assert len(lines) == 2
     assert {line["custom_id"] for line in lines} == {"t1", "m1"}
     assert {line["batch_id"] for line in lines} == {

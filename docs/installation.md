@@ -98,11 +98,17 @@ Run the test suite:
 pytest tests/
 ```
 
-Format and lint the codebase:
+Lint and format the codebase with Ruff (via pre-commit, same as CI):
 
 ```bash
-black src/ tests/
-ruff check src/ tests/
+pre-commit run --all-files
+```
+
+Or invoke Ruff directly:
+
+```bash
+ruff check --fix .
+ruff format .
 ```
 
 ## Verifying the Installation

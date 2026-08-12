@@ -97,6 +97,11 @@ outputs:
 
 Inside the prompt, you can reference any input variable by name using `{{ variable }}`.
 
+With `output_type: JSON`, an output variable also declares an **output_schema**
+listing the fields the model must produce, optionally with per-field types and
+numeric bounds that constrain generation. See
+[Configuration](configuration.md) for the full field reference.
+
 ---
 
 ## JMESPath
@@ -163,6 +168,7 @@ A **processor** is the inference engine that generates outputs.
 Generation is available as two processors, sharing the same prompt and output schema:
 
 - **`llm`** — starts an SGLang engine on the current machine (or SLURM node).
+- **`image_gen`** — starts a Diffusers pipeline for text-to-image generation on the current machine (or SLURM node).
 - **`batch_api`** — sends requests asynchronously to a provider batch API
   (see [Batch API](batch_api.md)).
 

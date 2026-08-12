@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from mmirage.config.config import MMirageConfig
 
 from mmirage.core.process.batch.registry import BatchAdapterFactory
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,16 +64,22 @@ def run_status_checker(
     results: List[BatchSubmissionResult] = []
     counter: Dict[str, Dict[str, int]] = {}
 
-    for provider, provider_batch_id in extract_unique_provider_batches(metadata_records):
+    for provider, provider_batch_id in extract_unique_provider_batches(
+        metadata_records
+    ):
         if provider not in provider_configs:
-            logger.warning(f"Skipping batch {provider_batch_id}: no config for provider '{provider}'.")
+            logger.warning(
+                f"Skipping batch {provider_batch_id}: no config for provider '{provider}'."
+            )
             provider_counts = counter.setdefault(provider, {})
             provider_counts["skipped"] = provider_counts.get("skipped", 0) + 1
 
         else:
             config = provider_configs[provider]
             adapter = BatchAdapterFactory.from_config(config)
-            result = adapter.check_batch_status(provider_batch_id=provider_batch_id, config=config)
+            result = adapter.check_batch_status(
+                provider_batch_id=provider_batch_id, config=config
+            )
             results.append(result)
 
             logger.info(f"Batch {provider_batch_id} ({provider}): {result.status}")
@@ -105,12 +112,16 @@ def check_batches(
     metadata_paths = resolve_metadata_paths(cfg, metadata_paths)
     records = _read_metadata_records(metadata_paths)
     if not extract_unique_provider_batches(records):
-        logger.info(f"No provider batch IDs found in metadata file(s): {metadata_paths}")
+        logger.info(
+            f"No provider batch IDs found in metadata file(s): {metadata_paths}"
+        )
         return 0
 
     provider_configs = resolve_provider_configs(records, cfg)
     if not provider_configs:
-        logger.error("No supported provider configurations could be built from metadata.")
+        logger.error(
+            "No supported provider configurations could be built from metadata."
+        )
         return 1
 
     run_status_checker(metadata_records=records, provider_configs=provider_configs)
@@ -119,7 +130,9 @@ def check_batches(
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     """Build the CLI parser for the status-check entry point."""
-    parser = argparse.ArgumentParser(description="Check provider batch statuses from metadata receipts.")
+    parser = argparse.ArgumentParser(
+        description="Check provider batch statuses from metadata receipts."
+    )
     parser.add_argument(
         "--metadata-path",
         nargs="+",

@@ -1,13 +1,15 @@
 import base64
-import importlib
 import json
-import sys
 from types import SimpleNamespace
 
 import pytest
 
 from mmirage.config.anthropic_batch import AnthropicBatchConfig
-from mmirage.core.process.batch.provider_resolution import resolve_single_provider_config
+from mmirage.core.process.batch import anthropic_adapter
+from mmirage.core.process.batch.anthropic_adapter import AnthropicBatchAdapter
+from mmirage.core.process.batch.provider_resolution import (
+    resolve_single_provider_config,
+)
 from mmirage.core.process.batch.registry import BatchAdapterFactory
 
 
@@ -17,11 +19,9 @@ def anthropic_api_key(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
 
-def _load_anthropic_adapter(monkeypatch, fake_client_cls):
-    monkeypatch.setitem(sys.modules, "anthropic", SimpleNamespace(Anthropic=fake_client_cls))
-    module = importlib.import_module("mmirage.core.process.batch.anthropic_adapter")
-    importlib.reload(module)
-    return module.AnthropicBatchAdapter
+def _patch_anthropic_client(monkeypatch, fake_client_cls):
+    """Swap the SDK entry point the adapter holds, leaving sys.modules alone."""
+    monkeypatch.setattr(anthropic_adapter, "Anthropic", fake_client_cls)
 
 
 def test_anthropic_build_request_normalizes_messages_and_images(tmp_path, monkeypatch):
@@ -33,7 +33,7 @@ def test_anthropic_build_request_normalizes_messages_and_images(tmp_path, monkey
         def __init__(self, **kwargs):
             pass
 
-    AnthropicBatchAdapter = _load_anthropic_adapter(monkeypatch, FakeAnthropic)
+    _patch_anthropic_client(monkeypatch, FakeAnthropic)
 
     config = AnthropicBatchConfig(model="claude-haiku-4-5")
     adapter = AnthropicBatchAdapter()
@@ -49,7 +49,9 @@ def test_anthropic_build_request_normalizes_messages_and_images(tmp_path, monkey
         ]
     }
 
-    request = adapter.build_request(custom_id="vision-1", payload=payload, config=config)
+    request = adapter.build_request(
+        custom_id="vision-1", payload=payload, config=config
+    )
 
     assert request["custom_id"] == "vision-1"
     assert request["params"]["model"] == "claude-haiku-4-5"
@@ -73,7 +75,7 @@ def test_anthropic_build_request_injects_structured_output_format(monkeypatch):
         def __init__(self, **kwargs):
             pass
 
-    AnthropicBatchAdapter = _load_anthropic_adapter(monkeypatch, FakeAnthropic)
+    _patch_anthropic_client(monkeypatch, FakeAnthropic)
 
     config = AnthropicBatchConfig()
     adapter = AnthropicBatchAdapter()
@@ -106,7 +108,7 @@ def test_anthropic_estimate_request_bytes_matches_utf8_json_size(monkeypatch):
         def __init__(self, **kwargs):
             pass
 
-    AnthropicBatchAdapter = _load_anthropic_adapter(monkeypatch, FakeAnthropic)
+    _patch_anthropic_client(monkeypatch, FakeAnthropic)
     adapter = AnthropicBatchAdapter()
 
     request = {"custom_id": "accented", "params": {"message": "caf\u00e9"}}
@@ -134,7 +136,7 @@ def test_anthropic_submit_chunk_uses_messages_batches(monkeypatch):
             captured["client_kwargs"] = kwargs
             self.messages = FakeMessages()
 
-    AnthropicBatchAdapter = _load_anthropic_adapter(monkeypatch, FakeAnthropic)
+    _patch_anthropic_client(monkeypatch, FakeAnthropic)
 
     config = AnthropicBatchConfig()
     adapter = AnthropicBatchAdapter()
@@ -146,7 +148,9 @@ def test_anthropic_submit_chunk_uses_messages_batches(monkeypatch):
         )
     ]
 
-    raw_result = adapter.submit_chunk(chunk_id="chunk-01", requests=requests, config=config)
+    raw_result = adapter.submit_chunk(
+        chunk_id="chunk-01", requests=requests, config=config
+    )
 
     assert captured["client_kwargs"]["api_key"] == "test-key"
     assert captured["create_kwargs"]["requests"] == requests
@@ -171,7 +175,7 @@ def test_anthropic_check_batch_status_falls_back_to_env_api_key(monkeypatch):
             captured["client_kwargs"] = kwargs
             self.messages = FakeMessages()
 
-    AnthropicBatchAdapter = _load_anthropic_adapter(monkeypatch, FakeAnthropic)
+    _patch_anthropic_client(monkeypatch, FakeAnthropic)
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "env-test-key")
     config = AnthropicBatchConfig()
@@ -183,7 +187,9 @@ def test_anthropic_check_batch_status_falls_back_to_env_api_key(monkeypatch):
     assert result.provider_batch_id == "batch_env"
 
 
-def test_anthropic_retrieve_results_normalizes_custom_id_and_generated_text(monkeypatch):
+def test_anthropic_retrieve_results_normalizes_custom_id_and_generated_text(
+    monkeypatch,
+):
     class FakeBatches:
         def retrieve(self, provider_batch_id):
             return SimpleNamespace(id=provider_batch_id, status="completed")
@@ -212,7 +218,7 @@ def test_anthropic_retrieve_results_normalizes_custom_id_and_generated_text(monk
         def __init__(self, **kwargs):
             self.messages = FakeMessages()
 
-    AnthropicBatchAdapter = _load_anthropic_adapter(monkeypatch, FakeAnthropic)
+    _patch_anthropic_client(monkeypatch, FakeAnthropic)
 
     config = AnthropicBatchConfig()
     adapter = AnthropicBatchAdapter()
@@ -247,7 +253,7 @@ def test_factory_raises_when_anthropic_api_key_env_var_is_missing(monkeypatch):
         def __init__(self, **kwargs):
             pass
 
-    _load_anthropic_adapter(monkeypatch, FakeAnthropic)
+    _patch_anthropic_client(monkeypatch, FakeAnthropic)
 
     with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
