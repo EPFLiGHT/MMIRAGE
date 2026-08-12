@@ -5,6 +5,7 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pebble import ProcessExpired
 
 from mmirage.config.utils import load_mmirage_config
 from mmirage.core.process.base import AutoProcessor
@@ -234,6 +235,27 @@ def test_circuit_breaker_timeout_threshold(base_config, mock_pebble_pool):
     assert processor._is_broken is True
     assert mock_pebble_pool.stop.called
     assert mock_pebble_pool.join.called
+
+
+def test_circuit_breaker_fatal_crash(base_config, mock_pebble_pool):
+    """Verify a dead worker trips the breaker immediately, below both thresholds."""
+    processor = CustomProcessor(base_config)  # config allows 2 timeouts and 2 errors
+    out_var = CustomOutputVar(name="result_var")
+
+    mock_future = MagicMock()
+    mock_future.result.side_effect = ProcessExpired("Abnormal termination", code=1)
+    mock_pebble_pool.schedule.return_value = mock_future
+
+    with patch("concurrent.futures.as_completed", return_value=[mock_future]):
+        with pytest.raises(RuntimeError, match="crashed fatally"):
+            processor.batch_process_sample([VariableEnvironment({})], out_var)
+
+    assert processor._is_broken is True
+    assert mock_pebble_pool.stop.called
+    assert mock_pebble_pool.join.called
+    # a crash is not a row-level failure: neither counter moves
+    assert processor._error_count == 0
+    assert processor._timeout_count == 0
 
 
 def test_circuit_breaker_error_threshold(base_config, mock_pebble_pool):
