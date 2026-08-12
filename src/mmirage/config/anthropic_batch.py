@@ -37,8 +37,8 @@ class AnthropicBatchConfig(BatchProviderConfig):
             raise ValueError("model must be a non-empty string")
         if self.max_tokens < 1:
             raise ValueError("max_tokens must be >= 1")
-        if self.temperature is not None and self.temperature < 0:
-            raise ValueError("temperature must be >= 0")
+        if self.temperature is not None and not (0.0 <= self.temperature <= 1.0):
+            raise ValueError("temperature must be in the range [0, 1] for Anthropic")
         if self.top_p is not None and not (0 < self.top_p <= 1):
             raise ValueError("top_p must be in the range (0, 1] when provided")
         if self.timeout_seconds is not None and self.timeout_seconds <= 0:
