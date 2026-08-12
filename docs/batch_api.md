@@ -85,7 +85,7 @@ These fields apply to every provider.
 |---|---|---|---|
 | `model` | `str` | `"claude-haiku-4-5"` | Model name used in each Messages request body. |
 | `max_tokens` | `int` | `8192` | Maximum tokens for the generated response. |
-| `temperature` | `float` | `0.0` | Sampling temperature. Mutually exclusive with `top_p`. |
+| `temperature` | `float` | `null` | Sampling temperature, in `[0, 1]`. Mutually exclusive with `top_p`. |
 | `top_p` | `float` | `null` | Nucleus sampling probability, in `(0, 1]`. Mutually exclusive with `temperature`. |
 | `base_url` | `str` | `null` | Optional base URL, useful for API-compatible gateways. |
 | `timeout_seconds` | `float` | `null` | Optional request timeout. |

@@ -129,7 +129,7 @@ The API key is read from the environment (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
 |---|---|---|---|
 | `model` | `str` | `claude-haiku-4-5` | Model name used in each Messages request body |
 | `max_tokens` | `int` | `8192` | Max tokens for the generated response |
-| `temperature` | `float` | `0.0` | Sampling temperature; mutually exclusive with `top_p` |
+| `temperature` | `float` | `null` | Sampling temperature in `[0, 1]`; mutually exclusive with `top_p` |
 | `top_p` | `float` | `null` | Nucleus sampling probability in `(0, 1]`; mutually exclusive with `temperature` |
 | `timeout_seconds` | `float` | `null` | Optional request timeout |
 | `base_url` | `str` | `null` | Optional base URL for API-compatible gateways |
