@@ -69,7 +69,7 @@
 
 ## Batch processing
 
-The batch subsystem handles asynchronous, provider-backed inference (e.g. OpenAI Batch API). It is activated by setting `batch_provider` in the processor configuration.
+The batch subsystem handles asynchronous, provider-backed inference (OpenAI Batch API, Anthropic Message Batches). It is activated by declaring a `batch_api` processor.
 
 ### Orchestrator
 
