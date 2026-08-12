@@ -147,8 +147,12 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
 
         return updated_batch
 
-    def finalize(self) -> None:
-        """shut down the persistent worker pool."""
+    def shutdown(self) -> None:
+        """Stop the persistent worker pool.
+
+        Teardown belongs here rather than in ``finalize()``: the latter runs after every
+        dataset while the same pool is reused for the next one.
+        """
         if not self._is_broken and hasattr(self, "_pool"):
             self._pool.stop()
             self._pool.join()

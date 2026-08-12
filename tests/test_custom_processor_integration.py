@@ -45,7 +45,7 @@ def test_real_pool_executes_user_script(tmp_path, output_var):
         batch = [VariableEnvironment({"index": i}) for i in range(6)]
         processed = processor.batch_process_sample(batch, output_var)
     finally:
-        processor.finalize()
+        processor.shutdown()
 
     assert [env.get("result_var") for env in processed] == [
         f"analyzed {i}" for i in range(6)
@@ -67,7 +67,7 @@ def test_real_pool_applies_fallback_on_user_exception(tmp_path, output_var):
         batch = [VariableEnvironment({"index": i}) for i in range(3)]
         processed = processor.batch_process_sample(batch, output_var)
     finally:
-        processor.finalize()
+        processor.shutdown()
 
     assert [env.get("result_var") for env in processed] == [
         "ok",
