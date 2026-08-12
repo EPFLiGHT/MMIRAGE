@@ -48,9 +48,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         body.setdefault("model", openai_config.model)
         self._convert_local_images_to_data_uris(body)
 
-        if isinstance(expected_schema, list) and all(
-            isinstance(k, str) for k in expected_schema
-        ):
+        if expected_schema:
             properties = {key: {"type": "string"} for key in expected_schema}
             body["response_format"] = {
                 "type": "json_schema",
