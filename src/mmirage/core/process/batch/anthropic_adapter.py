@@ -400,21 +400,11 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
 
     @staticmethod
     def _extract_custom_id(row: Mapping[str, Any]) -> str:
-        try:
-            custom_id = row.get("custom_id")
-            if isinstance(custom_id, str) and custom_id.strip():
-                return custom_id
-        except Exception:
-            pass
-
-        try:
-            request = row.get("request", {})
+        request = row.get("request")
+        if isinstance(request, Mapping):
             custom_id = request.get("custom_id")
             if isinstance(custom_id, str) and custom_id.strip():
                 return custom_id
-        except Exception:
-            pass
-
         return ""
 
     @staticmethod
