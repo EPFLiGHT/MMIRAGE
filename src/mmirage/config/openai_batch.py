@@ -36,12 +36,3 @@ class OpenAIBatchConfig(BatchProviderConfig):
             raise ValueError("model must be a non-empty string")
         if not self.batch_endpoint.startswith("/"):
             raise ValueError("batch_endpoint must start with '/'")
-
-        # Mirror OpenAI-specific fields into generic extras for provider-neutral consumers.
-        self.extras.setdefault("model", self.model)
-        self.extras.setdefault("batch_endpoint", self.batch_endpoint)
-        self.extras.setdefault("completion_window", self.completion_window)
-        if self.base_url:
-            self.extras.setdefault("base_url", self.base_url)
-        if self.metadata:
-            self.extras.setdefault("metadata", dict(self.metadata))

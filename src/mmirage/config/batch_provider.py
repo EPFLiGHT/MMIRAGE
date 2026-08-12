@@ -6,7 +6,7 @@ submission provider (OpenAI, Anthropic, etc.).
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Optional
 
 
 class OversizedRequestPolicy(str, Enum):
@@ -60,7 +60,6 @@ class BatchProviderConfig:
         oversized_request_policy: Handling policy when a single request exceeds
             ``max_chunk_bytes``. ``isolate`` creates a dedicated oversized
             chunk, while ``reject`` fails fast.
-        extras: Provider-specific knobs that do not belong in the shared fields.
     """
 
     provider: str
@@ -71,7 +70,6 @@ class BatchProviderConfig:
     oversized_request_policy: OversizedRequestPolicy | str = (
         OversizedRequestPolicy.ISOLATE
     )
-    extras: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.provider = self.provider.strip().lower()
