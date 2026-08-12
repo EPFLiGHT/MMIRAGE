@@ -278,7 +278,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
             raise ValueError("Data URI must be base64 encoded")
 
         media_type = (
-            header.replace("data:", "").split(";", 1)[0] or "application/octet-stream"
+            header.removeprefix("data:").split(";", 1)[0] or "application/octet-stream"
         )
         return media_type, encoded
 
