@@ -34,7 +34,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         payload: Dict[str, Any],
         config: BatchProviderConfig,
     ) -> Dict[str, Any]:
-        anthropic_config = self._check_anthropic_config(config)
+        anthropic_config = self._require_anthropic_config(config)
         normalized_custom_id = self._normalize_custom_id(custom_id)
         body = copy.deepcopy(payload)
         expected_schema = body.pop("expected_schema", None)
@@ -90,7 +90,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         requests: Sequence[Dict[str, Any]],
         config: BatchProviderConfig,
     ) -> Dict[str, Any]:
-        anthropic_config = self._check_anthropic_config(config)
+        anthropic_config = self._require_anthropic_config(config)
         client = self._create_client(anthropic_config)
         batches_client = self._resolve_batches_client(client)
 
@@ -133,7 +133,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         provider_batch_id: str,
         config: BatchProviderConfig,
     ) -> BatchSubmissionResult:
-        anthropic_config = self._check_anthropic_config(config)
+        anthropic_config = self._require_anthropic_config(config)
         client = self._create_client(anthropic_config)
         batches_client = self._resolve_batches_client(client)
         retrieved = batches_client.retrieve(provider_batch_id)
@@ -145,7 +145,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         config: BatchProviderConfig,
     ) -> Sequence[Dict[str, Any]]:
         """Download completed Anthropic batch rows and normalize text into ``generated_text``."""
-        anthropic_config = self._check_anthropic_config(config)
+        anthropic_config = self._require_anthropic_config(config)
         client = self._create_client(anthropic_config)
         batches_client = self._resolve_batches_client(client)
 
@@ -405,7 +405,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         return ""
 
     @staticmethod
-    def _check_anthropic_config(config: BatchProviderConfig) -> AnthropicBatchConfig:
+    def _require_anthropic_config(config: BatchProviderConfig) -> AnthropicBatchConfig:
         if isinstance(config, AnthropicBatchConfig):
             return config
         raise TypeError("AnthropicBatchAdapter requires AnthropicBatchConfig")

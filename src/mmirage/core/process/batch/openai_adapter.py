@@ -32,7 +32,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         payload: Dict[str, Any],
         config: BatchProviderConfig,
     ) -> Dict[str, Any]:
-        openai_config = self._check_openai_config(config)
+        openai_config = self._require_openai_config(config)
         body = copy.deepcopy(payload)
         expected_schema = body.pop(
             "expected_schema", None
@@ -118,7 +118,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         requests: Sequence[Dict[str, Any]],
         config: BatchProviderConfig,
     ) -> Dict[str, Any]:
-        openai_config = self._check_openai_config(config)
+        openai_config = self._require_openai_config(config)
         client = self._create_client(openai_config)
 
         jsonl_lines = [
@@ -155,7 +155,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         provider_batch_id: str,
         config: BatchProviderConfig,
     ) -> BatchSubmissionResult:
-        openai_config = self._check_openai_config(config)
+        openai_config = self._require_openai_config(config)
         client = self._create_client(openai_config)
         retrieved = client.batches.retrieve(provider_batch_id)
         return self.parse_submission_result(raw_result=retrieved)
@@ -171,7 +171,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         response bodies, so this method flattens the provider-specific shape
         before returning rows to the provider-agnostic collector.
         """
-        openai_config = self._check_openai_config(config)
+        openai_config = self._require_openai_config(config)
         client = self._create_client(openai_config)
 
         retrieved = client.batches.retrieve(provider_batch_id)
@@ -241,7 +241,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         )
 
     @staticmethod
-    def _check_openai_config(config: BatchProviderConfig) -> OpenAIBatchConfig:
+    def _require_openai_config(config: BatchProviderConfig) -> OpenAIBatchConfig:
         """Validate that `config` is an `OpenAIBatchConfig` and return it.
 
         Raises `TypeError` when the provided `config` is not an
