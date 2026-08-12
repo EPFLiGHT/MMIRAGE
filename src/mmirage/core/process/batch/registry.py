@@ -1,7 +1,7 @@
 """Registry and factory for provider batch adapters."""
 
 import os
-from typing import Dict, Optional, Type
+from typing import Dict, Type
 
 from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.core.process.batch.adapter import BatchSubmissionAdapter
@@ -101,18 +101,3 @@ class BatchAdapterFactory:
             config,
             allow_missing_credentials=allow_missing_credentials,
         )
-
-    @classmethod
-    def from_config_with_export(
-        cls, config: BatchProviderConfig, export_dir: Optional[str] = None
-    ) -> BatchSubmissionAdapter:
-        """Create an adapter and optionally wrap it in DryRunAdapter when
-        `export_dir` is provided.
-        """
-        adapter = BatchAdapterRegistry.create(config)
-        if export_dir:
-            # Local import to avoid import cycles when adapters import registry
-            from mmirage.core.process.batch.dry_run_adapter import DryRunAdapter
-
-            return DryRunAdapter(adapter, export_dir)
-        return adapter
