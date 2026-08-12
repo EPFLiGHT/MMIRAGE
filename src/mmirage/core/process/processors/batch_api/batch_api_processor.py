@@ -15,6 +15,7 @@ from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCou
 from mmirage.core.process.batch.orchestrator import BatchSubmissionOrchestrator
 from mmirage.core.process.batch.registry import BatchAdapterFactory
 from mmirage.core.process.processors.batch_api.config import (
+    BATCH_API_PROCESSOR_TYPE,
     BatchApiOutputVar,
     BatchApiProcessorConfig,
 )
@@ -29,7 +30,9 @@ except ImportError:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 
-@ProcessorRegistry.register("batch_api", BatchApiProcessorConfig, BatchApiOutputVar)
+@ProcessorRegistry.register(
+    BATCH_API_PROCESSOR_TYPE, BatchApiProcessorConfig, BatchApiOutputVar
+)
 class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
     """Processor that submits generation requests to a provider batch API.
 

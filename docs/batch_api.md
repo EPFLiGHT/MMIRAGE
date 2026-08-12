@@ -208,7 +208,8 @@ from mmirage.core.process.batch.adapter import (
 from mmirage.config.batch_provider import BatchProviderConfig
 
 class MistralBatchAdapter(BatchSubmissionAdapter):
-    # Each key must be set as an <PROVIDER>_<KEY> environment variable, e.g. MISTRAL_API_KEY
+    # Each key must be set as an <PROVIDER>_<KEY> environment variable, e.g. MISTRAL_API_KEY.
+    # Non-alphanumeric characters in the provider name become '_': azure-openai -> AZURE_OPENAI_API_KEY.
     required_credentials = ("api_key",)
 
     def build_request(

@@ -14,6 +14,8 @@ from mmirage.core.process.batch.provider_resolution import (
 from mmirage.core.process.variables import BaseVar, OutputVar
 
 logger = logging.getLogger(__name__)
+
+BATCH_API_PROCESSOR_TYPE = "batch_api"
 env = Environment()
 
 
@@ -79,5 +81,5 @@ class BatchApiOutputVar(OutputVar):
 
 
 ProcessorRegistry.register_types(
-    "batch_api", BatchApiProcessorConfig, BatchApiOutputVar
+    BATCH_API_PROCESSOR_TYPE, BatchApiProcessorConfig, BatchApiOutputVar
 )

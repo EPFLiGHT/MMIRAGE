@@ -26,6 +26,7 @@ from mmirage.config.config import MMirageConfig
 from mmirage.config.utils import load_mmirage_config
 from mmirage.core.process.batch.collector import collect_batches
 from mmirage.core.process.batch.status_checker import check_batches
+from mmirage.core.process.processors.batch_api.config import BATCH_API_PROCESSOR_TYPE
 from mmirage.core.process.processors.image_gen.sglang_server import (
     MMIRAGE_SGLANG_BASE_URL,
     get_sglang_server_config,
@@ -260,7 +261,9 @@ def uses_batch_api(cfg: MMirageConfig) -> bool:
     Args:
         cfg: Parsed MMIRAGE configuration object.
     """
-    return any(processor.type == "batch_api" for processor in cfg.processors)
+    return any(
+        processor.type == BATCH_API_PROCESSOR_TYPE for processor in cfg.processors
+    )
 
 
 def build_argparser() -> argparse.ArgumentParser:
