@@ -73,12 +73,18 @@ class BatchAdapterRegistry:
         adapter_cls = cls.resolve(config.provider)
 
         if not allow_missing_credentials:
+            # Provider names may contain characters that are illegal in env var
+            # names, e.g. 'azure-openai' -> AZURE_OPENAI_API_KEY.
+            prefix = "".join(
+                char if char.isalnum() else "_" for char in config.provider.upper()
+            )
             missing = [
-                f"{config.provider.upper()}_{req_key.upper()}"
-                for req_key in adapter_cls.required_credentials
-                if not os.environ.get(
-                    f"{config.provider.upper()}_{req_key.upper()}", ""
-                ).strip()
+                env_var
+                for env_var in (
+                    f"{prefix}_{req_key.upper()}"
+                    for req_key in adapter_cls.required_credentials
+                )
+                if not os.environ.get(env_var, "").strip()
             ]
             if missing:
                 raise ValueError(
