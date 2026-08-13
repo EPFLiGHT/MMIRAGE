@@ -293,6 +293,22 @@ def test_anthropic_retrieve_results_reports_failed_rows(
     assert "generated_text" not in rows[0]
 
 
+def test_anthropic_keeps_generated_custom_ids_unchanged():
+    """Ids built by the processor are already valid, the hash branch is only a fallback."""
+    processor_ids = [
+        "answer-text-1",
+        "formatted_answer-text-12",
+        "caption-multimodal-1",
+    ]
+    for custom_id in processor_ids:
+        assert AnthropicBatchAdapter._normalize_custom_id(custom_id) == custom_id
+
+    # An output name with an illegal character still falls back to the hash form.
+    assert AnthropicBatchAdapter._normalize_custom_id("my.answer-text-1").startswith(
+        "my_answer-text-1-"
+    )
+
+
 def test_resolve_single_provider_config_accepts_anthropic():
     config = resolve_single_provider_config({"provider": "anthropic"})
     assert isinstance(config, AnthropicBatchConfig)

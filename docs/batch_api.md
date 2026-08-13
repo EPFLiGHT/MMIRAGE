@@ -10,7 +10,7 @@ Use the `batch_api` processor instead of `llm`, and give its outputs `type: batc
 
 1. **Request serialization:** MMIRAGE serializes inference requests into JSONL chunks.
 2. **Batch submission:** Each chunk is uploaded and submitted as a provider batch job.
-3. **Execution completion:** The pipeline run exits immediately after submission, saving placeholder values (e.g. `__BATCH_SUBMITTED__:<output_name>:<modality>:<request_number>`) in the output dataset shards.
+3. **Execution completion:** The pipeline run exits immediately after submission, saving placeholder values (e.g. `__BATCH_SUBMITTED__:<output_name>-<modality>-<request_number>`) in the output dataset shards.
 4. **Asynchronous retrieval:** The user manually polls status and downloads/merges the completed results using separate Python utility modules once the provider completes the batch jobs.
 
 This mode is useful when:
@@ -128,7 +128,7 @@ mmirage run --config configs/batch_config.yaml
 
 During this run, MMIRAGE maps over your datasets, generates request payloads, writes them to serialized JSONL chunks, and submits them to the provider batch API.
 - The pipeline execution completes immediately after submission.
-- The output files in the dataset's `output_dir` shards will contain temporary placeholder variables of the format `__BATCH_SUBMITTED__:<output_name>:<modality>:<request_number>`.
+- The output files in the dataset's `output_dir` shards will contain temporary placeholder variables of the format `__BATCH_SUBMITTED__:<output_name>-<modality>-<request_number>`. The part after the prefix is the `custom_id` used in the receipt and in the provider results.
 - MMIRAGE generates **metadata receipt files** named `<metadata_output_path>.<modality>.<run_id>.jsonl` (e.g., `batch_metadata.text.abc123.jsonl`). These receipt files store the API batch IDs and map each API request's `custom_id` to its original dataset `source_index`.
 
 ### Step 2: Check Batch Job Status

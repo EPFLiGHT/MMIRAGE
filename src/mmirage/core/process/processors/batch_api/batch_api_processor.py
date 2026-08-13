@@ -121,7 +121,8 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
 
     def _next_custom_id(self, output_name: str, modality: str) -> str:
         self._batch_request_counter += 1
-        return f"{output_name}:{modality}:{self._batch_request_counter}"
+        # Only [a-zA-Z0-9_-] to stay valid for every provider, anthropic rejects the rest.
+        return f"{output_name}-{modality}-{self._batch_request_counter}"
 
     def get_load_time(self) -> float:
         """Return 0: no model is loaded in batch submission mode."""
@@ -259,7 +260,7 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
 
         placeholders: List[VariableEnvironment] = []
         for i in range(nb_samples):
-            unique_id = index_to_custom_id.get(i, f"unknown:{i}")
+            unique_id = index_to_custom_id.get(i, f"unknown-{i}")
             placeholder = f"__BATCH_SUBMITTED__:{unique_id}"
             placeholders.append(batch[i].with_variable(output_var.name, placeholder))
 
