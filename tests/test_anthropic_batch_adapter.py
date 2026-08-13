@@ -93,6 +93,26 @@ def test_anthropic_build_request_keeps_remote_image_urls(monkeypatch):
     assert content[0] == {"type": "image", "source": {"type": "url", "url": url}}
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "sample.bmp",
+        "sample.svg",
+        "sample",
+        "data:application/pdf;base64,AAA",
+    ],
+)
+def test_anthropic_rejects_unsupported_image_media_types(tmp_path, url):
+    """Anthropic only accepts jpeg, png, gif and webp, fail before submitting."""
+    if not url.startswith("data:"):
+        image_path = tmp_path / url
+        image_path.write_bytes(b"x")
+        url = str(image_path)
+
+    with pytest.raises(ValueError, match="Unsupported image media type"):
+        AnthropicBatchAdapter._image_source_from_url(url)
+
+
 def test_anthropic_config_uses_higher_default_max_tokens():
     config = AnthropicBatchConfig()
     assert config.max_tokens == 8192

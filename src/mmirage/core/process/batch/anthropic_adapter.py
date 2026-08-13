@@ -22,6 +22,11 @@ from mmirage.core.process.batch.adapter import (
 
 logger = logging.getLogger(__name__)
 
+# The only media types anthropic accepts in a base64 image source.
+SUPPORTED_IMAGE_MEDIA_TYPES = frozenset(
+    {"image/jpeg", "image/png", "image/gif", "image/webp"}
+)
+
 
 class AnthropicBatchAdapter(BatchSubmissionAdapter):
     """Provider adapter for Anthropic Messages Batches API."""
@@ -255,6 +260,12 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
             with open(url, "rb") as f:
                 data = base64.b64encode(f.read()).decode("utf-8")
 
+        if media_type not in SUPPORTED_IMAGE_MEDIA_TYPES:
+            raise ValueError(
+                f"Unsupported image media type '{media_type}' for '{url[:80]}', "
+                f"anthropic accepts {', '.join(sorted(SUPPORTED_IMAGE_MEDIA_TYPES))}."
+            )
+
         return {
             "type": "base64",
             "media_type": media_type,
@@ -279,7 +290,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
     @staticmethod
     def _guess_mime_type(path: str) -> str:
         mime_type, _ = mimetypes.guess_type(path)
-        return mime_type or "image/jpeg"
+        return mime_type or ""
 
     @staticmethod
     def _extract_generated_text(row: Dict[str, Any]) -> str:

@@ -107,6 +107,14 @@ Keys cannot be supplied in the YAML config. The key is checked when the processo
 
 ---
 
+## Images
+
+Local image paths are read and base64-encoded into the request, so they count towards `max_chunk_bytes`. `http(s)` URLs are sent as-is and the provider fetches them.
+
+Accepted image types depend on the provider. `provider: anthropic` only encodes `image/jpeg`, `image/png`, `image/gif` and `image/webp`, and raises before submission on anything else, so give your images a correct extension. `provider: openai` sends the type as-is and lets the provider reject it.
+
+---
+
 ## Request chunking
 
 MMIRAGE automatically splits requests into chunks that respect both `max_chunk_bytes` and `max_requests_per_chunk`.
