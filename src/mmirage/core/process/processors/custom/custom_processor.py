@@ -29,10 +29,6 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
 
     Workers are started with the configured ``start_method`` ('spawn' by default, which
     isolates them from the parent's state) and misbehaving scripts trip a circuit breaker.
-
-    Failure counters are cumulative over the whole shard and are never reset between
-    batches; once either threshold is crossed the pool is stopped and every later batch
-    fails immediately.
     """
 
     def __init__(self, config: CustomProcessorConfig, shard_id: int = 0) -> None:
@@ -58,14 +54,6 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
                 f"CustomProcessor failed to boot: script_path '{self.config.script_path}' does not exist."
             )
 
-        if self.config.start_method == "fork":
-            logger.warning(
-                "start_method='fork' copies this process, which already holds whatever earlier "
-                "processors left behind. Threads are not copied, so any lock they held at fork "
-                "time stays locked forever in the workers. Safe only if 'custom' is the first "
-                "processor of the pipeline."
-            )
-
         self._pool = ProcessPool(
             max_workers=self.config.max_workers,
             context=multiprocessing.get_context(self.config.start_method),
@@ -84,8 +72,20 @@ class CustomProcessor(BaseProcessor[CustomOutputVar]):
     ) -> List[VariableEnvironment]:
         """Process a batch of data rows through the user's custom function.
 
-        Implements an order-preserving fan-out/fan-in execution model with soft
-        and hard failure recovery.
+        Rows are scheduled in parallel and reassembled in input order. Timeouts and
+        script exceptions are absorbed with ``fallback_value``; their counters are
+        cumulative over the shard and never reset, so once ``max_timeouts`` or
+        ``max_errors`` is crossed the pool is stopped and every later call raises.
+
+        Args:
+            batch: Rows to process.
+            output_var: Variable the function's return value is bound to.
+
+        Returns:
+            The input rows, each extended with ``output_var``.
+
+        Raises:
+            RuntimeError: If the circuit breaker is or becomes tripped.
         """
 
         if self._is_broken:
