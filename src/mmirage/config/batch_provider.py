@@ -49,7 +49,6 @@ class BatchProviderConfig:
 
     Attributes:
         provider: Provider identifier (for example, "openai" or "anthropic").
-        enabled: Whether batch submission mode is enabled.
         max_chunk_bytes: Maximum serialized request bytes per chunk.
             Defaults to 50 MB.
         max_requests_per_chunk: Optional hard cap on number of requests in a
@@ -62,11 +61,9 @@ class BatchProviderConfig:
             ``max_chunk_bytes``. ``isolate`` creates a dedicated oversized
             chunk, while ``reject`` fails fast.
         extras: Provider-specific knobs that do not belong in the shared fields.
-        credentials: Provider credentials required to submit chunks.
     """
 
     provider: str
-    enabled: bool = True
     max_chunk_bytes: int = 50 * 1024 * 1024
     max_requests_per_chunk: Optional[int] = None
     metadata_output_path: str = ""
@@ -75,7 +72,6 @@ class BatchProviderConfig:
         OversizedRequestPolicy.ISOLATE
     )
     extras: Dict[str, Any] = field(default_factory=dict)
-    credentials: Dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.provider = self.provider.strip().lower()

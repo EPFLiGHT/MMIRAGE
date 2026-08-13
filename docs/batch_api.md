@@ -6,7 +6,7 @@ This page explains how to run MMIRAGE inference asynchronously using the OpenAI 
 
 ## Overview
 
-By default, MMIRAGE runs inference locally via an SGLang engine. When a `batch_provider` is configured, the `llm` processor instead delegates requests to the OpenAI Batch API asynchronously:
+Use the `batch_api` processor instead of `llm`, and give its outputs `type: batch_api`.
 
 1. **Request serialization:** MMIRAGE serializes inference requests into JSONL chunks.
 2. **Batch submission:** Each chunk is uploaded and submitted as an OpenAI batch job.
@@ -35,27 +35,23 @@ This mode is useful when:
 
 ## Configuration
 
-Add a `batch_provider` block inside the processor definition in your YAML config:
+Declare a `batch_api` processor and its provider settings in your YAML config:
 
 ```yaml
 processors:
-  - type: llm
-    server_args:
-      model_path: none               # Ignored in batch mode, defaults to "none"
-    batch_provider:
-      provider: openai
-      enabled: true
-      model: gpt-4o-mini
-      max_chunk_bytes: 52428800      # Max bytes per uploaded JSONL file (50 MB)
-      max_requests_per_chunk: 50000  # Max requests per batch job
-      metadata_output_path: /path/to/batch_metadata.jsonl
-      completion_window: 24h
-      base_url: https://api.openai.com/v1
-      oversized_request_policy: isolate  # isolate | reject
-      retry_policy:
-        max_attempts: 3
-        initial_backoff_seconds: 2.0
-        backoff_multiplier: 2.0
+  - type: batch_api
+    provider: openai
+    model: gpt-4o-mini
+    max_chunk_bytes: 52428800      # Max bytes per uploaded JSONL file (50 MB)
+    max_requests_per_chunk: 50000  # Max requests per batch job
+    metadata_output_path: /path/to/batch_metadata.jsonl
+    completion_window: 24h
+    base_url: https://api.openai.com/v1
+    oversized_request_policy: isolate  # isolate | reject
+    retry_policy:
+      max_attempts: 3
+      initial_backoff_seconds: 2.0
+      backoff_multiplier: 2.0
 ```
 
 ### Field reference
@@ -63,7 +59,6 @@ processors:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `provider` | `str` | — | Provider identifier. Currently `"openai"` is supported. |
-| `enabled` | `bool` | `true` | Whether batch mode is active. |
 | `model` | `str` | `"gpt-4.1-mini"` | Model name for chat completion requests. |
 | `batch_endpoint` | `str` | `"/v1/chat/completions"` | Target endpoint used by OpenAI batch jobs. |
 | `completion_window` | `str` | `"24h"` | OpenAI batch completion window (only `"24h"` is supported). |
@@ -76,29 +71,18 @@ processors:
 | `retry_policy.initial_backoff_seconds` | `float` | `2.0` | Initial retry delay in seconds. |
 | `retry_policy.backoff_multiplier` | `float` | `2.0` | Multiplicative factor for subsequent retry delays. |
 | `metadata` | `dict` | `{}` | Key-value pairs sent on batch creation (OpenAI-specific metadata). |
-| `credentials.api_key` | `str` | `null` | OpenAI API key (can also be specified via the `OPENAI_API_KEY` env var). |
 
 ---
 
 ## API key
 
-The OpenAI Batch API requires an API key. You can specify it in your YAML config under `credentials`:
-
-```yaml
-    batch_provider:
-      provider: openai
-      credentials:
-        api_key: sk-...
-```
-
-Or set it via the environment variable before running:
+API provider require an API key. You can set it via the environment variable before running:
+Exemple for OpenAI:
 
 ```bash
 export OPENAI_API_KEY=sk-...
-mmirage run --config configs/batch_config.yaml
+# Then you can run mmirage with the right yaml configuration for OpenAI
 ```
-
-MMIRAGE reads the key from either `credentials.api_key` in the config or the `OPENAI_API_KEY` environment variable. Prefer environment variables to avoid committing credentials.
 
 ---
 
@@ -115,7 +99,7 @@ For very large prompts (e.g. with long contexts), you may need to reduce `max_re
 Running the batch pipeline is an asynchronous, three-step process:
 
 ### Step 1: Submit the Batch Jobs
-Execute your MMIRAGE pipeline with a configuration that has `batch_provider.enabled: true`:
+Execute your MMIRAGE pipeline with a configuration that declares a `batch_api` processor:
 
 ```bash
 mmirage run --config configs/batch_config.yaml
@@ -159,6 +143,8 @@ python -m mmirage.core.process.batch.collector \
   --output-path /path/to/final_merged_output.jsonl
 ```
 
+The collector prints the run totals, and each merged row carries `input_tokens` and `output_tokens` when the provider reports usage. Token counts are unknown at submission time, so they never appear in the [benchmark report](benchmarking.md).
+
 ---
 
 ## Provider-Agnostic Architecture & Custom Providers
@@ -201,7 +187,7 @@ from mmirage.config.batch_provider import BatchProviderConfig
 
 
 class AnthropicBatchAdapter(BatchSubmissionAdapter):
-    # Defines required keys for config.credentials (or environment variable fallbacks)
+    # Each key must be set as an <PROVIDER>_<KEY> environment variable, e.g. ANTHROPIC_API_KEY
     required_credentials = ("api_key",)
 
     def build_request(
@@ -262,6 +248,8 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         # Downloads/retrieves completed outputs and normalizes each row.
         # Ensure text generations are mapped to the "generated_text" key so
         # the collector can reconstruct the original dataset rows neutrally.
+        # Expose any reported usage as "input_tokens" and "output_tokens",
+        # omitting both keys when the provider reports none.
         ...
 ```
 
@@ -286,14 +274,10 @@ After registering your custom provider, you can reference it in your MMIRAGE pip
 
 ```yaml
 processors:
-  - type: llm
-    batch_provider:
-      provider: anthropic
-      enabled: true
-      model: claude-haiku-4-5
-      metadata_output_path: /scratch/anthropic_meta.jsonl
-      credentials:
-        api_key: "your-anthropic-key"  # Or leave blank and set ANTHROPIC_API_KEY env var
+  - type: batch_api
+    provider: anthropic
+    model: claude-haiku-4-5
+    metadata_output_path: /scratch/anthropic_meta.jsonl
 ```
 
 ---
@@ -302,26 +286,19 @@ processors:
 
 ```yaml
 processors:
-  - type: llm
-    server_args:
-      model_path: none        # Ignored in batch mode
-    default_sampling_params:
-      temperature: 0.0
-      max_new_tokens: 512
-    batch_provider:
-      provider: openai
-      enabled: true
-      model: gpt-4o-mini
-      max_chunk_bytes: 52428800
-      max_requests_per_chunk: 50000
-      metadata_output_path: /scratch/batch_meta.jsonl
-      completion_window: 24h
-      base_url: https://api.openai.com/v1
-      oversized_request_policy: isolate
-      retry_policy:
-        max_attempts: 3
-        initial_backoff_seconds: 2.0
-        backoff_multiplier: 2.0
+  - type: batch_api
+    provider: openai
+    model: gpt-4o-mini
+    max_chunk_bytes: 52428800
+    max_requests_per_chunk: 50000
+    metadata_output_path: /scratch/batch_meta.jsonl
+    completion_window: 24h
+    base_url: https://api.openai.com/v1
+    oversized_request_policy: isolate
+    retry_policy:
+      max_attempts: 3
+      initial_backoff_seconds: 2.0
+      backoff_multiplier: 2.0
 
 loading_params:
   state_dir: /scratch/state
@@ -340,7 +317,7 @@ processing_params:
 
   outputs:
     - name: answer
-      type: llm
+      type: batch_api
       output_type: plain
       prompt: |
         Answer the following question concisely:
@@ -360,7 +337,7 @@ execution_params:
 
 ## See also
 
-- [Concepts](concepts.md) — processor types and execution modes
-- [Configuration Reference](configuration.md) — full `batch_provider` parameter reference
+- [Concepts](concepts.md) — processor types
+- [Configuration Reference](configuration.md) — full `batch_api` parameter reference
 - [Pipeline](pipeline.md) — where batch inference fits in the data flow
 - [CLI Reference](cli.md) — CLI command reference for local and SLURM pipeline execution

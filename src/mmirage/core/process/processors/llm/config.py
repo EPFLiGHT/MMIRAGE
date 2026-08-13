@@ -11,7 +11,6 @@ from jinja2 import Environment, meta
 from pydantic import BaseModel, create_model
 from pydantic import Field as PydanticField
 
-from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.core.process.base import BaseProcessorConfig, ProcessorRegistry
 from mmirage.core.process.variables import BaseVar, OutputVar
 
@@ -85,17 +84,14 @@ class SGLangLLMConfig(BaseProcessorConfig):
     Supports both text-only and multimodal (vision-language) models.
 
     Attributes:
-        type: Type identifier (must be "llm").
         server_args: SGLang server arguments including model path and TP size.
         default_sampling_params: Default sampling parameters for generation.
         chat_template: Chat template name for vision-language models (e.g., "qwen2-vl").
-        batch_provider: Optional provider batch settings for async submission.
     """
 
     server_args: SGLangServerArgs = field(default_factory=SGLangServerArgs)
     default_sampling_params: Dict[str, Any] = field(default_factory=dict)
     chat_template: str = ""  # Empty means use tokenizer's default
-    batch_provider: Optional[BatchProviderConfig] = None
 
 
 _NUMERIC_BOUND_RE = re.compile(r"^-?\d+(\.\d+)?$")

@@ -3,7 +3,6 @@ from dataclasses import dataclass
 import pytest
 
 from mmirage.config.batch_provider import BatchProviderConfig
-from mmirage.config.openai_batch import OpenAIBatchConfig
 from mmirage.core.process.batch.adapter import (
     BatchSubmissionAdapter,
     BatchSubmissionResult,
@@ -147,32 +146,21 @@ def test_factory_raises_for_unknown_provider():
         BatchAdapterFactory.from_config(config)
 
 
-def test_factory_raises_for_missing_required_credentials():
+def test_factory_raises_when_credential_env_var_is_missing(monkeypatch):
     BatchAdapterRegistry.register("unit", CredentialedTestAdapter)
-    config = BatchProviderConfig(provider="unit", credentials={})
+    monkeypatch.delenv("UNIT_API_KEY", raising=False)
+    config = BatchProviderConfig(provider="unit")
 
-    with pytest.raises(ValueError, match="Missing credentials"):
+    with pytest.raises(ValueError, match="UNIT_API_KEY"):
         BatchAdapterFactory.from_config(config)
 
 
-def test_factory_creates_adapter_when_credentials_are_present():
-    BatchAdapterRegistry.register("unit", CredentialedTestAdapter)
-    config = BatchProviderConfig(provider="unit", credentials={"api_key": "secret"})
-
-    adapter = BatchAdapterFactory.from_config(config)
-
-    assert isinstance(adapter, CredentialedTestAdapter)
-
-
-def test_factory_resolves_missing_credentials_from_environment(monkeypatch):
+def test_factory_creates_adapter_when_credential_env_var_is_set(monkeypatch):
     BatchAdapterRegistry.register("unit", CredentialedTestAdapter)
     monkeypatch.setenv("UNIT_API_KEY", "from-env")
-    config = BatchProviderConfig(provider="unit", credentials={})
+    config = BatchProviderConfig(provider="unit")
 
-    adapter = BatchAdapterFactory.from_config(config)
-
-    assert isinstance(adapter, CredentialedTestAdapter)
-    assert config.credentials["api_key"] == "from-env"
+    assert isinstance(BatchAdapterFactory.from_config(config), CredentialedTestAdapter)
 
 
 @dataclass
@@ -186,11 +174,11 @@ class UnitBatchConfig(BatchProviderConfig):
             raise ValueError("unit_setting must be a non-empty string")
 
 
-def test_resolve_single_provider_config_defaults_to_openai():
-    config = resolve_single_provider_config({})
-
-    assert isinstance(config, OpenAIBatchConfig)
-    assert config.provider == "openai"
+def test_resolve_single_provider_config_raises_for_missing_provider():
+    with pytest.raises(
+        ValueError, match="batch config must include a non-empty provider"
+    ):
+        resolve_single_provider_config({})
 
 
 def test_resolve_single_provider_config_resolves_custom_provider():

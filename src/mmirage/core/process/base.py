@@ -146,6 +146,7 @@ class ProcessorRegistry:
     _lazy_processor_imports = {
         "llm": "mmirage.core.process.processors.llm.llm_processor",
         "image_gen": "mmirage.core.process.processors.image_gen.image_gen_processor",
+        "batch_api": "mmirage.core.process.processors.batch_api.batch_api_processor",
     }
 
     @classmethod

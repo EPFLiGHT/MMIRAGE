@@ -13,6 +13,7 @@ from dacite import Config, from_dict
 # processor implementations (e.g. torch/transformers).
 import mmirage.core.loader.jsonl  # noqa: F401
 import mmirage.core.loader.local_hf  # noqa: F401
+import mmirage.core.process.processors.batch_api.config  # noqa: F401
 import mmirage.core.process.processors.image_gen.config  # noqa: F401
 import mmirage.core.process.processors.llm.config  # noqa: F401
 from mmirage.config.batch_provider import BatchProviderConfig
@@ -113,6 +114,9 @@ def load_mmirage_config(config_path: str) -> MMirageConfig:
 
     def processor_config_hook(data: Dict[str, Any]) -> BaseProcessorConfig:
         clz = ProcessorRegistry.get_config_cls(data["type"])
+        from_raw = getattr(clz, "from_raw", None)
+        if from_raw is not None:
+            return from_raw(data)
         return from_dict(clz, data, config=config)
 
     def loader_config_hook(data: Dict[str, Any]) -> BaseDataLoaderConfig:

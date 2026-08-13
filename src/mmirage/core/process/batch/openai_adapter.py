@@ -210,6 +210,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
                 generated_text = self._extract_generated_text(row)
                 if generated_text:
                     row["generated_text"] = generated_text
+            row.update(self._extract_usage(row))
             rows.append(row)
 
         return rows
@@ -280,6 +281,18 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         return ""
 
     @staticmethod
+    def _extract_usage(row: Dict[str, Any]) -> Dict[str, int]:
+        # Return an empty mapping when the provider reports no usage, e.g. on failed rows
+        try:
+            usage = row["response"]["body"]["usage"]
+            return {
+                "input_tokens": int(usage["prompt_tokens"]),
+                "output_tokens": int(usage["completion_tokens"]),
+            }
+        except (KeyError, TypeError, ValueError):
+            return {}
+
+    @staticmethod
     def _extract_error_message(row: Dict[str, Any]) -> str:
         try:
             error = row["response"]["body"]["error"]
@@ -294,14 +307,11 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
 
     @staticmethod
     def _create_client(config: OpenAIBatchConfig) -> OpenAI:
-        api_key = (
-            config.credentials.get("api_key", "").strip()
-            or os.environ.get("OPENAI_API_KEY", "").strip()
-        )
+        api_key = os.environ.get("OPENAI_API_KEY", "").strip()
 
         if not api_key:
             raise ValueError(
-                "OpenAI API key is missing. Provide credentials.api_key or set OPENAI_API_KEY."
+                "OpenAI API key is missing. set OPENAI_API_KEY. with `export OPENAI_API_KEY=your_api_key` ."
             )
 
         try:
