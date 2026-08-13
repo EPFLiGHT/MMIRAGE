@@ -242,12 +242,12 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
 
     @staticmethod
     def _image_source_from_url(url: str) -> Dict[str, str]:
+        if url.startswith("http://") or url.startswith("https://"):
+            # Anthropic fetches remote images itself, like openai does.
+            return {"type": "url", "url": url}
+
         if url.startswith("data:"):
             media_type, data = AnthropicBatchAdapter._parse_data_uri(url)
-        elif url.startswith("http://") or url.startswith("https://"):
-            raise ValueError(
-                "Anthropic batch requests require local image paths or data URIs; remote URLs are unsupported."
-            )
         else:
             if not os.path.exists(url):
                 raise ValueError(f"Image path does not exist: {url}")

@@ -66,6 +66,33 @@ def test_anthropic_build_request_normalizes_messages_and_images(tmp_path, monkey
     assert base64.b64decode(encoded) == image_bytes
 
 
+def test_anthropic_build_request_keeps_remote_image_urls(monkeypatch):
+    """Remote URLs go to the provider untouched, same as the openai adapter."""
+
+    class FakeAnthropic:
+        def __init__(self, **kwargs):
+            pass
+
+    _patch_anthropic_client(monkeypatch, FakeAnthropic)
+
+    url = "https://example.com/cat.png"
+    request = AnthropicBatchAdapter().build_request(
+        custom_id="vision-2",
+        payload={
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "image_url", "image_url": {"url": url}}],
+                }
+            ]
+        },
+        config=AnthropicBatchConfig(),
+    )
+
+    content = request["params"]["messages"][0]["content"]
+    assert content[0] == {"type": "image", "source": {"type": "url", "url": url}}
+
+
 def test_anthropic_config_uses_higher_default_max_tokens():
     config = AnthropicBatchConfig()
     assert config.max_tokens == 8192
