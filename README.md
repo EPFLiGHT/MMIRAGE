@@ -261,7 +261,10 @@ execution_params:
 
 Configuration explanation:
 
-- `processors`: List of processor configurations. Supports `llm` (text/VLM generation) and `image_gen` (text-to-image generation).
+- `processors`: List of processor configurations. Currently supports :
+  - `llm` (text/VLM generation, run locally with SGLang).
+  - `batch_api` (text/VLM generation submitted to a provider batch API, see [Batch API](docs/batch_api.md)).
+  - `image_gen` (text-to-image generation).
 - `loading_params`: Parameters for loading and sharding datasets.
   - `state_dir`: Optional shared directory for shard status/retry state. Defaults to `~/.cache/MMIRAGE/state_dir`.
   - `datasets`: List of dataset configurations with path, type, and output directory.

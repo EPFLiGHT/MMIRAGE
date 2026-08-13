@@ -71,7 +71,7 @@ def test_run_status_checker_prints_summary_with_factory_dispatch(tmp_path, monke
     )
 
     config_map = {
-        "openai": OpenAIBatchConfig(credentials={"api_key": "k"}),
+        "openai": OpenAIBatchConfig(),
     }
     records = _read_metadata_records(str(metadata_path))
 
@@ -112,7 +112,7 @@ def test_status_checker_main_uses_config_and_runs(tmp_path, monkeypatch):
     config_path.write_text("processors: []\n", encoding="utf-8")
 
     cfg = SimpleNamespace(
-        processors=[SimpleNamespace(batch_provider={"provider": "openai"})]
+        processors=[SimpleNamespace(provider_config={"provider": "openai"})]
     )
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
 
@@ -160,7 +160,7 @@ def test_status_checker_main_returns_error_when_metadata_provider_missing_in_con
 
     # Config intentionally only defines openai, not mistral.
     cfg = SimpleNamespace(
-        processors=[SimpleNamespace(batch_provider={"provider": "openai"})]
+        processors=[SimpleNamespace(provider_config={"provider": "openai"})]
     )
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
 
@@ -178,9 +178,7 @@ def test_status_checker_main_returns_error_when_metadata_provider_missing_in_con
     assert mock_logger.error.called or mock_logger.exception.called
 
 
-def test_status_checker_main_returns_error_when_credentials_missing(
-    tmp_path, monkeypatch
-):
+def test_status_checker_main_returns_error_when_api_key_missing(tmp_path, monkeypatch):
     from unittest.mock import patch
 
     from mmirage.core.process.batch import status_checker
@@ -194,9 +192,7 @@ def test_status_checker_main_returns_error_when_credentials_missing(
     config_path.write_text("processors: []\n", encoding="utf-8")
 
     cfg = SimpleNamespace(
-        processors=[
-            SimpleNamespace(batch_provider={"provider": "openai", "credentials": {}})
-        ]
+        processors=[SimpleNamespace(provider_config={"provider": "openai"})]
     )
     monkeypatch.setattr("mmirage.config.utils.load_mmirage_config", lambda path: cfg)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -232,7 +228,7 @@ def test_status_checker_main_uses_config_metadata_path_when_missing_cli_arg(
     cfg = SimpleNamespace(
         processors=[
             SimpleNamespace(
-                batch_provider={
+                provider_config={
                     "provider": "openai",
                     "metadata_output_path": str(metadata_base),
                 }
@@ -275,7 +271,7 @@ def test_status_checker_main_returns_error_when_config_metadata_paths_missing(
     cfg = SimpleNamespace(
         processors=[
             SimpleNamespace(
-                batch_provider={
+                provider_config={
                     "provider": "openai",
                     "metadata_output_path": str(metadata_base),
                 }
