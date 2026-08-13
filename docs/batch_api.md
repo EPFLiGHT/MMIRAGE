@@ -89,7 +89,6 @@ These fields apply to every provider.
 | `top_p` | `float` | `null` | Nucleus sampling probability, in `(0, 1]`. Mutually exclusive with `temperature`. |
 | `base_url` | `str` | `null` | Optional base URL, useful for API-compatible gateways. |
 | `timeout_seconds` | `float` | `null` | Optional request timeout. |
-| `metadata` | `dict` | `{}` | Key-value pairs sent on batch creation. |
 
 Setting both `temperature` and `top_p` is rejected at config load; setting neither defaults `temperature` to `0.0`.
 

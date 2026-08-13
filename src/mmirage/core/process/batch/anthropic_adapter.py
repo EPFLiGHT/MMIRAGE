@@ -94,13 +94,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         client = self._create_client(anthropic_config)
         batches_client = self._resolve_batches_client(client)
 
-        metadata = dict(anthropic_config.metadata)
-        metadata["chunk_id"] = chunk_id
-
-        try:
-            response = batches_client.create(requests=requests, metadata=metadata)
-        except TypeError:
-            response = batches_client.create(requests=requests)
+        response = batches_client.create(requests=requests)
 
         return {
             "id": self._attr_or_get(response, "id", ""),

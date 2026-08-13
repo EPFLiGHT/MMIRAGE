@@ -133,7 +133,6 @@ The API key is read from the environment (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
 | `top_p` | `float` | `null` | Nucleus sampling probability in `(0, 1]`; mutually exclusive with `temperature` |
 | `timeout_seconds` | `float` | `null` | Optional request timeout |
 | `base_url` | `str` | `null` | Optional base URL for API-compatible gateways |
-| `metadata` | `dict` | `{}` | Key-value pairs sent on batch creation |
 
 Setting both `temperature` and `top_p` is rejected at config load; setting neither defaults `temperature` to `0.0`.
 

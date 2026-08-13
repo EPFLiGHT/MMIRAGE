@@ -124,8 +124,9 @@ def test_anthropic_submit_chunk_uses_messages_batches(monkeypatch):
     captured = {}
 
     class FakeBatches:
-        def create(self, **kwargs):
-            captured["create_kwargs"] = kwargs
+        # Same signature as the SDK, so passing anything else fails here.
+        def create(self, *, requests):
+            captured["create_kwargs"] = {"requests": requests}
             return SimpleNamespace(id="batch_123", status="submitted")
 
     class FakeMessages:
@@ -155,7 +156,6 @@ def test_anthropic_submit_chunk_uses_messages_batches(monkeypatch):
 
     assert captured["client_kwargs"]["api_key"] == "test-key"
     assert captured["create_kwargs"]["requests"] == requests
-    assert captured["create_kwargs"]["metadata"]["chunk_id"] == "chunk-01"
     assert raw_result["id"] == "batch_123"
     assert raw_result["status"] == "submitted"
 

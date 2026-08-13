@@ -1,7 +1,7 @@
 """Anthropic-specific batch configuration."""
 
-from dataclasses import dataclass, field
-from typing import Dict, Optional
+from dataclasses import dataclass
+from typing import Optional
 
 from mmirage.config.batch_provider import BatchProviderConfig
 
@@ -18,7 +18,6 @@ class AnthropicBatchConfig(BatchProviderConfig):
         top_p: Nucleus sampling probability.
         base_url: Optional base URL for API-compatible gateways.
         timeout_seconds: Request timeout in seconds.
-        metadata: Metadata sent on batch creation.
     """
 
     provider: str = "anthropic"
@@ -28,7 +27,6 @@ class AnthropicBatchConfig(BatchProviderConfig):
     top_p: Optional[float] = None
     base_url: Optional[str] = None
     timeout_seconds: Optional[float] = None
-    metadata: Dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         super().__post_init__()
