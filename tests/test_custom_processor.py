@@ -18,6 +18,7 @@ from mmirage.core.process.processors.custom.custom_processor import CustomProces
 from mmirage.core.process.variables import VariableEnvironment
 
 
+# applies to every test in this file: no CustomProcessor ever starts real workers
 @pytest.fixture(autouse=True)
 def mock_pebble_pool():
     """Mock the pebble ProcessPool to prevent real multiprocessing overhead in tests.
