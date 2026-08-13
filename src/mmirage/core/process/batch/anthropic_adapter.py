@@ -307,18 +307,18 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
 
     @staticmethod
     def _extract_error_message(row: Dict[str, Any]) -> str:
+        result = row.get("result")
+        if not isinstance(result, Mapping):
+            return ""
+        result_type = result.get("type")
+        if result_type not in {"errored", "canceled", "expired"}:
+            return ""
         try:
-            result = row.get("result", {})
-            result_type = result.get("type")
-            if result_type in {"error", "errored", "failed"}:
-                error = result.get("error", {})
-                if isinstance(error, dict):
-                    message = error.get("message")
-                    if isinstance(message, str):
-                        return message
-        except Exception:
-            pass
-        return ""
+            # result.error is an ErrorResponse wrapper, the message is one level deeper.
+            message = result["error"]["error"]["message"]
+        except (KeyError, TypeError):
+            message = None
+        return message if isinstance(message, str) else f"Request {result_type}"
 
     @staticmethod
     def _parse_results_response(response: Any) -> List[Dict[str, Any]]:

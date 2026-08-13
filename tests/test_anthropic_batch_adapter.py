@@ -3,6 +3,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from anthropic.types.messages import MessageBatchIndividualResponse
 
 from mmirage.config.anthropic_batch import AnthropicBatchConfig
 from mmirage.core.process.batch import anthropic_adapter
@@ -241,6 +242,55 @@ def test_anthropic_retrieve_results_normalizes_custom_id_and_generated_text(
             "generated_text": "Hello world",
         }
     ]
+
+
+@pytest.mark.parametrize(
+    ("result", "expected_message"),
+    [
+        (
+            {
+                "type": "errored",
+                "error": {
+                    "type": "error",
+                    "request_id": "req_1",
+                    "error": {"type": "invalid_request_error", "message": "boom"},
+                },
+            },
+            "boom",
+        ),
+        ({"type": "canceled"}, "Request canceled"),
+        ({"type": "expired"}, "Request expired"),
+    ],
+)
+def test_anthropic_retrieve_results_reports_failed_rows(
+    monkeypatch, result, expected_message
+):
+    """Failures must surface a message, not an empty row that looks successful."""
+    row = MessageBatchIndividualResponse.model_validate(
+        {"custom_id": "c1", "result": result}
+    ).model_dump()
+
+    class FakeBatches:
+        def retrieve(self, provider_batch_id):
+            return SimpleNamespace(id=provider_batch_id, status="completed")
+
+        def results(self, provider_batch_id):
+            return [row]
+
+    class FakeAnthropic:
+        def __init__(self, **kwargs):
+            self.messages = SimpleNamespace(batches=FakeBatches())
+
+    _patch_anthropic_client(monkeypatch, FakeAnthropic)
+
+    rows = AnthropicBatchAdapter().retrieve_results(
+        provider_batch_id="batch_1", config=AnthropicBatchConfig()
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["status"] == "error"
+    assert rows[0]["error_message"] == expected_message
+    assert "generated_text" not in rows[0]
 
 
 def test_resolve_single_provider_config_accepts_anthropic():
