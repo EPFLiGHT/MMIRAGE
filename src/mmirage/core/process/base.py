@@ -15,10 +15,11 @@ class BaseProcessorConfig:
     All processor configurations must inherit from this class.
 
     Attributes:
-        type: String identifier for the processor type (e.g., "llm").
+        type: Registry key of the processor. Concrete configs narrow this to
+            their own literal (e.g. ``Literal["llm"] = "llm"``).
     """
 
-    type: str = ""
+    type: str
 
 
 C = TypeVar("C", bound=OutputVar)
@@ -146,6 +147,7 @@ class ProcessorRegistry:
     _lazy_processor_imports = {
         "llm": "mmirage.core.process.processors.llm.llm_processor",
         "image_gen": "mmirage.core.process.processors.image_gen.image_gen_processor",
+        "custom": "mmirage.core.process.processors.custom.custom_processor",
         "batch_api": "mmirage.core.process.processors.batch_api.batch_api_processor",
     }
 

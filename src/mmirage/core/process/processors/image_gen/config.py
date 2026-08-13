@@ -98,6 +98,7 @@ class ImageGenConfig(BaseProcessorConfig):
             ``"jpg"``).
     """
 
+    type: Literal["image_gen"] = "image_gen"
     backend: Literal["external", "sglang"] = "external"
     external: Optional[ExternalImageBackendConfig] = None
     sglang: Optional[SGLangBackendConfig] = None
