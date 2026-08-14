@@ -164,10 +164,6 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         for row in rows:
             if not isinstance(row, dict):
                 continue
-            if not row.get("custom_id"):
-                custom_id = self._extract_custom_id(row)
-                if custom_id:
-                    row["custom_id"] = custom_id
             error_message = self._extract_error_message(row)
             if error_message:
                 row.setdefault("status", "error")
@@ -399,15 +395,6 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
                 logger.debug("dict() failed on %s", type(item).__name__)
                 return item
         return item
-
-    @staticmethod
-    def _extract_custom_id(row: Mapping[str, Any]) -> str:
-        request = row.get("request")
-        if isinstance(request, Mapping):
-            custom_id = request.get("custom_id")
-            if isinstance(custom_id, str) and custom_id.strip():
-                return custom_id
-        return ""
 
     @staticmethod
     def _require_anthropic_config(config: BatchProviderConfig) -> AnthropicBatchConfig:
