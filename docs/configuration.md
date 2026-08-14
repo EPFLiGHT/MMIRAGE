@@ -134,7 +134,7 @@ The API key is read from the environment (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
 | `timeout_seconds` | `float` | `null` | Optional request timeout |
 | `base_url` | `str` | `null` | Optional base URL for API-compatible gateways |
 
-Setting both `temperature` and `top_p` is rejected at config load; setting neither defaults `temperature` to `0.0`.
+Setting both `temperature` and `top_p` is rejected at config load; setting neither leaves sampling at the provider default.
 
 ---
 

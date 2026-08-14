@@ -90,7 +90,7 @@ These fields apply to every provider.
 | `base_url` | `str` | `null` | Optional base URL, useful for API-compatible gateways. |
 | `timeout_seconds` | `float` | `null` | Optional request timeout. |
 
-Setting both `temperature` and `top_p` is rejected at config load; setting neither defaults `temperature` to `0.0`.
+Setting both `temperature` and `top_p` is rejected at config load; setting neither leaves sampling at the provider default.
 
 ---
 
