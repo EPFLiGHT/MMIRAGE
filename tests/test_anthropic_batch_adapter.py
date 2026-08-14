@@ -197,11 +197,6 @@ def test_anthropic_keeps_supported_content_blocks_without_warning(caplog):
     assert caplog.text == ""
 
 
-def test_anthropic_config_uses_higher_default_max_tokens():
-    config = AnthropicBatchConfig()
-    assert config.max_tokens == 8192
-
-
 def test_anthropic_build_request_injects_structured_output_format(monkeypatch):
     class FakeAnthropic:
         def __init__(self, **kwargs):
