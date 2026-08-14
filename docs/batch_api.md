@@ -186,6 +186,8 @@ Every provider-ready request is written to the given path instead of being submi
 
 Receipts are still written, named `<metadata_output_path>.dry-run.<modality>.<run_id>.jsonl`, and `mmirage check` skips them.
 
+Only `mode: local` is supported, `mode: slurm` refuses the run.
+
 ---
 
 ## Provider-Agnostic Architecture & Custom Providers

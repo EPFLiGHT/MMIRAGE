@@ -97,6 +97,12 @@ def launch_pipeline(
     """
     auto_retry = force_retry or cfg.execution_params.retry
 
+    if export_prompts_path is not None and cfg.execution_params.is_slurm():
+        logger.error(
+            "--export-prompts is not supported in slurm mode. Run it in local mode."
+        )
+        return 1
+
     if not cfg.execution_params.is_slurm():
         sglang = get_sglang_server_config(cfg)
         if sglang is not None and not os.environ.get(MMIRAGE_SGLANG_BASE_URL):
@@ -107,6 +113,7 @@ def launch_pipeline(
                     force_retry=force_retry,
                     require_completion=require_completion,
                     collect_stats=collect_stats,
+                    export_prompts_path=export_prompts_path,
                 )
 
         initial_shard_id = cfg.loading_params.get_shard_id()
