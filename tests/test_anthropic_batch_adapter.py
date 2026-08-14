@@ -4,7 +4,7 @@ import logging
 from types import SimpleNamespace
 
 import pytest
-from anthropic.types.messages import MessageBatchIndividualResponse
+from anthropic.types.messages import MessageBatch, MessageBatchIndividualResponse
 
 from mmirage.config.anthropic_batch import AnthropicBatchConfig
 from mmirage.core.process.batch import anthropic_adapter
@@ -24,6 +24,35 @@ def anthropic_api_key(monkeypatch):
 def _patch_anthropic_client(monkeypatch, fake_client_cls):
     """Swap the SDK entry point the adapter holds, leaving sys.modules alone."""
     monkeypatch.setattr(anthropic_adapter, "Anthropic", fake_client_cls)
+
+
+def _message_batch(batch_id="batch_1", processing_status="ended"):
+    """A real MessageBatch, so a field the SDK does not have cannot be faked in."""
+    return MessageBatch.model_validate(
+        {
+            "id": batch_id,
+            "archived_at": None,
+            "cancel_initiated_at": None,
+            "created_at": "2026-01-01T00:00:00Z",
+            "ended_at": "2026-01-01T01:00:00Z",
+            "expires_at": "2026-01-02T00:00:00Z",
+            "processing_status": processing_status,
+            "request_counts": {
+                "canceled": 0,
+                "errored": 0,
+                "expired": 0,
+                "processing": 0,
+                "succeeded": 1,
+            },
+            "results_url": f"https://api.anthropic.com/v1/messages/batches/{batch_id}/results",
+            "type": "message_batch",
+        }
+    )
+
+
+def _batch_results(rows):
+    """results() hands back a lazy iterator of models, not a list of dicts."""
+    return iter([MessageBatchIndividualResponse.model_validate(row) for row in rows])
 
 
 def test_anthropic_build_request_normalizes_messages_and_images(tmp_path, monkeypatch):
@@ -229,7 +258,7 @@ def test_anthropic_submit_chunk_uses_messages_batches(monkeypatch):
         # Same signature as the SDK, so passing anything else fails here.
         def create(self, *, requests):
             captured["create_kwargs"] = {"requests": requests}
-            return SimpleNamespace(id="batch_123", processing_status="in_progress")
+            return _message_batch(batch_id="batch_123", processing_status="in_progress")
 
     class FakeMessages:
         def __init__(self):
@@ -266,8 +295,8 @@ def test_anthropic_check_batch_status_falls_back_to_env_api_key(monkeypatch):
     captured = {}
 
     class FakeBatches:
-        def retrieve(self, provider_batch_id):
-            return SimpleNamespace(id=provider_batch_id, status="completed")
+        def retrieve(self, message_batch_id):
+            return _message_batch(batch_id=message_batch_id)
 
     class FakeMessages:
         def __init__(self):
@@ -288,30 +317,37 @@ def test_anthropic_check_batch_status_falls_back_to_env_api_key(monkeypatch):
 
     assert captured["client_kwargs"]["api_key"] == "env-test-key"
     assert result.provider_batch_id == "batch_env"
+    # The status comes from processing_status, MessageBatch has no 'status' field.
+    assert result.status == "ended"
 
 
-def test_anthropic_retrieve_results_normalizes_custom_id_and_generated_text(
-    monkeypatch,
-):
+def test_anthropic_retrieve_results_joins_the_generated_text_blocks(monkeypatch):
     class FakeBatches:
-        def retrieve(self, provider_batch_id):
-            return SimpleNamespace(id=provider_batch_id, status="completed")
+        def retrieve(self, message_batch_id):
+            return _message_batch(batch_id=message_batch_id)
 
-        def results(self, provider_batch_id):
-            return [
-                {
-                    "request": {"custom_id": "c1"},
-                    "result": {
-                        "type": "succeeded",
-                        "message": {
-                            "content": [
-                                {"type": "text", "text": "Hello"},
-                                {"type": "text", "text": " world"},
-                            ]
+        def results(self, message_batch_id):
+            return _batch_results(
+                [
+                    {
+                        "custom_id": "c1",
+                        "result": {
+                            "type": "succeeded",
+                            "message": {
+                                "id": "msg_1",
+                                "type": "message",
+                                "role": "assistant",
+                                "model": "claude-haiku-4-5",
+                                "content": [
+                                    {"type": "text", "text": "Hello"},
+                                    {"type": "text", "text": " world"},
+                                ],
+                                "usage": {"input_tokens": 1, "output_tokens": 2},
+                            },
                         },
-                    },
-                }
-            ]
+                    }
+                ]
+            )
 
     class FakeMessages:
         def __init__(self):
@@ -328,22 +364,9 @@ def test_anthropic_retrieve_results_normalizes_custom_id_and_generated_text(
 
     rows = adapter.retrieve_results(provider_batch_id="batch_1", config=config)
 
-    assert rows == [
-        {
-            "request": {"custom_id": "c1"},
-            "result": {
-                "type": "succeeded",
-                "message": {
-                    "content": [
-                        {"type": "text", "text": "Hello"},
-                        {"type": "text", "text": " world"},
-                    ]
-                },
-            },
-            "custom_id": "c1",
-            "generated_text": "Hello world",
-        }
-    ]
+    assert len(rows) == 1
+    assert rows[0]["custom_id"] == "c1"
+    assert rows[0]["generated_text"] == "Hello world"
 
 
 @pytest.mark.parametrize(
@@ -368,16 +391,13 @@ def test_anthropic_retrieve_results_reports_failed_rows(
     monkeypatch, result, expected_message
 ):
     """Failures must surface a message, not an empty row that looks successful."""
-    row = MessageBatchIndividualResponse.model_validate(
-        {"custom_id": "c1", "result": result}
-    ).model_dump()
 
     class FakeBatches:
-        def retrieve(self, provider_batch_id):
-            return SimpleNamespace(id=provider_batch_id, status="completed")
+        def retrieve(self, message_batch_id):
+            return _message_batch(batch_id=message_batch_id)
 
-        def results(self, provider_batch_id):
-            return [row]
+        def results(self, message_batch_id):
+            return _batch_results([{"custom_id": "c1", "result": result}])
 
     class FakeAnthropic:
         def __init__(self, **kwargs):
