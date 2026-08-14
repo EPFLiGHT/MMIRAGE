@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 from types import SimpleNamespace
 
 import pytest
@@ -128,6 +129,43 @@ def test_anthropic_keeps_an_empty_prompt_as_a_normal_request():
         [{"role": "user", "content": ""}]
     )
     assert normalized == [{"role": "user", "content": [{"type": "text", "text": ""}]}]
+
+
+@pytest.mark.parametrize(
+    "part",
+    [
+        "not a dict",
+        {"type": "text", "text": 123},
+        {"type": "image_url", "image_url": {"url": None}},
+        {"type": "document", "source": {}},
+        {"type": "image", "source": "not a dict"},
+    ],
+)
+def test_anthropic_warns_on_every_dropped_content_block(caplog, part):
+    """A block we cannot translate must leave a trace, it used to vanish silently."""
+    with caplog.at_level(logging.WARNING):
+        assert AnthropicBatchAdapter._normalize_content_blocks([part]) == []
+
+    assert "Dropping content block" in caplog.text
+
+
+def test_anthropic_keeps_supported_content_blocks_without_warning(caplog):
+    blocks = [
+        {"type": "text", "text": "hi"},
+        {"type": "image_url", "image_url": {"url": "https://example.com/cat.png"}},
+    ]
+
+    with caplog.at_level(logging.WARNING):
+        normalized = AnthropicBatchAdapter._normalize_content_blocks(blocks)
+
+    assert normalized == [
+        {"type": "text", "text": "hi"},
+        {
+            "type": "image",
+            "source": {"type": "url", "url": "https://example.com/cat.png"},
+        },
+    ]
+    assert caplog.text == ""
 
 
 def test_anthropic_config_uses_higher_default_max_tokens():

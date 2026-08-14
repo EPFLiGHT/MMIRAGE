@@ -203,22 +203,23 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
     def _normalize_content_blocks(blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         normalized: List[Dict[str, Any]] = []
         for part in blocks:
-            if not isinstance(part, dict):
-                continue
-            part_type = part.get("type")
-            if part_type == "text":
-                text = part.get("text")
-                if isinstance(text, str):
-                    normalized.append({"type": "text", "text": text})
-                continue
-            if part_type == "image_url":
-                url = part.get("image_url", {}).get("url")
-                if isinstance(url, str):
-                    source = AnthropicBatchAdapter._image_source_from_url(url)
-                    normalized.append({"type": "image", "source": source})
-                continue
-            if part_type == "image" and isinstance(part.get("source"), dict):
-                normalized.append({"type": "image", "source": dict(part["source"])})
+            if isinstance(part, dict):
+                part_type = part.get("type")
+                if part_type == "text":
+                    text = part.get("text")
+                    if isinstance(text, str):
+                        normalized.append({"type": "text", "text": text})
+                        continue
+                elif part_type == "image_url":
+                    url = part.get("image_url", {}).get("url")
+                    if isinstance(url, str):
+                        source = AnthropicBatchAdapter._image_source_from_url(url)
+                        normalized.append({"type": "image", "source": source})
+                        continue
+                elif part_type == "image" and isinstance(part.get("source"), dict):
+                    normalized.append({"type": "image", "source": dict(part["source"])})
+                    continue
+            logger.warning("Dropping content block anthropic cannot use: %.200r", part)
         return normalized
 
     @staticmethod
