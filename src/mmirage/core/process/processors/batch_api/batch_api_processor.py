@@ -86,7 +86,10 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
             config=replace(
                 provider_cfg,
                 metadata_output_path=self._with_metadata_suffix(
-                    provider_cfg.metadata_output_path, "text", run_id
+                    provider_cfg.metadata_output_path,
+                    "text",
+                    run_id,
+                    dry_run=bool(export_prompts_path),
                 ),
             ),
             export_prompts_path=export_prompts_path,
@@ -97,7 +100,10 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
             config=replace(
                 provider_cfg,
                 metadata_output_path=self._with_metadata_suffix(
-                    provider_cfg.metadata_output_path, "multimodal", run_id
+                    provider_cfg.metadata_output_path,
+                    "multimodal",
+                    run_id,
+                    dry_run=bool(export_prompts_path),
                 ),
             ),
             export_prompts_path=export_prompts_path,
@@ -105,11 +111,15 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
         )
 
     @staticmethod
-    def _with_metadata_suffix(path: str, suffix: str, run_id: str) -> str:
+    def _with_metadata_suffix(
+        path: str, suffix: str, run_id: str, dry_run: bool
+    ) -> str:
         if not path:
             return ""
         base_path = path.removesuffix(".jsonl")
-        return f"{base_path}.{suffix}.{run_id}.jsonl"
+        # '.dry-run' goes before the suffix, '<base>.<suffix>.*.jsonl' would match it after.
+        marker = ".dry-run" if dry_run else ""
+        return f"{base_path}{marker}.{suffix}.{run_id}.jsonl"
 
     @staticmethod
     def _resolve_export_prompts_path(path: Optional[str], run_id: str) -> Optional[str]:
