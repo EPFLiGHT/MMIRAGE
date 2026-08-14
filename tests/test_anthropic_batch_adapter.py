@@ -113,6 +113,23 @@ def test_anthropic_rejects_unsupported_image_media_types(tmp_path, url):
         AnthropicBatchAdapter._image_source_from_url(url)
 
 
+@pytest.mark.parametrize("content", [None, 123, {"text": "hi"}])
+def test_anthropic_rejects_content_that_is_not_a_string_or_a_list(content):
+    """normalization must fail if the content is not a string or a list of structured items."""
+    with pytest.raises(ValueError, match="message content must be"):
+        AnthropicBatchAdapter._normalize_messages(
+            [{"role": "user", "content": content}]
+        )
+
+
+def test_anthropic_keeps_an_empty_prompt_as_a_normal_request():
+    """An empty dataset row must cost one row, not the whole shard."""
+    normalized = AnthropicBatchAdapter._normalize_messages(
+        [{"role": "user", "content": ""}]
+    )
+    assert normalized == [{"role": "user", "content": [{"type": "text", "text": ""}]}]
+
+
 def test_anthropic_config_uses_higher_default_max_tokens():
     config = AnthropicBatchConfig()
     assert config.max_tokens == 8192

@@ -193,7 +193,9 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
                     content
                 )
             else:
-                content_blocks = []
+                raise ValueError(
+                    f"message content must be a string or a list of blocks, got {type(content).__name__}"
+                )
             normalized.append({"role": role, "content": content_blocks})
         return normalized
 
