@@ -57,9 +57,9 @@ def run_status_checker(
 ) -> List[BatchSubmissionResult]:
     """Check batch status for each referenced provider batch.
 
-    Prints a per-batch line and a per-provider summary. Providers missing
-    from ``provider_configs`` are skipped rather than failing the run so
-    partial configurations still yield useful status output.
+    Prints a per-batch line and a per-provider summary. A batch the provider
+    cannot resolve is counted as ``lookup_failed`` so one stale receipt does
+    not hide the status of every batch after it.
     """
     results: List[BatchSubmissionResult] = []
     counter: Dict[str, Dict[str, int]] = {}
@@ -67,24 +67,26 @@ def run_status_checker(
     for provider, provider_batch_id in extract_unique_provider_batches(
         metadata_records
     ):
-        if provider not in provider_configs:
-            logger.warning(
-                f"Skipping batch {provider_batch_id}: no config for provider '{provider}'."
-            )
-            provider_counts = counter.setdefault(provider, {})
-            provider_counts["skipped"] = provider_counts.get("skipped", 0) + 1
+        config = provider_configs[provider]
+        adapter = BatchAdapterFactory.from_config(config)
+        provider_counts = counter.setdefault(provider, {})
 
-        else:
-            config = provider_configs[provider]
-            adapter = BatchAdapterFactory.from_config(config)
+        try:
             result = adapter.check_batch_status(
                 provider_batch_id=provider_batch_id, config=config
             )
-            results.append(result)
+        except Exception as error:
+            logger.warning(
+                f"Batch {provider_batch_id} ({provider}) lookup failed: {error}"
+            )
+            provider_counts["lookup_failed"] = (
+                provider_counts.get("lookup_failed", 0) + 1
+            )
+            continue
 
-            logger.info(f"Batch {provider_batch_id} ({provider}): {result.status}")
-            provider_counts = counter.setdefault(provider, {})
-            provider_counts[result.status] = provider_counts.get(result.status, 0) + 1
+        results.append(result)
+        logger.info(f"Batch {provider_batch_id} ({provider}): {result.status}")
+        provider_counts[result.status] = provider_counts.get(result.status, 0) + 1
 
     print("\n------------ Batch status summary ------------")
     for provider, status_counts in counter.items():
@@ -107,13 +109,14 @@ def check_batches(
         metadata_paths: Explicit receipt paths; resolved from the config when omitted.
 
     Returns:
-        Exit code: 1 when a batch-level failure occurred or the provider configs
-        cannot be built, 0 otherwise. Batches still running are not a failure,
-        and per request errors only show up when the results are read.
+        Exit code: 1 when a batch-level failure occurred, a lookup failed or the
+        provider configs cannot be built, 0 otherwise. Batches still running are
+        not a failure, and per request errors only show up when the results are read.
     """
     metadata_paths = resolve_metadata_paths(cfg, metadata_paths)
     records = _read_metadata_records(metadata_paths)
-    if not extract_unique_provider_batches(records):
+    unique_batches = extract_unique_provider_batches(records)
+    if not unique_batches:
         logger.info(
             f"No provider batch IDs found in metadata file(s): {metadata_paths}"
         )
@@ -129,8 +132,13 @@ def check_batches(
     results = run_status_checker(
         metadata_records=records, provider_configs=provider_configs
     )
-    if any(result.status == "failed" for result in results):
+    # A missing result is a batch whose lookup failed, its status is unknown.
+    if len(results) != len(unique_batches):
         return 1
+
+    for result in results:
+        if result.status == "failed":
+            return 1
     return 0
 
 
