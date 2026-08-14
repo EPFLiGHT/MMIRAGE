@@ -111,7 +111,7 @@ def test_batch_api_processor_exports_to_single_file_with_batch_ids(
         for line in export_file.read_text(encoding="utf-8").splitlines()
     ]
     assert len(lines) == 2
-    assert {line["custom_id"] for line in lines} == {"t1", "m1"}
+    assert {line["request"]["custom_id"] for line in lines} == {"t1", "m1"}
     assert {line["batch_id"] for line in lines} == {
         "text-chunk-000001",
         "multimodal-chunk-000001",

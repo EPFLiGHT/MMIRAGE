@@ -169,10 +169,12 @@ def test_orchestrator_exports_prompts_and_skips_submit(tmp_path):
     ]
     assert exported_lines == [
         {
-            "custom_id": "r1",
-            "size_bytes": 8,
-            "payload": {"text": "hello"},
             "batch_id": "chunk-000001",
+            "request": {
+                "custom_id": "r1",
+                "size_bytes": 8,
+                "payload": {"text": "hello"},
+            },
         },
     ]
 

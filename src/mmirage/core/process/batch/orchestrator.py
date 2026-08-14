@@ -147,8 +147,8 @@ class BatchSubmissionOrchestrator:
 
         with open(export_path, "a", encoding="utf-8") as f:
             for request in requests:
-                row = dict(request)
-                row["batch_id"] = batch_id
+                # The request stays untouched so the line can be submitted as-is.
+                row = {"batch_id": batch_id, "request": dict(request)}
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
         return BatchSubmissionResult(

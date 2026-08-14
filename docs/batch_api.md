@@ -182,7 +182,7 @@ The collector prints the run totals, and each merged row carries `input_tokens` 
 mmirage run --config configs/batch_config.yaml --export-prompts /tmp/prompts.jsonl
 ```
 
-Every provider-ready request is written to the given path instead of being submitted, so no API key is needed.
+Every provider-ready request is written to the given path instead of being submitted, so no API key is needed. Each line is `{"batch_id": ..., "request": ...}`, where `request` is the untouched payload and can be submitted as-is.
 
 Receipts are still written, named `<metadata_output_path>.dry-run.<modality>.<run_id>.jsonl`, and `mmirage check` skips them.
 
