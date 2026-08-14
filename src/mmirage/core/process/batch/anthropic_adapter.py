@@ -152,7 +152,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         status = self._normalize_status(
             self.parse_submission_result(raw_result=retrieved).status
         )
-        if status not in {"completed", "succeeded"}:
+        if status != "completed":
             raise ValueError(
                 f"Batch '{provider_batch_id}' is not completed yet (status={status})."
             )
@@ -360,20 +360,10 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
 
     @staticmethod
     def _normalize_status(status: Any) -> str:
+        # processing_status is a Literal, the SDK rejects anything else before we see it.
         value = str(status or "").strip().lower()
-        if value in {
-            "ended",
-            "finished",
-            "complete",
-            "completed",
-            "succeeded",
-            "success",
-        }:
+        if value == "ended":
             return "completed"
-        if value in {"in_progress", "processing", "running", "queued"}:
-            return "in_progress"
-        if value in {"failed", "errored", "error"}:
-            return "failed"
         return value or "unknown"
 
     @staticmethod
