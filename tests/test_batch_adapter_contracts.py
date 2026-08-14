@@ -1,6 +1,5 @@
-from dataclasses import dataclass
-
 import pytest
+from batch_fixtures import UnitBatchConfig
 
 from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.core.process.batch.adapter import (
@@ -87,20 +86,6 @@ class IncompleteTestAdapter(BatchSubmissionAdapter):
         return {}
 
 
-@pytest.fixture(autouse=True)
-def clear_batch_adapter_registry():
-    BatchAdapterRegistry.clear()
-    yield
-    BatchAdapterRegistry.clear()
-
-
-@pytest.fixture(autouse=True)
-def clear_batch_provider_registry():
-    BatchProviderConfigRegistry.clear()
-    yield
-    BatchProviderConfigRegistry.clear()
-
-
 def test_adapter_interface_is_abstract():
     with pytest.raises(TypeError):
         BatchSubmissionAdapter()
@@ -161,17 +146,6 @@ def test_factory_creates_adapter_when_credential_env_var_is_set(monkeypatch):
     config = BatchProviderConfig(provider="unit")
 
     assert isinstance(BatchAdapterFactory.from_config(config), CredentialedTestAdapter)
-
-
-@dataclass
-class UnitBatchConfig(BatchProviderConfig):
-    provider: str = "unit"
-    unit_setting: str = "default"
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        if not self.unit_setting.strip():
-            raise ValueError("unit_setting must be a non-empty string")
 
 
 def test_resolve_single_provider_config_raises_for_missing_provider():

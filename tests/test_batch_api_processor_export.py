@@ -1,71 +1,15 @@
 import json
-from dataclasses import dataclass
 from pathlib import Path
 
-from mmirage.config.batch_provider import BatchProviderConfig
-from mmirage.core.process.batch.adapter import BatchSubmissionAdapter
+from batch_fixtures import UnitBatchConfig
+
+from mmirage.core.process.base import ProcessorRegistry
 from mmirage.core.process.processors.batch_api.config import BatchApiProcessorConfig
 
 
-class RecordingAdapter(BatchSubmissionAdapter):
-    def __init__(self) -> None:
-        self.submissions = []
-
-    def build_request(self, custom_id, payload, config):
-        return {"custom_id": custom_id, **dict(payload)}
-
-    def estimate_request_bytes(self, request):
-        return int(request.get("size_bytes", 0))
-
-    def submit_chunk(self, chunk_id, requests, config):
-        self.submissions.append({"chunk_id": chunk_id, "requests": list(requests)})
-        return {"id": f"batch-{chunk_id}", "status": "submitted"}
-
-    def parse_submission_result(self, raw_result):
-        from mmirage.core.process.batch.adapter import BatchSubmissionResult
-
-        return BatchSubmissionResult(
-            provider_batch_id=str(raw_result["id"]),
-            status=str(raw_result["status"]),
-            raw_response=raw_result,
-        )
-
-    def check_batch_status(self, provider_batch_id, config):
-        from mmirage.core.process.batch.adapter import BatchSubmissionResult
-
-        return BatchSubmissionResult(
-            provider_batch_id=provider_batch_id, status="submitted", raw_response={}
-        )
-
-    def retrieve_results(self, provider_batch_id, config):
-        return []
-
-
-@dataclass
-class UnitBatchConfig(BatchProviderConfig):
-    provider: str = "unit"
-    unit_setting: str = "default"
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        if not self.unit_setting.strip():
-            raise ValueError("unit_setting must be a non-empty string")
-
-
 def test_batch_api_processor_exports_to_single_file_with_batch_ids(
-    tmp_path, monkeypatch
+    tmp_path, unit_provider
 ):
-    from mmirage.core.process.base import ProcessorRegistry
-    from mmirage.core.process.batch.provider_resolution import (
-        BatchProviderConfigRegistry,
-    )
-    from mmirage.core.process.batch.registry import BatchAdapterRegistry
-
-    # Register provider config and adapter
-    BatchProviderConfigRegistry.register("unit", UnitBatchConfig)
-    BatchAdapterRegistry.register("unit", RecordingAdapter)
-
-    # Create processor config and instantiate the batch API processor with export dir
     export_file = tmp_path / "exports" / "prompts.jsonl"
     config = BatchApiProcessorConfig(
         type="batch_api",
