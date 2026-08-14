@@ -33,9 +33,11 @@ class BatchApiProcessorConfig(BaseProcessorConfig):
 
     Attributes:
         provider_config: Resolved provider-specific batch configuration.
+        export_prompts_dir: Value of --export-prompts.
     """
 
     provider_config: Optional[BatchProviderConfig] = None
+    export_prompts_dir: Optional[str] = None
 
     @classmethod
     def from_raw(cls, data: Dict[str, Any]) -> "BatchApiProcessorConfig":

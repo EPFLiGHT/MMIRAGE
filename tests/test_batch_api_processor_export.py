@@ -66,6 +66,7 @@ def test_batch_api_processor_exports_to_single_file_with_batch_ids(
     BatchAdapterRegistry.register("unit", RecordingAdapter)
 
     # Create processor config and instantiate the batch API processor with export dir
+    export_file = tmp_path / "exports" / "prompts.jsonl"
     config = BatchApiProcessorConfig(
         type="batch_api",
         provider_config=UnitBatchConfig(
@@ -73,11 +74,11 @@ def test_batch_api_processor_exports_to_single_file_with_batch_ids(
             max_chunk_bytes=10,
             metadata_output_path=str(tmp_path / "meta.jsonl"),
         ),
+        export_prompts_dir=str(export_file),
     )
 
     processor_cls = ProcessorRegistry.get_processor("batch_api")
-    export_file = tmp_path / "exports" / "prompts.jsonl"
-    processor = processor_cls(config, export_prompts_dir=str(export_file))
+    processor = processor_cls(config)
 
     assert processor._text_orchestrator is not None
     assert processor._multimodal_orchestrator is not None

@@ -48,7 +48,6 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
     def __init__(
         self,
         config: BatchApiProcessorConfig,
-        export_prompts_dir: Optional[str] = None,
         shard_id: int = 0,
         **kwargs,
     ) -> None:
@@ -56,7 +55,6 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
 
         Args:
             config: Batch API configuration holding the resolved provider config.
-            export_prompts_dir: Target path for exporting the payload.
             shard_id: Shard index for this worker.
         """
         super().__init__(config, shard_id=shard_id, **kwargs)
@@ -65,6 +63,7 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
         if provider_cfg is None:
             raise ValueError("batch_api processor requires a provider configuration")
 
+        export_prompts_dir = config.export_prompts_dir
         self._batch_provider_config = provider_cfg
         self._export_prompts_dir = export_prompts_dir
         # When export_prompts_dir is set we are in dry-run mode and should not
