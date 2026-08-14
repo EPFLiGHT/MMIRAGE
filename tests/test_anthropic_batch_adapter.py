@@ -286,7 +286,7 @@ def test_anthropic_submit_chunk_uses_messages_batches(monkeypatch):
     assert raw_result["status"] == "in_progress"
 
 
-def test_anthropic_check_batch_status_falls_back_to_env_api_key(monkeypatch):
+def test_anthropic_check_batch_status_reads_the_env_api_key(monkeypatch):
     captured = {}
 
     class FakeBatches:
