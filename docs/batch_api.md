@@ -184,6 +184,8 @@ mmirage run --config configs/batch_config.yaml --export-prompts /tmp/prompts.jso
 
 Every provider-ready request is written to the given path instead of being submitted, so no API key is needed. Each line is `{"batch_id": ..., "request": ...}`, where `request` is the untouched payload and can be submitted as-is.
 
+The run id is added to the file name, `/tmp/prompts.a4f9c2.jsonl` above, so two runs never land in the same file. A path without `.jsonl` is treated as a directory and gets `exported_prompts.<run_id>.jsonl`.
+
 Receipts are still written, named `<metadata_output_path>.dry-run.<modality>.<run_id>.jsonl`, and `mmirage check` skips them.
 
 Only `mode: local` is supported, `mode: slurm` refuses the run.

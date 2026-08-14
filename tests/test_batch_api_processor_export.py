@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from pathlib import Path
 
 from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.core.process.batch.adapter import BatchSubmissionAdapter
@@ -84,8 +85,9 @@ def test_batch_api_processor_exports_to_single_file_with_batch_ids(
     text_path = processor._text_orchestrator._export_prompts_path
     multi_path = processor._multimodal_orchestrator._export_prompts_path
     assert text_path is not None and multi_path is not None
-    assert text_path == str(export_file)
-    assert multi_path == str(export_file)
+    assert text_path.startswith(str(export_file).removesuffix(".jsonl") + ".")
+    assert multi_path == text_path
+    export_file = Path(text_path)
 
     # Submit one chunk to each orchestrator
     processor._text_orchestrator.add_requests(

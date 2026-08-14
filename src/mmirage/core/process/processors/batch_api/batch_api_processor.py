@@ -125,8 +125,9 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
     def _resolve_export_prompts_path(path: Optional[str], run_id: str) -> Optional[str]:
         if not path:
             return None
+        # Both forms carry the run id, one run per file.
         if path.endswith(".jsonl"):
-            return path
+            return f"{path.removesuffix('.jsonl')}.{run_id}.jsonl"
         return os.path.join(path, f"exported_prompts.{run_id}.jsonl")
 
     def _next_custom_id(self, output_name: str, modality: str) -> str:
