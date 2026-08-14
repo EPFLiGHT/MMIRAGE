@@ -360,7 +360,8 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
 
     @staticmethod
     def _normalize_status(status: Any) -> str:
-        # processing_status is a Literal, the SDK rejects anything else before we see it.
+        # processing_status is only 'in_progress', 'canceling' or 'ended', the SDK
+        # rejects the rest. A failed batch is still 'ended', its errors are per request.
         value = str(status or "").strip().lower()
         if value == "ended":
             return "completed"
