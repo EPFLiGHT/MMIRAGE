@@ -103,7 +103,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
 
         return {
             "id": self._attr_or_get(response, "id", ""),
-            "status": self._attr_or_get(response, "status", None),
+            "status": self._attr_or_get(response, "processing_status", None),
             "chunk_id": chunk_id,
         }
 
