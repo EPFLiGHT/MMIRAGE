@@ -309,8 +309,12 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
                     if block.get("type") == "text"
                 ]
                 return "".join(texts)
-        except Exception:
-            pass
+        except AttributeError:
+            # if provider response no longer has the shape we expect.
+            logger.warning(
+                "Could not read the generated text, the Anthropic response shape may have changed: %.200r",
+                row,
+            )
         return ""
 
     @staticmethod
@@ -395,11 +399,13 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
             try:
                 return dict(item.model_dump())
             except Exception:
+                logger.debug("model_dump() failed on %s", type(item).__name__)
                 return item
         if hasattr(item, "dict"):
             try:
                 return dict(item.dict())
             except Exception:
+                logger.debug("dict() failed on %s", type(item).__name__)
                 return item
         return item
 
@@ -445,7 +451,8 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
     def _attr_or_get(obj: Any, attr: str, default: Any = None) -> Any:
         try:
             val = getattr(obj, attr)
-        except Exception:
+        except AttributeError:
+            # Attribute not found; fall back to checking if obj is a dictionary/mapping.
             val = None
         if val is not None:
             return val
