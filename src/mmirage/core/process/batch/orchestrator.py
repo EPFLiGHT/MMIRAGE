@@ -110,6 +110,7 @@ class BatchSubmissionOrchestrator:
                 parsed_result = self._export_chunk_requests(
                     chunk_id=chunk_id,
                     requests=requests,
+                    export_path=self._export_prompts_path,
                 )
             else:
                 raw_result = self.adapter.submit_chunk(
@@ -137,10 +138,8 @@ class BatchSubmissionOrchestrator:
         self,
         chunk_id: str,
         requests: Sequence[Mapping[str, Any]],
+        export_path: str,
     ) -> BatchSubmissionResult:
-        export_path = self._export_prompts_path
-        assert export_path is not None
-
         batch_id = f"{self._export_batch_prefix}{chunk_id}"
 
         os.makedirs(os.path.dirname(export_path) or ".", exist_ok=True)
