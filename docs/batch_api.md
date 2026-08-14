@@ -176,6 +176,18 @@ The collector prints the run totals, and each merged row carries `input_tokens` 
 
 ---
 
+## Dry run
+
+```bash
+mmirage run --config configs/batch_config.yaml --export-prompts /tmp/prompts.jsonl
+```
+
+Every provider-ready request is written to the given path instead of being submitted, so no API key is needed.
+
+Receipts are still written, named `<metadata_output_path>.dry-run.<modality>.<run_id>.jsonl`, and `mmirage check` skips them.
+
+---
+
 ## Provider-Agnostic Architecture & Custom Providers
 
 MMIRAGE's batch processing system is designed to be provider-agnostic. OpenAI and Anthropic ship built in; developers can add other providers (Mistral, private gateways, ...) by implementing and registering a provider configuration and an adapter.
