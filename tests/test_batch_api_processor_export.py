@@ -4,7 +4,11 @@ from pathlib import Path
 from batch_fixtures import UnitBatchConfig
 
 from mmirage.core.process.base import ProcessorRegistry
-from mmirage.core.process.processors.batch_api.config import BatchApiProcessorConfig
+from mmirage.core.process.processors.batch_api.config import (
+    BatchApiOutputVar,
+    BatchApiProcessorConfig,
+)
+from mmirage.core.process.variables import VariableEnvironment
 
 
 def test_batch_api_processor_exports_to_single_file_with_batch_ids(
@@ -63,3 +67,55 @@ def test_batch_api_processor_exports_to_single_file_with_batch_ids(
         "text-chunk-000001",
         "multimodal-chunk-000001",
     }
+
+
+def test_batch_api_processor_exports_what_batch_process_sample_buffered(
+    tmp_path, unit_provider
+):
+    config = BatchApiProcessorConfig(
+        type="batch_api",
+        provider_config=UnitBatchConfig(
+            provider="unit",
+            max_chunk_bytes=1000,
+            metadata_output_path=str(tmp_path / "meta.jsonl"),
+        ),
+        export_prompts_dir=str(tmp_path / "exports"),
+    )
+
+    processor_cls = ProcessorRegistry.get_processor("batch_api")
+    processor = processor_cls(config)
+    output_var = BatchApiOutputVar(
+        name="answer",
+        type="batch_api",
+        prompt="Question about {{ text }}",
+        output_type="plain",
+    )
+
+    batch = [
+        VariableEnvironment({"text": "Berne"}),
+        VariableEnvironment({"text": "Paris"}),
+    ]
+    placeholders = processor.batch_process_sample(batch, output_var)
+
+    assert [p.get("answer") for p in placeholders] == [
+        "__BATCH_SUBMITTED__:answer-text-1",
+        "__BATCH_SUBMITTED__:answer-text-2",
+    ]
+    # The chunk is not full, so both requests wait for the end of the dataset.
+    assert processor._text_orchestrator.pending_count == 2
+
+    export_file = Path(processor._text_orchestrator._export_prompts_path)
+    assert not export_file.exists()
+
+    processor.finalize()
+
+    assert processor._text_orchestrator.pending_count == 0
+    lines = [
+        json.loads(line)
+        for line in export_file.read_text(encoding="utf-8").splitlines()
+    ]
+    assert [line["request"]["custom_id"] for line in lines] == [
+        "answer-text-1",
+        "answer-text-2",
+    ]
+    assert lines[0]["request"]["messages"][0]["content"] == "Question about Berne"
