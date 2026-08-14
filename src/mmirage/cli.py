@@ -365,7 +365,7 @@ def build_argparser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument(
         "--export-prompts",
-        help="Optional directory for exporting batch prompts instead of submitting them.",
+        help="Directory or .jsonl path for exporting batch prompts instead of submitting them",
         default=None,
     )
 
