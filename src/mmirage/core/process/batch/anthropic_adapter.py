@@ -120,10 +120,9 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
                 or coerced.get("state")
                 or coerced.get("status_code")
             )
-        status = status or "unknown"
         return BatchSubmissionResult(
             provider_batch_id=batch_id,
-            status=status,
+            status=self._normalize_status(status),
             raw_response=raw_result,
         )
 
@@ -149,9 +148,7 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         batches_client = self._resolve_batches_client(client)
 
         retrieved = batches_client.retrieve(provider_batch_id)
-        status = self._normalize_status(
-            self.parse_submission_result(raw_result=retrieved).status
-        )
+        status = self.parse_submission_result(raw_result=retrieved).status
         if status != "completed":
             raise ValueError(
                 f"Batch '{provider_batch_id}' is not completed yet (status={status})."
@@ -361,7 +358,9 @@ class AnthropicBatchAdapter(BatchSubmissionAdapter):
         value = str(status or "").strip().lower()
         if value == "ended":
             return "completed"
-        return value or "unknown"
+        if value in ("in_progress", "canceling"):
+            return "in_progress"
+        return "unknown"
 
     @staticmethod
     def _parse_jsonl(text: str) -> List[Dict[str, Any]]:

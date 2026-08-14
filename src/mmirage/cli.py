@@ -568,6 +568,8 @@ def handle_check(args: argparse.Namespace, cfg: MMirageConfig, config_path: str)
         Exit code based on shard status and optional retry submission.
     """
     if uses_batch_api(cfg):
+        if args.retry or args.stats:
+            logger.warning("--retry and --stats are ignored for batch_api configs.")
         return check_batches(cfg, args.metadata_path)
 
     failed_shards, summary = check_failed_shards(cfg)

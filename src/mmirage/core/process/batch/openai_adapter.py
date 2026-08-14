@@ -232,13 +232,22 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         batch_id = str(
             _attr_or_get(raw_result, "id") or _attr_or_get(raw_result, "batch_id", "")
         )
-        status = _attr_or_get(raw_result, "status", "unknown")
-
         return BatchSubmissionResult(
             provider_batch_id=batch_id,
-            status=status,
+            status=self._normalize_status(_attr_or_get(raw_result, "status")),
             raw_response=raw_result,
         )
+
+    @staticmethod
+    def _normalize_status(status: Any) -> str:
+        value = str(status or "").strip().lower()
+        if value == "completed":
+            return "completed"
+        if value in ("failed", "expired", "cancelled"):
+            return "failed"
+        if value in ("validating", "in_progress", "finalizing", "cancelling"):
+            return "in_progress"
+        return "unknown"
 
     @staticmethod
     def _require_openai_config(config: BatchProviderConfig) -> OpenAIBatchConfig:

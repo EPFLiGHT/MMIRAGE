@@ -77,7 +77,7 @@ mmirage check --config configs/config.yaml [--retry] [-y] [--stats] [--metadata-
 
 Exits with code `0` if all shards succeeded, `1` otherwise.
 
-For a config declaring a `batch_api` processor, `check` reports the provider batch status from the metadata receipts instead of the shard state — see [Batch API](batch_api.md).
+For a config declaring a `batch_api` processor, `check` reports the provider batch status from the metadata receipts instead of the shard state — see [Batch API](batch_api.md). It exits `1` only when a batch failed at provider level, batches still running are not a failure, and `--retry`, `-y` and `--stats` are ignored.
 
 ---
 

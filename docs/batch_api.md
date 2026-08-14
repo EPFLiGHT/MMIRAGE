@@ -268,10 +268,12 @@ class MistralBatchAdapter(BatchSubmissionAdapter):
         self,
         raw_result: Dict[str, Any],
     ) -> BatchSubmissionResult:
-        # Wraps the raw submission response in a normalized BatchSubmissionResult
+        # Wraps the raw submission response in a normalized BatchSubmissionResult.
+        # Map your provider statuses to 'completed', 'failed', 'in_progress' or
+        # 'unknown', mmirage check reads them without knowing your vocabulary.
         return BatchSubmissionResult(
             provider_batch_id=raw_result["id"],
-            status=raw_result["status"],
+            status=self._normalize_status(raw_result["status"]),
             raw_response=raw_result,
         )
 

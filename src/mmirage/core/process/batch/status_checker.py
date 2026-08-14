@@ -107,7 +107,9 @@ def check_batches(
         metadata_paths: Explicit receipt paths; resolved from the config when omitted.
 
     Returns:
-        Exit code: 0 on success or when no batches are referenced, 1 otherwise.
+        Exit code: 1 when a batch-level failure occurred or the provider configs
+        cannot be built, 0 otherwise. Batches still running are not a failure,
+        and per request errors only show up when the results are read.
     """
     metadata_paths = resolve_metadata_paths(cfg, metadata_paths)
     records = _read_metadata_records(metadata_paths)
@@ -124,7 +126,11 @@ def check_batches(
         )
         return 1
 
-    run_status_checker(metadata_records=records, provider_configs=provider_configs)
+    results = run_status_checker(
+        metadata_records=records, provider_configs=provider_configs
+    )
+    if any(result.status == "failed" for result in results):
+        return 1
     return 0
 
 

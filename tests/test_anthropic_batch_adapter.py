@@ -313,7 +313,7 @@ def test_anthropic_check_batch_status_reads_the_env_api_key(monkeypatch):
     assert captured["client_kwargs"]["api_key"] == "env-test-key"
     assert result.provider_batch_id == "batch_env"
     # The status comes from processing_status, MessageBatch has no 'status' field.
-    assert result.status == "ended"
+    assert result.status == "completed"
 
 
 def test_anthropic_retrieve_results_joins_the_generated_text_blocks(monkeypatch):
