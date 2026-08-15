@@ -37,7 +37,7 @@ Depending on what you want to do, start in different places:
 - to process images with a VLM, read [Multimodal Processing](multimodal.md)
 - to generate images from dataset prompts, read [Image Generation](image_generation.md)
 - to run at scale on a cluster, read [SLURM & Cluster Deployment](slurm.md)
-- to use a provider batch API (OpenAI, Anthropic), read [Batch API](batch_api.md)
+- to use a provider batch API, read [Batch API](batch_api.md)
 - to measure throughput and GPU efficiency, read [Benchmarking](benchmarking.md)
 - to configure every parameter, read [Configuration Reference](configuration.md)
 - to contribute to the codebase, read [Developer Guide](developer.md)
