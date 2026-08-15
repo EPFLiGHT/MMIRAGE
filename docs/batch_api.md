@@ -48,10 +48,6 @@ processors:
     completion_window: 24h
     base_url: https://api.openai.com/v1
     oversized_request_policy: isolate  # isolate | reject
-    retry_policy:
-      max_attempts: 3
-      initial_backoff_seconds: 2.0
-      backoff_multiplier: 2.0
 ```
 
 ### Shared field reference
@@ -65,9 +61,6 @@ These fields apply to every provider.
 | `max_requests_per_chunk` | `int` | `null` | Optional hard cap on number of requests in a chunk. |
 | `metadata_output_path` | `str` | `""` | Base path for batch job metadata receipt files. Suffixes like `.text.<run_id>.jsonl` and `.multimodal.<run_id>.jsonl` will be appended. |
 | `oversized_request_policy` | `str` | `"isolate"` | Policy for requests exceeding `max_chunk_bytes`: `"isolate"` (dedicated chunk) or `"reject"` (fail fast). |
-| `retry_policy.max_attempts` | `int` | `3` | Maximum retry attempts for transient submission errors. |
-| `retry_policy.initial_backoff_seconds` | `float` | `2.0` | Initial retry delay in seconds. |
-| `retry_policy.backoff_multiplier` | `float` | `2.0` | Multiplicative factor for subsequent retry delays. |
 
 ### `provider: openai`
 
@@ -344,10 +337,6 @@ processors:
     completion_window: 24h
     base_url: https://api.openai.com/v1
     oversized_request_policy: isolate
-    retry_policy:
-      max_attempts: 3
-      initial_backoff_seconds: 2.0
-      backoff_multiplier: 2.0
 
 loading_params:
   state_dir: /scratch/state

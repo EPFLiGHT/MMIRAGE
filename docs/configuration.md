@@ -109,9 +109,6 @@ The API key is read from the environment (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
 | `max_requests_per_chunk` | `int` | `null` | Optional hard cap on requests per chunk |
 | `metadata_output_path` | `str` | `""` | Base path for submission receipt files |
 | `oversized_request_policy` | `str` | `"isolate"` | `"isolate"` or `"reject"` for requests exceeding `max_chunk_bytes` |
-| `retry_policy.max_attempts` | `int` | `3` | Max retry attempts for transient submission errors |
-| `retry_policy.initial_backoff_seconds` | `float` | `2.0` | Initial retry delay |
-| `retry_policy.backoff_multiplier` | `float` | `2.0` | Multiplicative factor for subsequent retry delays |
 
 **`provider: openai` fields:**
 
