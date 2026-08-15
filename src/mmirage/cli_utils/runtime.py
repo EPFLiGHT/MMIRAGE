@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 from pathlib import Path
@@ -10,6 +11,17 @@ from typing import Optional, Sequence
 from mmirage.config.config import MMirageConfig
 
 logger = logging.getLogger(__name__)
+
+
+def non_empty_path(value: str) -> str:
+    """Reject a path argument given as an empty or blank string.
+
+    An empty value reads as "flag not passed" further down, which would turn a
+    dry run into a real submission.
+    """
+    if not value.strip():
+        raise argparse.ArgumentTypeError("expected a non-empty path")
+    return value
 
 
 def expand_path(path: str, project_root: Optional[str] = None) -> str:

@@ -11,7 +11,11 @@ import sys
 from dataclasses import asdict
 from typing import List, Optional
 
-from mmirage.cli_utils.runtime import setup_runtime, validate_edf_env_path
+from mmirage.cli_utils.runtime import (
+    non_empty_path,
+    setup_runtime,
+    validate_edf_env_path,
+)
 from mmirage.cli_utils.slurm import require_slurm, submit_slurm_job, wait_for_slurm_job
 from mmirage.cli_utils.status import (
     check_failed_shards,
@@ -365,6 +369,7 @@ def build_argparser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument(
         "--export-prompts",
+        type=non_empty_path,
         help="Directory or .jsonl path for exporting batch prompts instead of submitting them",
         default=None,
     )

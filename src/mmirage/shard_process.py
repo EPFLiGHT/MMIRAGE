@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from datasets import DatasetDict
 
+from mmirage.cli_utils.runtime import non_empty_path
 from mmirage.config.utils import load_mmirage_config
 from mmirage.core.loader.base import DatasetLike
 from mmirage.core.loader.utils import load_datasets_from_configs
@@ -151,6 +152,7 @@ def main():
     )
     ap.add_argument(
         "--export-prompts",
+        type=non_empty_path,
         help="Directory or .jsonl path for exporting batch prompts instead of submitting them",
         default=None,
     )

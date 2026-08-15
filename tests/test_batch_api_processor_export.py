@@ -105,7 +105,8 @@ def test_batch_api_processor_exports_what_batch_process_sample_buffered(
     assert processor._text_orchestrator.pending_count == 2
 
     export_file = Path(processor._text_orchestrator._export_prompts_path)
-    assert not export_file.exists()
+    # created up front to fail early on a bad path, still empty until the flush
+    assert export_file.read_text(encoding="utf-8") == ""
 
     processor.finalize()
 

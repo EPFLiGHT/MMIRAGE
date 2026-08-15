@@ -64,6 +64,11 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
             raise ValueError("batch_api processor requires a provider configuration")
 
         export_prompts_dir = config.export_prompts_dir
+        if export_prompts_dir is not None and not export_prompts_dir.strip():
+            raise ValueError(
+                "export_prompts_dir is set but empty; give it a path or leave it unset"
+            )
+
         self._batch_provider_config = provider_cfg
         self._export_prompts_dir = export_prompts_dir
         # When export_prompts_dir is set we are in dry-run mode and should not
@@ -79,6 +84,8 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
             export_prompts_dir,
             run_id,
         )
+        if export_prompts_path:
+            self._prepare_export_file(export_prompts_path)
 
         self._text_orchestrator = BatchSubmissionOrchestrator(
             adapter=self._batch_adapter,
@@ -119,6 +126,16 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
         # '.dry-run' goes before the suffix, '<base>.<suffix>.*.jsonl' would match it after.
         marker = ".dry-run" if dry_run else ""
         return f"{base_path}{marker}.{suffix}.{run_id}.jsonl"
+
+    @staticmethod
+    def _prepare_export_file(path: str) -> None:
+        """Open the export file now so an unusable path fails before the dataset runs."""
+        try:
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+            with open(path, "a", encoding="utf-8"):
+                pass
+        except OSError as exc:
+            raise ValueError(f"Cannot write exported prompts to {path}: {exc}") from exc
 
     @staticmethod
     def _resolve_export_prompts_path(path: Optional[str], run_id: str) -> Optional[str]:
