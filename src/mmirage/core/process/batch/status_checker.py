@@ -32,8 +32,8 @@ def extract_unique_provider_batches(
 ) -> List[Tuple[str, str]]:
     """Return unique ``(provider, provider_batch_id)`` pairs.
 
-    Normalizes provider names to lowercase and ignores records that do not
-    provide both keys, preventing accidental calls with incomplete metadata.
+    Provider names are already lowercased and records missing either key are
+    already dropped by ``_read_metadata_records``, so both are assumed here.
     """
     unique_pairs: List[Tuple[str, str]] = []
     seen = set()
