@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Literal, Optional, Sequence
 
 from jinja2 import Environment, meta
 
@@ -36,6 +36,7 @@ class BatchApiProcessorConfig(BaseProcessorConfig):
         export_prompts_dir: Value of --export-prompts.
     """
 
+    type: Literal["batch_api"] = "batch_api"
     provider_config: Optional[BatchProviderConfig] = None
     export_prompts_dir: Optional[str] = None
 
