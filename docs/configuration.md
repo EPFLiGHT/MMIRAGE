@@ -13,9 +13,10 @@ then follow [Quickstart](quickstart.md) for a minimal working example.
 
 ## `processors`
 
-A list of processor definitions. Generation is available as three processors:
+The list of supported processor types:
 - **`llm`** — runs a local SGLang server.
-- **`image_gen`** — runs a local Diffusers pipeline for text-to-image generation.
+- **`image_gen`** — runs a local Diffusers pipeline for text-to-image generation, see [Image Generation](image_generation.md).
+- **`custom`** — runs your own Python function instead of a model, see [Custom Module](custom_module.md).
 - **`batch_api`** — submits the same requests to an API provider.
 
 vision-language inference and `image_gen` for image generation. The fields below
@@ -213,7 +214,7 @@ processing_params:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `name` | `str` | — | Variable name made available in `output_schema` templates |
-| `type` | `str` | — | Processor type — must match a processor declared in `processors` (`llm`, `batch_api`, `image_gen`) |
+| `type` | `str` | — | Processor type — must match a processor declared in `processors` (`llm`, `batch_api`, `image_gen` or `custom`) |
 | `output_type` | `str` | `plain` | `"plain"` (raw text) or `"JSON"` (structured object) |
 | `prompt` | `str` | — | Jinja2 template for the LLM prompt |
 | `output_schema` | `list[str]` or `dict` | `[]` | Fields the model must produce when `output_type: JSON` (see below) |
@@ -267,6 +268,9 @@ Bounds given as strings are accepted when they look like a number (matching
 `-?\d+(\.\d+)?`) and coerced to the field's numeric type. Because `${ENV_VAR}`
 expansion always produces a string, this is what keeps `min: ${MIN_SCORE}`
 working; a string that is not numeric is still rejected.
+
+`output_type`, `prompt`, and `output_schema` apply to `llm` outputs only. A `custom`
+output needs just `name` and `type` — the value comes from your Python function.
 
 ### `processing_params.output_schema`
 

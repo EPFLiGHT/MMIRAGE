@@ -38,6 +38,7 @@ Depending on what you want to do, start in different places:
 - to generate images from dataset prompts, read [Image Generation](image_generation.md)
 - to run at scale on a cluster, read [SLURM & Cluster Deployment](slurm.md)
 - to use a provider batch API, read [Batch API](batch_api.md)
+- to use your custom python module, read [Custom Module](custom_module.md)
 - to measure throughput and GPU efficiency, read [Benchmarking](benchmarking.md)
 - to configure every parameter, read [Configuration Reference](configuration.md)
 - to contribute to the codebase, read [Developer Guide](developer.md)
@@ -97,6 +98,12 @@ Scaling pipelines across HPC nodes with SLURM.
 Async inference via a provider batch API (OpenAI, Anthropic).
 :::
 
+:::{grid-item-card} 🐍 Custom Module
+:link: custom_module
+:link-type: doc
+Running your own Python function in an isolated worker pool.
+:::
+
 :::{grid-item-card} 📊 Benchmarking
 :link: benchmarking
 :link-type: doc
@@ -138,6 +145,7 @@ Testing, code style, extending MMIRAGE, and debugging.
 - [Concepts](concepts.md): learn the vocabulary used throughout the documentation
 - [Pipeline](pipeline.md): understand what happens at each stage of the pipeline
 - [Multimodal Processing](multimodal.md): configure image inputs and VLM chat templates
+- [Custom Module](custom_module.md): run your own Python function over the dataset in an isolated worker pool
 - [Image Generation](image_generation.md): generate images with an external or managed SGLang server
 - [SLURM & Cluster Deployment](slurm.md): submit, monitor, and retry jobs on HPC clusters
 - [Batch API](batch_api.md): send requests asynchronously to a provider batch API
@@ -164,6 +172,7 @@ concepts
 
 pipeline
 multimodal
+custom_module
 image_generation
 slurm
 batch_api

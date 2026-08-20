@@ -74,8 +74,8 @@ class BatchApiOutputVar(OutputVar):
         undeclared_vars = template_vars - var_names
 
         if len(undeclared_vars) > 0:
-            logger.info(
-                f"⚠️ Undeclared variables found for {self.name}: {undeclared_vars}"
+            logger.warning(
+                f"Undeclared variables found for {self.name}: {undeclared_vars}"
             )
             return False
 

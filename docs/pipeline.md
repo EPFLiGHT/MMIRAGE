@@ -127,6 +127,10 @@ value is validated against the full schema after decoding (missing fields, type
 mismatches, and bound violations). Failures are logged as a warning and the
 parsed value is stored unchanged, nothing is clamped or discarded.
 
+A `custom` output skips the prompt step entirely: the row's variables are passed
+as a dictionary to your Python function, running in a separate process pool
+(see [Custom Module](custom_module.md)).
+
 ### 4c. Render the output schema
 
 Once all output variables are computed, the `TemplateRenderer` applies the

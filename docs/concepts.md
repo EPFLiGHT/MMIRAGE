@@ -81,7 +81,7 @@ Output variables are defined in `processing_params.outputs`.
 Each output variable specifies:
 
 - a **name** — how it is referenced in the output schema
-- a **type** — the processor that produces it (`llm`, `batch_api`, or `image_gen`)
+- a **type** — the processor that produces it (`llm`, `batch_api`, `image_gen` for LLM-driven image generation, or `custom` for your own Python function)
 - an **output_type** — `plain` for raw text, `JSON` for parsed JSON
 - a **prompt** — a Jinja2 template that constructs the message sent to the model
 
@@ -164,13 +164,14 @@ in which case all original fields are kept alongside the new outputs.
 
 ## Processor
 
-A **processor** is the inference engine that generates outputs.
-Generation is available as two processors, sharing the same prompt and output schema:
+A **processor** is the component that computes an output variable.
+Each entry in `processing_params.outputs` names a processor via its `type`.
 
 - **`llm`** — starts an SGLang engine on the current machine (or SLURM node).
 - **`image_gen`** — starts a Diffusers pipeline for text-to-image generation on the current machine (or SLURM node).
 - **`batch_api`** — sends requests asynchronously to a provider batch API
   (see [Batch API](batch_api.md)).
+- **`CUSTOM`** — runs your own Python function over each row in an isolated process pool — for CPU-bound work such as parsing, cleaning, or scoring rather than inference. See [Custom Module](custom_module.md).
 
 ---
 
