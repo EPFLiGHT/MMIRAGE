@@ -5,7 +5,7 @@ This page is the complete reference for every parameter in the MMIRAGE YAML conf
 A pipeline config is split into four top-level sections: `processors`, `loading_params`,
 `processing_params`, and `execution_params`.
 
-To route inference through the OpenAI Batch API, use the `batch_api` processor instead of `llm` (see below).
+To route inference through a provider batch API (OpenAI or Anthropic), use the `batch_api` processor instead of `llm` (see below).
 If you are new to MMIRAGE, read [Concepts](concepts.md) first to understand the terminology,
 then follow [Quickstart](quickstart.md) for a minimal working example.
 
@@ -99,21 +99,40 @@ processors:
     metadata_output_path: /path/to/batch_metadata.jsonl
 ```
 
-**`batch_api` fields:**
+The API key is read from the environment (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) and cannot be set in the config.
+
+**Shared fields:**
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `provider` | `str` | — | Provider identifier. Currently `"openai"` is supported |
-| `model` | `str` | `gpt-4.1-mini` | Model name for chat completion requests |
+| `provider` | `str` | — | Provider identifier: `"openai"` or `"anthropic"` |
 | `max_chunk_bytes` | `int` | `52428800` | Max serialized bytes per batch file (50 MB) |
 | `max_requests_per_chunk` | `int` | `null` | Optional hard cap on requests per chunk |
 | `metadata_output_path` | `str` | `""` | Base path for submission receipt files |
+| `oversized_request_policy` | `str` | `"isolate"` | `"isolate"` or `"reject"` for requests exceeding `max_chunk_bytes` |
+
+**`provider: openai` fields:**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `model` | `str` | `gpt-4.1-mini` | Model name for chat completion requests |
+| `batch_endpoint` | `str` | `"/v1/chat/completions"` | Target endpoint used by OpenAI batch jobs |
 | `completion_window` | `str` | `"24h"` | OpenAI batch completion window |
 | `base_url` | `str` | `null` | Optional base URL for API-compatible gateways |
-| `oversized_request_policy` | `str` | `"isolate"` | `"isolate"` or `"reject"` for requests exceeding `max_chunk_bytes` |
-| `retry_policy.max_attempts` | `int` | `3` | Max retry attempts for transient submission errors |
-| `retry_policy.initial_backoff_seconds` | `float` | `2.0` | Initial retry delay |
-| `retry_policy.backoff_multiplier` | `float` | `2.0` | Multiplicative factor for subsequent retry delays |
+| `metadata` | `dict` | `{}` | Key-value pairs sent on batch creation |
+
+**`provider: anthropic` fields:**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `model` | `str` | `claude-haiku-4-5` | Model name used in each Messages request body |
+| `max_tokens` | `int` | `8192` | Max tokens for the generated response |
+| `temperature` | `float` | `null` | Sampling temperature in `[0, 1]`; mutually exclusive with `top_p` |
+| `top_p` | `float` | `null` | Nucleus sampling probability in `(0, 1]`; mutually exclusive with `temperature` |
+| `timeout_seconds` | `float` | `null` | Optional request timeout |
+| `base_url` | `str` | `null` | Optional base URL for API-compatible gateways |
+
+Setting both `temperature` and `top_p` is rejected at config load; setting neither leaves sampling at the provider default.
 
 ---
 
@@ -195,7 +214,7 @@ processing_params:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `name` | `str` | — | Variable name made available in `output_schema` templates |
-| `type` | `str` | — | Processor type — must match a registered processor (`llm`, `custom`) |
+| `type` | `str` | — | Processor type — must match a processor declared in `processors` (`llm`, `batch_api`, `image_gen` or `custom`) |
 | `output_type` | `str` | `plain` | `"plain"` (raw text) or `"JSON"` (structured object) |
 | `prompt` | `str` | — | Jinja2 template for the LLM prompt |
 | `output_schema` | `list[str]` or `dict` | `[]` | Fields the model must produce when `output_type: JSON` (see below) |

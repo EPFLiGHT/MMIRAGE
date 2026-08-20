@@ -1,0 +1,34 @@
+processors:
+  - type: batch_api
+    provider: anthropic
+    model: claude-haiku-4-5
+    metadata_output_path: tests/output/batch_metadata_anthropic.jsonl
+
+loading_params:
+  datasets:
+    - path: tests/mock_data_vision/data.jsonl
+      type: JSONL
+      output_dir: tests/output/data_anthropic_batch_vision
+      image_base_path: tests/mock_data_vision
+
+  num_shards: 1
+  shard_id: 0
+  batch_size: 1
+
+processing_params:
+  inputs:
+    - name: image_input
+      key: image
+      type: image
+
+  outputs:
+    - name: caption
+      type: batch_api
+      output_type: plain
+      prompt: |
+        Describe what you see in this image in one concise sentence.
+
+  remove_columns: false
+  output_schema:
+    image: "{{ image_input }}"
+    caption: "{{ caption }}"

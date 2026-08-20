@@ -1,63 +1,10 @@
 import json
-from dataclasses import dataclass
 
-import pytest
+from batch_fixtures import RecordingAdapter, UnitBatchConfig
 
 from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.core.process.base import ProcessorRegistry
-from mmirage.core.process.batch.adapter import (
-    BatchSubmissionAdapter,
-    BatchSubmissionResult,
-)
-from mmirage.core.process.batch.provider_resolution import BatchProviderConfigRegistry
-from mmirage.core.process.batch.registry import BatchAdapterRegistry
 from mmirage.core.process.processors.batch_api.config import BatchApiProcessorConfig
-
-
-class RecordingAdapter(BatchSubmissionAdapter):
-    def __init__(self) -> None:
-        self.submissions = []
-
-    def build_request(self, custom_id, payload, config):
-        return {"custom_id": custom_id, **dict(payload)}
-
-    def estimate_request_bytes(self, request):
-        return int(request["size_bytes"])
-
-    def submit_chunk(self, chunk_id, requests, config):
-        self.submissions.append(
-            {
-                "chunk_id": chunk_id,
-                "requests": list(requests),
-            }
-        )
-        return {"id": f"batch-{chunk_id}", "status": "submitted"}
-
-    def parse_submission_result(self, raw_result):
-        return BatchSubmissionResult(
-            provider_batch_id=str(raw_result["id"]),
-            status=str(raw_result["status"]),
-            raw_response=raw_result,
-        )
-
-    def check_batch_status(self, provider_batch_id, config):
-        return BatchSubmissionResult(
-            provider_batch_id=provider_batch_id,
-            status="submitted",
-            raw_response={"id": provider_batch_id, "status": "submitted"},
-        )
-
-    def retrieve_results(self, provider_batch_id, config):
-        return []
-
-
-@pytest.fixture(autouse=True)
-def clear_batch_registries():
-    BatchProviderConfigRegistry.clear()
-    BatchAdapterRegistry.clear()
-    yield
-    BatchProviderConfigRegistry.clear()
-    BatchAdapterRegistry.clear()
 
 
 def test_orchestrator_buffers_across_iterations_and_avoids_tiny_midstream_flush(
@@ -133,21 +80,58 @@ def test_orchestrator_writes_provider_neutral_metadata_with_flush_reason(tmp_pat
     assert second["provider_batch_id"].startswith("batch-chunk-")
 
 
-@dataclass
-class UnitBatchConfig(BatchProviderConfig):
-    provider: str = "unit"
-    unit_setting: str = "default"
+def test_orchestrator_exports_prompts_and_skips_submit(tmp_path):
+    from mmirage.core.process.batch.orchestrator import BatchSubmissionOrchestrator
 
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        if not self.unit_setting.strip():
-            raise ValueError("unit_setting must be a non-empty string")
+    export_path = tmp_path / "exported_prompts.jsonl"
+    metadata_path = tmp_path / "batch_metadata.jsonl"
+    adapter = RecordingAdapter()
+    config = BatchProviderConfig(
+        provider="unit",
+        max_chunk_bytes=10,
+        metadata_output_path=str(metadata_path),
+    )
+    orchestrator = BatchSubmissionOrchestrator(
+        adapter=adapter,
+        config=config,
+        export_prompts_path=str(export_path),
+    )
+
+    out = orchestrator.add_requests(
+        requests=[
+            {"custom_id": "r1", "size_bytes": 8, "payload": {"text": "hello"}},
+            {"custom_id": "r2", "size_bytes": 8, "payload": {"text": "world"}},
+        ],
+        source_indices=[0, 1],
+        model_params_snapshot={"mode": "dry-run"},
+    )
+
+    assert len(out) == 1
+    assert len(adapter.submissions) == 0
+
+    assert export_path.exists()
+    exported_lines = [
+        json.loads(line)
+        for line in export_path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert exported_lines == [
+        {
+            "batch_id": "chunk-000001",
+            "request": {
+                "custom_id": "r1",
+                "size_bytes": 8,
+                "payload": {"text": "hello"},
+            },
+        },
+    ]
+
+    result = out[0]
+    assert result.provider_batch_id.startswith("dry-run-")
+    assert result.status == "dry_run"
+    assert orchestrator.pending_count == 1
 
 
-def test_batch_api_processor_initializes_with_custom_provider(tmp_path):
-    BatchProviderConfigRegistry.register("unit", UnitBatchConfig)
-    BatchAdapterRegistry.register("unit", RecordingAdapter)
-
+def test_batch_api_processor_initializes_with_custom_provider(tmp_path, unit_provider):
     config = BatchApiProcessorConfig(
         type="batch_api",
         provider_config=UnitBatchConfig(

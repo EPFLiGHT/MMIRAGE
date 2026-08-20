@@ -23,8 +23,10 @@ class BatchAdapterRegistry:
             return
 
         # Local import avoids import cycles while ensuring built-ins are available.
+        from mmirage.core.process.batch.anthropic_adapter import AnthropicBatchAdapter
         from mmirage.core.process.batch.openai_adapter import OpenAIBatchAdapter
 
+        cls.register("anthropic", AnthropicBatchAdapter)
         cls.register("openai", OpenAIBatchAdapter)
         cls._bootstrapped = True
 
@@ -58,21 +60,36 @@ class BatchAdapterRegistry:
         return cls._registry[provider_key]
 
     @classmethod
-    def create(cls, config: BatchProviderConfig) -> BatchSubmissionAdapter:
-        """Instantiate an adapter, checking its credentials are set in the environment."""
+    def create(
+        cls,
+        config: BatchProviderConfig,
+        allow_missing_credentials: bool = False,
+    ) -> BatchSubmissionAdapter:
+        """Instantiate an adapter, checking its credentials are set in the environment.
+
+        When ``allow_missing_credentials`` is True the check is skipped because
+        submission calls are expected to be bypassed.
+        """
         adapter_cls = cls.resolve(config.provider)
 
-        missing = [
-            f"{config.provider.upper()}_{req_key.upper()}"
-            for req_key in adapter_cls.required_credentials
-            if not os.environ.get(
-                f"{config.provider.upper()}_{req_key.upper()}", ""
-            ).strip()
-        ]
-        if missing:
-            raise ValueError(
-                f"Missing environment variable(s) for provider '{config.provider}': {missing}"
+        if not allow_missing_credentials:
+            # Provider names may contain characters that are illegal in env var
+            # names, e.g. 'azure-openai' -> AZURE_OPENAI_API_KEY.
+            prefix = "".join(
+                char if char.isalnum() else "_" for char in config.provider.upper()
             )
+            missing = [
+                env_var
+                for env_var in (
+                    f"{prefix}_{req_key.upper()}"
+                    for req_key in adapter_cls.required_credentials
+                )
+                if not os.environ.get(env_var, "").strip()
+            ]
+            if missing:
+                raise ValueError(
+                    f"Missing environment variable(s) for provider '{config.provider}': {missing}"
+                )
         return adapter_cls()
 
 
@@ -80,6 +97,13 @@ class BatchAdapterFactory:
     """Compatibility alias around registry-based adapter creation."""
 
     @classmethod
-    def from_config(cls, config: BatchProviderConfig) -> BatchSubmissionAdapter:
+    def from_config(
+        cls,
+        config: BatchProviderConfig,
+        allow_missing_credentials: bool = False,
+    ) -> BatchSubmissionAdapter:
         """Create an adapter from provider config via registry resolution."""
-        return BatchAdapterRegistry.create(config)
+        return BatchAdapterRegistry.create(
+            config,
+            allow_missing_credentials=allow_missing_credentials,
+        )

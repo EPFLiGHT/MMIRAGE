@@ -47,9 +47,29 @@
    :show-inheritance:
 ```
 
+## Batch API processor
+
+### Configuration
+
+```{eval-rst}
+.. automodule:: mmirage.core.process.processors.batch_api.config
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
+### Implementation
+
+```{eval-rst}
+.. automodule:: mmirage.core.process.processors.batch_api.batch_api_processor
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
 ## Batch processing
 
-The batch subsystem handles asynchronous, provider-backed inference (e.g. OpenAI Batch API). It is activated by setting `batch_provider` in the processor configuration.
+The batch subsystem handles asynchronous, provider-backed inference (OpenAI Batch API, Anthropic Message Batches). It is activated by declaring a `batch_api` processor.
 
 ### Orchestrator
 
@@ -73,6 +93,15 @@ The batch subsystem handles asynchronous, provider-backed inference (e.g. OpenAI
 
 ```{eval-rst}
 .. automodule:: mmirage.core.process.batch.openai_adapter
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
+### Anthropic adapter
+
+```{eval-rst}
+.. automodule:: mmirage.core.process.batch.anthropic_adapter
    :members:
    :undoc-members:
    :show-inheritance:

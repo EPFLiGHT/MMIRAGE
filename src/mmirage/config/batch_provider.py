@@ -4,9 +4,9 @@ This module defines the shared configuration shape used by any future batch
 submission provider (OpenAI, Anthropic, etc.).
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Optional
 
 
 class OversizedRequestPolicy(str, Enum):
@@ -14,29 +14,6 @@ class OversizedRequestPolicy(str, Enum):
 
     ISOLATE = "isolate"
     REJECT = "reject"
-
-
-@dataclass
-class BatchRetryPolicy:
-    """Retry behavior used by provider-neutral batch submission orchestration.
-
-    Attributes:
-        max_attempts: Maximum number of submission attempts for retryable errors.
-        initial_backoff_seconds: Delay before the first retry attempt.
-        backoff_multiplier: Multiplicative factor for subsequent retry delays.
-    """
-
-    max_attempts: int = 3
-    initial_backoff_seconds: float = 2.0
-    backoff_multiplier: float = 2.0
-
-    def __post_init__(self) -> None:
-        if self.max_attempts < 1:
-            raise ValueError("max_attempts must be >= 1")
-        if self.initial_backoff_seconds < 0:
-            raise ValueError("initial_backoff_seconds must be >= 0")
-        if self.backoff_multiplier < 1:
-            raise ValueError("backoff_multiplier must be >= 1")
 
 
 @dataclass
@@ -56,22 +33,18 @@ class BatchProviderConfig:
         metadata_output_path: Base path where submission metadata receipts are saved.
             Submission writes suffixed files like ``.text.<run>.jsonl`` and
             ``.multimodal.<run>.jsonl`` from this base path.
-        retry_policy: Retry policy used by the shared batch layer.
         oversized_request_policy: Handling policy when a single request exceeds
             ``max_chunk_bytes``. ``isolate`` creates a dedicated oversized
             chunk, while ``reject`` fails fast.
-        extras: Provider-specific knobs that do not belong in the shared fields.
     """
 
     provider: str
     max_chunk_bytes: int = 50 * 1024 * 1024
     max_requests_per_chunk: Optional[int] = None
     metadata_output_path: str = ""
-    retry_policy: BatchRetryPolicy = field(default_factory=BatchRetryPolicy)
     oversized_request_policy: OversizedRequestPolicy | str = (
         OversizedRequestPolicy.ISOLATE
     )
-    extras: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.provider = self.provider.strip().lower()

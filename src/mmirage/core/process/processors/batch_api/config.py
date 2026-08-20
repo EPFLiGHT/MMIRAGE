@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Literal, Optional, Sequence
 
 from jinja2 import Environment, meta
 
@@ -14,6 +14,8 @@ from mmirage.core.process.batch.provider_resolution import (
 from mmirage.core.process.variables import BaseVar, OutputVar
 
 logger = logging.getLogger(__name__)
+
+BATCH_API_PROCESSOR_TYPE = "batch_api"
 env = Environment()
 
 
@@ -31,9 +33,12 @@ class BatchApiProcessorConfig(BaseProcessorConfig):
 
     Attributes:
         provider_config: Resolved provider-specific batch configuration.
+        export_prompts_dir: Value of --export-prompts.
     """
 
+    type: Literal["batch_api"] = "batch_api"
     provider_config: Optional[BatchProviderConfig] = None
+    export_prompts_dir: Optional[str] = None
 
     @classmethod
     def from_raw(cls, data: Dict[str, Any]) -> "BatchApiProcessorConfig":
@@ -70,8 +75,8 @@ class BatchApiOutputVar(OutputVar):
         undeclared_vars = template_vars - var_names
 
         if len(undeclared_vars) > 0:
-            logger.warn(
-                f"⚠️ Undeclared variables found for {self.name}: {undeclared_vars}"
+            logger.warning(
+                f"Undeclared variables found for {self.name}: {undeclared_vars}"
             )
             return False
 
@@ -79,5 +84,5 @@ class BatchApiOutputVar(OutputVar):
 
 
 ProcessorRegistry.register_types(
-    "batch_api", BatchApiProcessorConfig, BatchApiOutputVar
+    BATCH_API_PROCESSOR_TYPE, BatchApiProcessorConfig, BatchApiOutputVar
 )

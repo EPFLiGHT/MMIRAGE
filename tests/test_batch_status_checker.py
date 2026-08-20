@@ -121,7 +121,7 @@ def test_status_checker_main_uses_config_and_runs(tmp_path, monkeypatch):
     def _fake_run_status_checker(metadata_records, provider_configs, output=None):
         called["metadata_records"] = metadata_records
         called["provider_configs"] = provider_configs
-        return []
+        return [BatchSubmissionResult(provider_batch_id="batch_1", status="completed")]
 
     monkeypatch.setattr(
         "mmirage.core.process.batch.status_checker.run_status_checker",
@@ -242,7 +242,7 @@ def test_status_checker_main_uses_config_metadata_path_when_missing_cli_arg(
     def _fake_run_status_checker(metadata_records, provider_configs, output=None):
         called["metadata_records"] = metadata_records
         called["provider_configs"] = provider_configs
-        return []
+        return [BatchSubmissionResult(provider_batch_id="batch_1", status="completed")]
 
     monkeypatch.setattr(
         "mmirage.core.process.batch.status_checker.run_status_checker",

@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Python 3.12 or later
-- An NVIDIA GPU with drivers installed (required for local SGLang-backed LLM inference; not needed for OpenAI Batch API mode)
+- An NVIDIA GPU with drivers installed (required for local SGLang-backed LLM inference; not needed for the `batch_api` processor)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (required only for GPU Docker usage)
 
 ## From Source (recommended)
@@ -52,7 +52,7 @@ docker compose run --rm -it mmirage
 
 ### CPU image
 
-Suitable for workflows that do not require a local GPU (e.g. OpenAI Batch API mode):
+Suitable for workflows that do not require a local GPU (e.g. the `batch_api` processor):
 
 ```bash
 docker pull ghcr.io/epflight/mmirage:latest-cpu

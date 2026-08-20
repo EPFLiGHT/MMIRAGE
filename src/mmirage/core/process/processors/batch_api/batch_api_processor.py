@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from dataclasses import replace
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import jinja2
 from PIL import Image
@@ -14,6 +15,7 @@ from mmirage.core.process.base import BaseProcessor, ProcessorRegistry, TokenCou
 from mmirage.core.process.batch.orchestrator import BatchSubmissionOrchestrator
 from mmirage.core.process.batch.registry import BatchAdapterFactory
 from mmirage.core.process.processors.batch_api.config import (
+    BATCH_API_PROCESSOR_TYPE,
     BatchApiOutputVar,
     BatchApiProcessorConfig,
 )
@@ -28,7 +30,9 @@ except ImportError:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 
-@ProcessorRegistry.register("batch_api", BatchApiProcessorConfig, BatchApiOutputVar)
+@ProcessorRegistry.register(
+    BATCH_API_PROCESSOR_TYPE, BatchApiProcessorConfig, BatchApiOutputVar
+)
 class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
     """Processor that submits generation requests to a provider batch API.
 
@@ -42,7 +46,10 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
     """
 
     def __init__(
-        self, config: BatchApiProcessorConfig, shard_id: int = 0, **kwargs
+        self,
+        config: BatchApiProcessorConfig,
+        shard_id: int = 0,
+        **kwargs,
     ) -> None:
         """Initialize the batch API processor.
 
@@ -56,41 +63,93 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
         if provider_cfg is None:
             raise ValueError("batch_api processor requires a provider configuration")
 
+        export_prompts_dir = config.export_prompts_dir
+        if export_prompts_dir is not None and not export_prompts_dir.strip():
+            raise ValueError(
+                "export_prompts_dir is set but empty; give it a path or leave it unset"
+            )
+
         self._batch_provider_config = provider_cfg
-        self._batch_adapter = BatchAdapterFactory.from_config(provider_cfg)
+        self._export_prompts_dir = export_prompts_dir
+        # When export_prompts_dir is set we are in dry-run mode and should not
+        # require valid provider credentials because no network calls will be
+        # performed.
+        self._batch_adapter = BatchAdapterFactory.from_config(
+            provider_cfg, allow_missing_credentials=bool(export_prompts_dir)
+        )
         self._batch_request_counter = 0
         self._global_row_offset = 0
         run_id = uuid.uuid4().hex[:6]
+        export_prompts_path = self._resolve_export_prompts_path(
+            export_prompts_dir,
+            run_id,
+        )
+        if export_prompts_path:
+            self._prepare_export_file(export_prompts_path)
 
         self._text_orchestrator = BatchSubmissionOrchestrator(
             adapter=self._batch_adapter,
             config=replace(
                 provider_cfg,
                 metadata_output_path=self._with_metadata_suffix(
-                    provider_cfg.metadata_output_path, "text", run_id
+                    provider_cfg.metadata_output_path,
+                    "text",
+                    run_id,
+                    dry_run=bool(export_prompts_path),
                 ),
             ),
+            export_prompts_path=export_prompts_path,
+            export_batch_prefix="text-",
         )
         self._multimodal_orchestrator = BatchSubmissionOrchestrator(
             adapter=self._batch_adapter,
             config=replace(
                 provider_cfg,
                 metadata_output_path=self._with_metadata_suffix(
-                    provider_cfg.metadata_output_path, "multimodal", run_id
+                    provider_cfg.metadata_output_path,
+                    "multimodal",
+                    run_id,
+                    dry_run=bool(export_prompts_path),
                 ),
             ),
+            export_prompts_path=export_prompts_path,
+            export_batch_prefix="multimodal-",
         )
 
     @staticmethod
-    def _with_metadata_suffix(path: str, suffix: str, run_id: str) -> str:
+    def _with_metadata_suffix(
+        path: str, suffix: str, run_id: str, dry_run: bool
+    ) -> str:
         if not path:
             return ""
         base_path = path.removesuffix(".jsonl")
-        return f"{base_path}.{suffix}.{run_id}.jsonl"
+        # '.dry-run' goes before the suffix, '<base>.<suffix>.*.jsonl' would match it after.
+        marker = ".dry-run" if dry_run else ""
+        return f"{base_path}{marker}.{suffix}.{run_id}.jsonl"
+
+    @staticmethod
+    def _prepare_export_file(path: str) -> None:
+        """Open the export file now so an unusable path fails before the dataset runs."""
+        try:
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+            with open(path, "a", encoding="utf-8"):
+                pass
+        except OSError as exc:
+            raise ValueError(f"Cannot write exported prompts to {path}: {exc}") from exc
+
+    @staticmethod
+    def _resolve_export_prompts_path(path: Optional[str], run_id: str) -> Optional[str]:
+        if not path:
+            return None
+        # Both forms carry the run id, one run per file.
+        if path.endswith(".jsonl"):
+            return f"{path.removesuffix('.jsonl')}.{run_id}.jsonl"
+        return os.path.join(path, f"exported_prompts.{run_id}.jsonl")
 
     def _next_custom_id(self, output_name: str, modality: str) -> str:
         self._batch_request_counter += 1
-        return f"{output_name}:{modality}:{self._batch_request_counter}"
+        # Only [a-zA-Z0-9_-] to stay valid for every provider, anthropic rejects the rest.
+        return f"{output_name}-{modality}-{self._batch_request_counter}"
 
     def get_load_time(self) -> float:
         """Return 0: no model is loaded in batch submission mode."""
@@ -228,7 +287,7 @@ class BatchApiProcessor(BaseProcessor[BatchApiOutputVar]):
 
         placeholders: List[VariableEnvironment] = []
         for i in range(nb_samples):
-            unique_id = index_to_custom_id.get(i, f"unknown:{i}")
+            unique_id = index_to_custom_id.get(i, f"unknown-{i}")
             placeholder = f"__BATCH_SUBMITTED__:{unique_id}"
             placeholders.append(batch[i].with_variable(output_var.name, placeholder))
 

@@ -8,19 +8,20 @@ from __future__ import annotations
 
 import argparse
 import logging
-from typing import Dict, List, Mapping, Sequence, Tuple
+from typing import TYPE_CHECKING, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from mmirage.config.batch_provider import BatchProviderConfig
 from mmirage.core.process.batch.adapter import BatchSubmissionResult
-from mmirage.core.process.batch.metadata_paths import resolve_metadata_paths_from_config
+from mmirage.core.process.batch.metadata_paths import resolve_metadata_paths
 from mmirage.core.process.batch.metadata_utils import (
     BatchMetadataRecord,
     _read_metadata_records,
 )
-from mmirage.core.process.batch.provider_resolution import (
-    build_all_provider_configs,
-    resolve_provider_configs,
-)
+from mmirage.core.process.batch.provider_resolution import resolve_provider_configs
+
+if TYPE_CHECKING:
+    from mmirage.config.config import MMirageConfig
+
 from mmirage.core.process.batch.registry import BatchAdapterFactory
 
 logger = logging.getLogger(__name__)
@@ -31,8 +32,8 @@ def extract_unique_provider_batches(
 ) -> List[Tuple[str, str]]:
     """Return unique ``(provider, provider_batch_id)`` pairs.
 
-    Normalizes provider names to lowercase and ignores records that do not
-    provide both keys, preventing accidental calls with incomplete metadata.
+    Provider names are already lowercased and records missing either key are
+    already dropped by ``_read_metadata_records``, so both are assumed here.
     """
     unique_pairs: List[Tuple[str, str]] = []
     seen = set()
@@ -56,9 +57,9 @@ def run_status_checker(
 ) -> List[BatchSubmissionResult]:
     """Check batch status for each referenced provider batch.
 
-    Prints a per-batch line and a per-provider summary. Providers missing
-    from ``provider_configs`` are skipped rather than failing the run so
-    partial configurations still yield useful status output.
+    Prints a per-batch line and a per-provider summary. A batch the provider
+    cannot resolve is counted as ``lookup_failed`` so one stale receipt does
+    not hide the status of every batch after it.
     """
     results: List[BatchSubmissionResult] = []
     counter: Dict[str, Dict[str, int]] = {}
@@ -66,24 +67,26 @@ def run_status_checker(
     for provider, provider_batch_id in extract_unique_provider_batches(
         metadata_records
     ):
-        if provider not in provider_configs:
-            logger.warning(
-                f"Skipping batch {provider_batch_id}: no config for provider '{provider}'."
-            )
-            provider_counts = counter.setdefault(provider, {})
-            provider_counts["skipped"] = provider_counts.get("skipped", 0) + 1
+        config = provider_configs[provider]
+        adapter = BatchAdapterFactory.from_config(config)
+        provider_counts = counter.setdefault(provider, {})
 
-        else:
-            config = provider_configs[provider]
-            adapter = BatchAdapterFactory.from_config(config)
+        try:
             result = adapter.check_batch_status(
                 provider_batch_id=provider_batch_id, config=config
             )
-            results.append(result)
+        except Exception as error:
+            logger.warning(
+                f"Batch {provider_batch_id} ({provider}) lookup failed: {error}"
+            )
+            provider_counts["lookup_failed"] = (
+                provider_counts.get("lookup_failed", 0) + 1
+            )
+            continue
 
-            logger.info(f"Batch {provider_batch_id} ({provider}): {result.status}")
-            provider_counts = counter.setdefault(provider, {})
-            provider_counts[result.status] = provider_counts.get(result.status, 0) + 1
+        results.append(result)
+        logger.info(f"Batch {provider_batch_id} ({provider}): {result.status}")
+        provider_counts[result.status] = provider_counts.get(result.status, 0) + 1
 
     print("\n------------ Batch status summary ------------")
     for provider, status_counts in counter.items():
@@ -93,6 +96,50 @@ def run_status_checker(
             print(f"  - {status}: {count}/{total}")
 
     return results
+
+
+def check_batches(
+    cfg: "MMirageConfig",
+    metadata_paths: Optional[Sequence[str]] = None,
+) -> int:
+    """Check every batch referenced by the receipts of ``cfg``.
+
+    Args:
+        cfg: Loaded MMIRAGE configuration declaring the batch_api processor(s).
+        metadata_paths: Explicit receipt paths; resolved from the config when omitted.
+
+    Returns:
+        Exit code: 1 when a batch-level failure occurred, a lookup failed or the
+        provider configs cannot be built, 0 otherwise. Batches still running are
+        not a failure, and per request errors only show up when the results are read.
+    """
+    metadata_paths = resolve_metadata_paths(cfg, metadata_paths)
+    records = _read_metadata_records(metadata_paths)
+    unique_batches = extract_unique_provider_batches(records)
+    if not unique_batches:
+        logger.info(
+            f"No provider batch IDs found in metadata file(s): {metadata_paths}"
+        )
+        return 0
+
+    provider_configs = resolve_provider_configs(records, cfg)
+    if not provider_configs:
+        logger.error(
+            "No supported provider configurations could be built from metadata."
+        )
+        return 1
+
+    results = run_status_checker(
+        metadata_records=records, provider_configs=provider_configs
+    )
+    # A missing result is a batch whose lookup failed, its status is unknown.
+    if len(results) != len(unique_batches):
+        return 1
+
+    for result in results:
+        if result.status == "failed":
+            return 1
+    return 0
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
@@ -127,53 +174,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     from mmirage.config.utils import load_mmirage_config
 
     try:
-        cfg = load_mmirage_config(args.config)
-        if args.metadata_path:
-            metadata_paths = args.metadata_path
-        else:
-            all_provider_configs = build_all_provider_configs(cfg)
-            metadata_paths = [
-                config.metadata_output_path
-                for config in all_provider_configs.values()
-                if config.metadata_output_path
-            ]
-            metadata_paths = list(dict.fromkeys(metadata_paths))
-            if not metadata_paths:
-                logger.error(
-                    "No metadata paths provided and none found in config batch_api processor blocks."
-                )
-                return 1
-            metadata_paths = resolve_metadata_paths_from_config(metadata_paths)
-
-        if not metadata_paths:
-            logger.error(
-                "No metadata paths provided and none found in config batch_api processor blocks."
-            )
-            return 1
-
-        records = _read_metadata_records(metadata_paths)
-        pairs = extract_unique_provider_batches(records)
-        if not pairs:
-            logger.info(
-                f"No provider batch IDs found in metadata file(s): {metadata_paths}"
-            )
-            return 0
-
-        provider_configs = resolve_provider_configs(records, cfg)
-        if not provider_configs:
-            logger.error(
-                "No supported provider configurations could be built from metadata."
-            )
-            return 1
-        run_status_checker(
-            metadata_records=records,
-            provider_configs=provider_configs,
-        )
+        return check_batches(load_mmirage_config(args.config), args.metadata_path)
     except Exception:
         logger.exception("Status checker failed")
         return 1
-
-    return 0
 
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ MMIRAGE (**M**odular **M**ultimodal **I**ntelligent **R**eformatting and **A**ug
 
 - extracting named variables from each sample with JMESPath queries
 - constructing prompts with Jinja2 templates
-- running inference locally via a SGLang engine, or asynchronously via the OpenAI Batch API
+- running inference locally via a SGLang engine, or asynchronously via a provider batch API (OpenAI, Anthropic)
 - rendering processed outputs into any JSON schema you define
 - splitting work across shards with automatic resume, retry, and merge
 
@@ -37,7 +37,7 @@ Depending on what you want to do, start in different places:
 - to process images with a VLM, read [Multimodal Processing](multimodal.md)
 - to generate images from dataset prompts, read [Image Generation](image_generation.md)
 - to run at scale on a cluster, read [SLURM & Cluster Deployment](slurm.md)
-- to use the OpenAI Batch API, read [Batch API](batch_api.md)
+- to use a provider batch API, read [Batch API](batch_api.md)
 - to use your custom python module, read [Custom Module](custom_module.md)
 - to measure throughput and GPU efficiency, read [Benchmarking](benchmarking.md)
 - to configure every parameter, read [Configuration Reference](configuration.md)
@@ -95,7 +95,7 @@ Scaling pipelines across HPC nodes with SLURM.
 :::{grid-item-card} 🗂️ Batch API
 :link: batch_api
 :link-type: doc
-Async inference via the OpenAI Batch API.
+Async inference via a provider batch API (OpenAI, Anthropic).
 :::
 
 :::{grid-item-card} 🐍 Custom Module
@@ -148,7 +148,7 @@ Testing, code style, extending MMIRAGE, and debugging.
 - [Custom Module](custom_module.md): run your own Python function over the dataset in an isolated worker pool
 - [Image Generation](image_generation.md): generate images with an external or managed SGLang server
 - [SLURM & Cluster Deployment](slurm.md): submit, monitor, and retry jobs on HPC clusters
-- [Batch API](batch_api.md): send requests asynchronously to the OpenAI Batch API
+- [Batch API](batch_api.md): send requests asynchronously to a provider batch API
 - [Benchmarking](benchmarking.md): collect and interpret throughput and GPU efficiency metrics
 - [Configuration Reference](configuration.md): complete reference for every YAML parameter
 - [CLI Reference](cli.md): all subcommands, flags, and their behaviour

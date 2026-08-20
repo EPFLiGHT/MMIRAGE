@@ -32,7 +32,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         payload: Dict[str, Any],
         config: BatchProviderConfig,
     ) -> Dict[str, Any]:
-        openai_config = self._check_openai_config(config)
+        openai_config = self._require_openai_config(config)
         body = copy.deepcopy(payload)
         expected_schema = body.pop(
             "expected_schema", None
@@ -48,9 +48,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         body.setdefault("model", openai_config.model)
         self._convert_local_images_to_data_uris(body)
 
-        if isinstance(expected_schema, list) and all(
-            isinstance(k, str) for k in expected_schema
-        ):
+        if expected_schema:
             properties = {key: {"type": "string"} for key in expected_schema}
             body["response_format"] = {
                 "type": "json_schema",
@@ -120,7 +118,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         requests: Sequence[Dict[str, Any]],
         config: BatchProviderConfig,
     ) -> Dict[str, Any]:
-        openai_config = self._check_openai_config(config)
+        openai_config = self._require_openai_config(config)
         client = self._create_client(openai_config)
 
         jsonl_lines = [
@@ -157,7 +155,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         provider_batch_id: str,
         config: BatchProviderConfig,
     ) -> BatchSubmissionResult:
-        openai_config = self._check_openai_config(config)
+        openai_config = self._require_openai_config(config)
         client = self._create_client(openai_config)
         retrieved = client.batches.retrieve(provider_batch_id)
         return self.parse_submission_result(raw_result=retrieved)
@@ -173,7 +171,7 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         response bodies, so this method flattens the provider-specific shape
         before returning rows to the provider-agnostic collector.
         """
-        openai_config = self._check_openai_config(config)
+        openai_config = self._require_openai_config(config)
         client = self._create_client(openai_config)
 
         retrieved = client.batches.retrieve(provider_batch_id)
@@ -234,16 +232,25 @@ class OpenAIBatchAdapter(BatchSubmissionAdapter):
         batch_id = str(
             _attr_or_get(raw_result, "id") or _attr_or_get(raw_result, "batch_id", "")
         )
-        status = _attr_or_get(raw_result, "status", "unknown")
-
         return BatchSubmissionResult(
             provider_batch_id=batch_id,
-            status=status,
+            status=self._normalize_status(_attr_or_get(raw_result, "status")),
             raw_response=raw_result,
         )
 
     @staticmethod
-    def _check_openai_config(config: BatchProviderConfig) -> OpenAIBatchConfig:
+    def _normalize_status(status: Any) -> str:
+        value = str(status or "").strip().lower()
+        if value == "completed":
+            return "completed"
+        if value in ("failed", "expired", "cancelled"):
+            return "failed"
+        if value in ("validating", "in_progress", "finalizing", "cancelling"):
+            return "in_progress"
+        return "unknown"
+
+    @staticmethod
+    def _require_openai_config(config: BatchProviderConfig) -> OpenAIBatchConfig:
         """Validate that `config` is an `OpenAIBatchConfig` and return it.
 
         Raises `TypeError` when the provided `config` is not an

@@ -36,6 +36,7 @@ class MMIRAGEMapper:
         processor_configs: List[BaseProcessorConfig],
         input_vars: List[InputVar],
         output_vars: List[OutputVar],
+        export_prompts_dir: Optional[str] = None,
         shard_id: int = 0,
     ) -> None:
         """Initialize the MMIRAGE mapper.
@@ -44,6 +45,7 @@ class MMIRAGEMapper:
             processor_configs: List of processor configurations.
             input_vars: List of input variable definitions.
             output_vars: List of output variable definitions.
+            export_prompts_dir: Value of --export-prompts.
             shard_id: Shard index for this worker, forwarded to processors.
         """
         self.processors: Dict[str, BaseProcessor] = dict()
@@ -54,6 +56,8 @@ class MMIRAGEMapper:
             processor_cls = AutoProcessor.from_name(config.type)
             logger.info(f"✅ Successfully loaded processor of type {config.type}")
 
+            if hasattr(config, "export_prompts_dir"):
+                config.export_prompts_dir = export_prompts_dir
             self.processors[config.type] = processor_cls(config, shard_id=shard_id)
 
     def validate_vars(self) -> bool:

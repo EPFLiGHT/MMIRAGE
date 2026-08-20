@@ -115,7 +115,7 @@ docker compose run --rm -it mmirage
 
 ### CPU-only
 
-The CPU image installs MMIRAGE without the GPU extra. It is suitable for workflows that do not instantiate the SGLang-backed `llm` processor, and is intended to support API-backed processors once they are available. No CPU-ready configuration files are provided yet.
+The CPU image installs MMIRAGE without the GPU extra. It is suitable for workflows that do not instantiate the SGLang-backed `llm` processor, such as the `batch_api` processor. See `configs/config_mock_openai_batch.yaml` and `configs/config_mock_anthropic_batch.yaml`.
 
 Commands:
 
@@ -403,6 +403,66 @@ Key multimodal features:
 - `type: image`: Mark input variables as images
 - `image_base_path`: Base directory for resolving relative image paths
 - Supports PIL Images, URLs, and file paths
+
+### Batch provider mode (OpenAI or Anthropic)
+
+Use the `batch_api` processor, give its outputs `type: batch_api`, and supply a
+provider config. The same prompt/template logic applies, but requests are
+submitted asynchronously via the provider batch API. Set the provider API key in
+the environment (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`).
+
+```yaml
+processors:
+  - type: batch_api
+    provider: anthropic
+    model: claude-haiku-4-5
+    max_chunk_bytes: 52428800
+    metadata_output_path: tests/output/batch_metadata.jsonl
+
+...
+```
+
+For OpenAI, set `provider: openai` and use `OPENAI_API_KEY` instead.
+
+Batch runs are asynchronous: `run` submits and exits, then `mmirage check` polls
+and `mmirage merge` retrieves — see [Batch API](docs/batch_api.md).
+
+### Dry-run / Export prompts
+
+MMIRAGE supports a simple dry-run mode that exports the provider-ready
+prompt payloads to disk instead of submitting them to the provider. This is
+useful for cost estimation, inspection, and offline review.
+
+- CLI: pass `--export-prompts <path>` to `mmirage run`. When set, MMIRAGE appends
+  all emitted requests to a single JSONL file and skips all network submission
+  calls.
+- Path behavior:
+
+  - If `<path>` ends with `.jsonl`, the run id is inserted before the extension,
+    so `/tmp/export.jsonl` becomes `/tmp/export.<run_id>.jsonl`.
+  - Otherwise, MMIRAGE treats `<path>` as a directory and creates one file like
+    `<path>/exported_prompts.<run_id>.jsonl`.
+
+- Format: each line is `{"batch_id": ..., "request": ...}`, where `request` is the
+  untouched payload that would have been submitted and `batch_id` identifies which
+  emitted batch chunk produced the row.
+- Credentials: when `--export-prompts` is used, MMIRAGE does not require
+  provider credentials (API keys) because network submission is intentionally
+  skipped. This makes it convenient to export prompts without setting up
+  provider credentials.
+- Metadata: MMIRAGE still writes the metadata receipts to `metadata_output_path`
+  as configured on your `batch_api` processor, marked `.dry-run` in their name and
+  skipped by `mmirage check`; export mode only short-circuits the submission step.
+
+Example:
+
+```bash
+mmirage run --config configs/config_mock_openai_batch.yaml \
+  --export-prompts /tmp/mmirage_export.jsonl
+```
+
+This writes all emitted chunks into `/tmp/mmirage_export.<run_id>.jsonl`, with one
+row per request and a `batch_id` field for chunk traceability.
 
 ### Benchmarking shard performance
 

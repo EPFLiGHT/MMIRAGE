@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from datasets import DatasetDict
 
+from mmirage.cli_utils.runtime import non_empty_path
 from mmirage.config.utils import load_mmirage_config
 from mmirage.core.loader.base import DatasetLike
 from mmirage.core.loader.utils import load_datasets_from_configs
@@ -149,6 +150,12 @@ def main():
         help="YAML config for MMIRAGE pipeline.",
         required=True,
     )
+    ap.add_argument(
+        "--export-prompts",
+        type=non_empty_path,
+        help="Directory or .jsonl path for exporting batch prompts instead of submitting them",
+        default=None,
+    )
     args = ap.parse_args()
 
     cfg = load_mmirage_config(args.config)
@@ -226,6 +233,7 @@ def main():
             cfg.processors,
             processing_params.inputs,
             processing_params.outputs,
+            export_prompts_dir=args.export_prompts,
             shard_id=shard_id,
         )
         renderer = TemplateRenderer(processing_params.output_schema)

@@ -109,7 +109,7 @@ def test_integration_batch_pipeline_with_stateful_accumulator(monkeypatch, tmp_p
     answers = ds_out["answer"]
     assert len(answers) == len(dataset)
     assert all(
-        isinstance(v, str) and v.startswith("__BATCH_SUBMITTED__:answer:")
+        isinstance(v, str) and v.startswith("__BATCH_SUBMITTED__:answer-")
         for v in answers
     )
 

@@ -17,7 +17,8 @@ class BatchSubmissionResult:
 
     Attributes:
         provider_batch_id: Provider-side identifier for the submitted job/batch.
-        status: Provider submission status normalized to a short string.
+        status: Provider status mapped to 'completed', 'failed', 'in_progress'
+            or 'unknown', so generic code never reads a provider vocabulary.
         raw_response: Original provider response payload for traceability.
     """
 

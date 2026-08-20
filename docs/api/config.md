@@ -44,6 +44,17 @@ OpenAI-specific batch configuration extending {class}`~mmirage.config.batch_prov
    :show-inheritance:
 ```
 
+## `mmirage.config.anthropic_batch`
+
+Anthropic-specific batch configuration extending {class}`~mmirage.config.batch_provider.BatchProviderConfig`.
+
+```{eval-rst}
+.. automodule:: mmirage.config.anthropic_batch
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
 ## `mmirage.config.utils`
 
 YAML parsing helpers and configuration loaders.

@@ -48,7 +48,7 @@ pytest tests/test_batch_chunking.py -v
 pytest tests/test_integration_batch_pipeline.py -v
 ```
 
-The test suite does **not** require a GPU or a live OpenAI key — heavy dependencies are monkeypatched in integration tests.
+The test suite does **not** require a GPU or a live provider API key — heavy dependencies are monkeypatched in integration tests.
 
 ### Shell-based smoke tests
 
